@@ -1,0 +1,165 @@
+/* Responsive Layout Optimizations */
+
+/* Mobile First - Base styles for small screens */
+@media (max-width: 640px) {
+  .main-content {
+    padding: 0.25rem;
+  }
+  
+  .content-container {
+    max-width: 100%;
+    padding: 0.5rem;
+    margin: 0 auto;
+  }
+  
+  .mobile-sidebar {
+    width: 90vw;
+    max-width: 300px;
+  }
+}
+
+/* Small tablets */
+@media (min-width: 641px) and (max-width: 768px) {
+  .main-content {
+    padding: 0.5rem;
+  }
+  
+  .content-container {
+    max-width: 100%;
+    padding: 1rem;
+    margin: 0 auto;
+  }
+}
+
+/* Tablets */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .main-content {
+    padding: 1rem;
+  }
+  
+  .content-container {
+    max-width: 100%;
+    padding: 1.5rem;
+    margin: 0 auto;
+  }
+  
+  .left-sidebar {
+    width: 12rem; /* 192px */
+  }
+  
+  .right-sidebar {
+    width: 16rem; /* 256px */
+  }
+}
+
+/* Desktop */
+@media (min-width: 1025px) and (max-width: 1280px) {
+  .main-content {
+    padding: 1.5rem;
+  }
+  
+  .content-container {
+    max-width: 64rem; /* 1024px */
+    padding: 2rem;
+    margin: 0 auto;
+  }
+  
+  .left-sidebar {
+    width: 16rem; /* 256px */
+  }
+  
+  .right-sidebar {
+    width: 20rem; /* 320px */
+  }
+}
+
+/* Large Desktop */
+@media (min-width: 1281px) {
+  .main-content {
+    padding: 2rem;
+  }
+  
+  .content-container {
+    max-width: 80rem; /* 1280px */
+    padding: 2.5rem;
+    margin: 0 auto;
+  }
+  
+  .left-sidebar {
+    width: 16rem; /* 256px */
+  }
+  
+  .right-sidebar {
+    width: 20rem; /* 320px */
+  }
+}
+
+/* Ultra-wide screens */
+@media (min-width: 1920px) {
+  .content-container {
+    max-width: 96rem; /* 1536px */
+    margin: 0 auto;
+  }
+}
+
+/* Height optimizations */
+@media (max-height: 600px) {
+  .main-layout {
+    min-height: 100vh;
+    height: 100vh;
+  }
+  
+  .sidebar {
+    height: 100vh;
+  }
+}
+
+/* Landscape mobile optimization */
+@media (max-width: 896px) and (orientation: landscape) {
+  .main-content {
+    padding: 0.25rem;
+  }
+  
+  .content-container {
+    padding: 0.5rem;
+  }
+  
+  .mobile-sidebar {
+    width: 85vw;
+    max-width: 280px;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .mobile-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .sidebar-border {
+    border-width: 0.5px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .sidebar,
+  .mobile-button,
+  .mobile-drawer {
+    display: none !important;
+  }
+  
+  .main-content {
+    width: 100% !important;
+    padding: 0 !important;
+  }
+}

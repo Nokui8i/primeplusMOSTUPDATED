@@ -1,0 +1,154 @@
+/* Smooth timeline slider styles */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  position: relative;
+}
+
+.slider::-webkit-slider-track {
+  background: rgba(255, 255, 255, 0.2);
+  height: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease-out;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease-out;
+  transform: translateY(-4px);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: translateY(-4px) scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.slider::-webkit-slider-thumb:active {
+  transform: translateY(-4px) scale(1.2);
+}
+
+.slider::-moz-range-track {
+  background: rgba(255, 255, 255, 0.2);
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+  transition: all 0.2s ease-out;
+}
+
+.slider::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease-out;
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.slider::-moz-range-thumb:active {
+  transform: scale(1.2);
+}
+
+/* Smooth progress bar with CSS custom properties */
+.slider-progress {
+  background: linear-gradient(
+    to right,
+    #3b82f6 0%,
+    #3b82f6 var(--progress, 0%),
+    rgba(255, 255, 255, 0.2) var(--progress, 0%),
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  transition: --progress 0.2s ease-out;
+}
+
+/* Timeline container for smooth progress bar */
+.timeline-container {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+.timeline-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+  border-radius: 4px;
+  transition: width 0.1s linear;
+  will-change: width;
+  transform: translateZ(0);
+}
+
+.timeline-scrubber {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  background: #3b82f6;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 0 rgba(59, 130, 246, 0.3);
+  transition: left 0.1s linear, 
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: left, transform;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.timeline-scrubber:hover,
+.timeline-scrubber-hover {
+  transform: translateY(-50%) scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 4px rgba(59, 130, 246, 0.2);
+}
+
+.timeline-scrubber:active {
+  transform: translateY(-50%) scale(1.25);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), 0 0 0 6px rgba(59, 130, 246, 0.3);
+}
+
+/* Smooth timeline track hover effect */
+.timeline-container:hover .timeline-progress {
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #93c5fd 100%);
+}
+
+/* Prevent text selection during drag */
+.timeline-container.dragging {
+  cursor: grabbing;
+}
+
+.timeline-container.dragging * {
+  pointer-events: none;
+}
+
+/* Disable transitions during smooth updates */
+.timeline-container.updating .timeline-progress,
+.timeline-container.updating .timeline-scrubber {
+  transition: none !important;
+}

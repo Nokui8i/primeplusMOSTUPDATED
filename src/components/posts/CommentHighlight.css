@@ -1,0 +1,24 @@
+.highlighted-comment {
+  background: #fffbe6 !important; /* Strong yellow */
+  border: none !important;
+  box-shadow: 0 0 0 4px #fffde7, 0 2px 8px rgba(0,0,0,0.08);
+  animation: highlight-pulse 1.5s cubic-bezier(0.4,0,0.2,1) 1;
+  transition: background 0.3s, border 0.3s;
+}
+
+.highlighted-comment * {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+@keyframes highlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 #ffd60088;
+  }
+  60% {
+    box-shadow: 0 0 0 12px #ffd60044;
+  }
+  100% {
+    box-shadow: 0 0 0 4px #fffde7, 0 2px 8px rgba(0,0,0,0.08);
+  }
+} 

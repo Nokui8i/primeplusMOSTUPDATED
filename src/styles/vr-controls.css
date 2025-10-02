@@ -1,0 +1,65 @@
+.vr-controls {
+  transition: opacity 0.3s ease-in-out;
+}
+
+.vr-controls.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.vr-control-icon {
+  background: rgba(74, 144, 226, 0.8);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  font-size: 24px;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease-in-out;
+}
+
+.vr-control-icon:hover {
+  background: rgba(74, 144, 226, 1);
+  transform: scale(1.1);
+}
+
+.vr-control-icon:active {
+  transform: scale(0.95);
+}
+
+.vr-message {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 1000;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  10% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  90% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+} 

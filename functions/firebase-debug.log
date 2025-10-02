@@ -1,0 +1,314 @@
+[debug] [2025-05-26T15:35:39.865Z] ----------------------------------------------------------------------
+[debug] [2025-05-26T15:35:39.867Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\iaaoa\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions:cleanupStorageOnStoryDelete --project=primeplus-11a85 --debug
+[debug] [2025-05-26T15:35:39.867Z] CLI Version:   13.35.1
+[debug] [2025-05-26T15:35:39.868Z] Platform:      win32
+[debug] [2025-05-26T15:35:39.868Z] Node Version:  v18.20.8
+[debug] [2025-05-26T15:35:39.868Z] Time:          Mon May 26 2025 18:35:39 GMT+0300 (Israel Daylight Time)
+[debug] [2025-05-26T15:35:39.868Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-05-26T15:35:40.039Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-05-26T15:35:40.040Z] > authorizing via signed-in user (iaaoamar12@gmail.com)
+[debug] [2025-05-26T15:35:40.040Z] [iam] checking project primeplus-11a85 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-05-26T15:35:40.041Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:40.042Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:40.043Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions [none]
+[debug] [2025-05-26T15:35:40.043Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:40.043Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-05-26T15:35:41.034Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions 200
+[debug] [2025-05-26T15:35:41.034Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-05-26T15:35:41.034Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:41.035Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:41.035Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-05-26T15:35:41.035Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-05-26T15:35:42.034Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-05-26T15:35:42.034Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'primeplus-11a85'...
+[info] 
+[info] i  deploying functions 
+[debug] [2025-05-26T15:35:42.036Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.036Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.036Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85 [none]
+[debug] [2025-05-26T15:35:42.329Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85 200
+[debug] [2025-05-26T15:35:42.329Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85 {"projectNumber":"226103289373","projectId":"primeplus-11a85","lifecycleState":"ACTIVE","name":"PrimePlus","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-04-05T10:23:27.840298Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:42.330Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.330Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.330Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.331Z] Checked if tokens are valid: true, expires at: 1748276169412
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:42.331Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.331Z] Checked if tokens are valid: true, expires at: 1748276169412
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:42.332Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.332Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:42.332Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com [none]
+[debug] [2025-05-26T15:35:42.332Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:42.334Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com [none]
+[debug] [2025-05-26T15:35:42.334Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:42.335Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com [none]
+[debug] [2025-05-26T15:35:42.335Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:42.336Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com [none]
+[debug] [2025-05-26T15:35:42.336Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:43.525Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com 200
+[debug] [2025-05-26T15:35:43.525Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com [omitted]
+[debug] [2025-05-26T15:35:43.526Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com 200
+[debug] [2025-05-26T15:35:43.526Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com [omitted]
+[info] +  functions: required API cloudbuild.googleapis.com is enabled 
+[debug] [2025-05-26T15:35:43.538Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com 200
+[debug] [2025-05-26T15:35:43.539Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com [omitted]
+[info] +  functions: required API cloudfunctions.googleapis.com is enabled 
+[debug] [2025-05-26T15:35:43.543Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com 200
+[debug] [2025-05-26T15:35:43.543Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com [omitted]
+[info] +  artifactregistry: required API artifactregistry.googleapis.com is enabled 
+[debug] [2025-05-26T15:35:43.544Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:43.544Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:43.544Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/primeplus-11a85/adminSdkConfig [none]
+[debug] [2025-05-26T15:35:44.055Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/primeplus-11a85/adminSdkConfig 200
+[debug] [2025-05-26T15:35:44.055Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/primeplus-11a85/adminSdkConfig {"projectId":"primeplus-11a85","databaseURL":"https://primeplus-11a85-default-rtdb.firebaseio.com","storageBucket":"primeplus-11a85.firebasestorage.app"}
+[debug] [2025-05-26T15:35:44.056Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:44.056Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:44.056Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/primeplus-11a85/configs [none]
+[debug] [2025-05-26T15:35:44.414Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/primeplus-11a85/configs 200
+[debug] [2025-05-26T15:35:44.415Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/primeplus-11a85/configs {}
+[debug] [2025-05-26T15:35:44.416Z] Validating nodejs source
+[warn] !  functions: Runtime Node.js 18 was deprecated on 2025-04-30 and will be decommissioned on 2025-10-31, after which you will not be able to deploy without upgrading. Consider upgrading now to avoid disruption. See https://cloud.google.com/functions/docs/runtime-support for full details on the lifecycle policy 
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2025-05-26T15:35:45.321Z] > [functions] package.json contents: {
+  "name": "primeplus-functions",
+  "version": "1.0.0",
+  "description": "Cloud Functions for PrimePlus+",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "shell": "npm run build && firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^4.5.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "private": true
+}
+[debug] [2025-05-26T15:35:45.321Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[info] i  functions: You are using a version of firebase-functions SDK (4.9.0) that does not have support for the newest Firebase Extensions features. Please update firebase-functions SDK to >=5.1.0 to use them correctly 
+[debug] [2025-05-26T15:35:45.323Z] Could not find functions.yaml. Must use http discovery
+[debug] [2025-05-26T15:35:45.329Z] Found firebase-functions binary at 'C:\Projects\primePlus-clean\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8964
+
+[debug] [2025-05-26T15:35:45.827Z] Got response from /__/functions.yaml {"endpoints":{"cleanupStorageOnPostDelete":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.deleted","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"posts/{postId}"},"retry":false},"entryPoint":"cleanupStorageOnPostDelete"},"cleanupStorageOnUserDelete":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"cleanupStorageOnUserDelete"},"cleanupStorageOnStoryDelete":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["nam5"],"labels":{},"eventTrigger":{"eventType":"google.cloud.firestore.document.v1.deleted","eventFilters":{"database":"(default)","namespace":"(default)"},"eventFilterPathPatterns":{"document":"stories/{storyId}"},"retry":false},"entryPoint":"cleanupStorageOnStoryDelete"},"testHttp":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"testHttp"},"plansApi":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"plansApi"},"subscriptionsApi":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"subscriptionsApi"},"onUserCreate":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/firebase.auth/eventTypes/user.create","eventFilters":{"resource":"projects/primeplus-11a85"},"retry":false},"labels":{},"entryPoint":"onUserCreate"},"setupExistingUsers":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"httpsTrigger":{},"entryPoint":"setupExistingUsers"},"onFollowWrite":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.write","eventFilters":{"resource":"projects/primeplus-11a85/databases/(default)/documents/follows/{followId}"},"retry":false},"labels":{},"entryPoint":"onFollowWrite"},"deleteCreatorVerificationDataHttp":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"deleteCreatorVerificationDataHttp"},"sendNotificationHttp":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","labels":{},"httpsTrigger":{},"entryPoint":"sendNotificationHttp"},"restoreUserRoles":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"restoreUserRoles"},"cleanupExpiredStories":{"platform":"gcfv1","availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":null,"ingressSettings":null,"serviceAccountEmail":null,"vpc":null,"scheduleTrigger":{"schedule":"every 1 hours","retryConfig":{"retryCount":null,"maxDoublings":null,"maxRetryDuration":null,"maxBackoffDuration":null,"minBackoffDuration":null},"timeZone":null},"labels":{},"entryPoint":"cleanupExpiredStories"},"deleteStoryAndFileHttp":{"availableMemoryMb":null,"timeoutSeconds":null,"minInstances":null,"maxInstances":10,"ingressSettings":null,"concurrency":null,"serviceAccountEmail":null,"vpc":null,"platform":"gcfv2","region":["us-central1"],"labels":{},"httpsTrigger":{},"entryPoint":"deleteStoryAndFileHttp"}},"specVersion":"v1alpha1","requiredAPIs":[{"api":"cloudscheduler.googleapis.com","reason":"Needed for scheduled functions."}]}
+[info] i  functions: preparing functions directory for uploading... 
+[info] i  functions: packaged C:\Projects\primePlus-clean\functions (105.99 KB) for uploading 
+[info] i  functions: packaged C:\Projects\primePlus-clean\functions (106.25 KB) for uploading 
+[debug] [2025-05-26T15:35:45.989Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:45.989Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:45.989Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/primeplus-11a85/locations/-/functions [none]
+[debug] [2025-05-26T15:35:46.706Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/primeplus-11a85/locations/-/functions 200
+[debug] [2025-05-26T15:35:46.706Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/primeplus-11a85/locations/-/functions {"functions":[{"name":"projects/primeplus-11a85/locations/us-central1/functions/onUserCreate","eventTrigger":{"eventType":"providers/firebase.auth/eventTypes/user.create","resource":"projects/primeplus-11a85","service":"firebaseauth.googleapis.com","failurePolicy":{}},"status":"ACTIVE","entryPoint":"onUserCreate","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"primeplus-11a85@appspot.gserviceaccount.com","updateTime":"2025-05-26T13:59:53.244Z","versionId":"34","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"c02212473c47728a9762ba93a0d8bac52679c73c"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-68527360735.us-central1.cloudfunctions.appspot.com/41d3d097-db0c-43d6-b72e-b36e906b34c8.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/functions/onUserCreate"},"runtime":"nodejs18","maxInstances":3000,"ingressSettings":"ALLOW_ALL","buildId":"e81f3489-6e74-4a44-b0b3-f3b8d352466c","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/226103289373/locations/us-central1/builds/e81f3489-6e74-4a44-b0b3-f3b8d352466c","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/setupExistingUsers","httpsTrigger":{"url":"https://us-central1-primeplus-11a85.cloudfunctions.net/setupExistingUsers","securityLevel":"SECURE_ALWAYS"},"status":"ACTIVE","entryPoint":"setupExistingUsers","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"primeplus-11a85@appspot.gserviceaccount.com","updateTime":"2025-05-26T14:00:03.991Z","versionId":"34","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"c02212473c47728a9762ba93a0d8bac52679c73c"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-68527360735.us-central1.cloudfunctions.appspot.com/41d3d097-db0c-43d6-b72e-b36e906b34c8.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/functions/setupExistingUsers"},"runtime":"nodejs18","ingressSettings":"ALLOW_ALL","buildId":"e81f3489-6e74-4a44-b0b3-f3b8d352466c","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/226103289373/locations/us-central1/builds/e81f3489-6e74-4a44-b0b3-f3b8d352466c","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/cleanupExpiredStories","eventTrigger":{"eventType":"google.pubsub.topic.publish","resource":"projects/primeplus-11a85/topics/firebase-schedule-cleanupExpiredStories-us-central1","service":"pubsub.googleapis.com","failurePolicy":{}},"status":"ACTIVE","entryPoint":"cleanupExpiredStories","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"primeplus-11a85@appspot.gserviceaccount.com","updateTime":"2025-05-26T14:00:02.694Z","versionId":"8","labels":{"deployment-tool":"cli-firebase","deployment-scheduled":"true","firebase-functions-hash":"c02212473c47728a9762ba93a0d8bac52679c73c"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-68527360735.us-central1.cloudfunctions.appspot.com/41d3d097-db0c-43d6-b72e-b36e906b34c8.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/functions/cleanupExpiredStories"},"runtime":"nodejs18","maxInstances":3000,"ingressSettings":"ALLOW_ALL","buildId":"e81f3489-6e74-4a44-b0b3-f3b8d352466c","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/226103289373/locations/us-central1/builds/e81f3489-6e74-4a44-b0b3-f3b8d352466c","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/restoreUserRoles","eventTrigger":{"eventType":"google.pubsub.topic.publish","resource":"projects/primeplus-11a85/topics/firebase-schedule-restoreUserRoles-us-central1","service":"pubsub.googleapis.com","failurePolicy":{}},"status":"ACTIVE","entryPoint":"restoreUserRoles","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"primeplus-11a85@appspot.gserviceaccount.com","updateTime":"2025-05-26T14:00:02.983Z","versionId":"8","labels":{"firebase-functions-hash":"c02212473c47728a9762ba93a0d8bac52679c73c","deployment-tool":"cli-firebase","deployment-scheduled":"true"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-68527360735.us-central1.cloudfunctions.appspot.com/41d3d097-db0c-43d6-b72e-b36e906b34c8.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/functions/restoreUserRoles"},"runtime":"nodejs18","maxInstances":3000,"ingressSettings":"ALLOW_ALL","buildId":"e81f3489-6e74-4a44-b0b3-f3b8d352466c","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/226103289373/locations/us-central1/builds/e81f3489-6e74-4a44-b0b3-f3b8d352466c","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/onFollowWrite","eventTrigger":{"eventType":"providers/cloud.firestore/eventTypes/document.write","resource":"projects/primeplus-11a85/databases/(default)/documents/follows/{followId}","service":"firestore.googleapis.com","failurePolicy":{}},"status":"ACTIVE","entryPoint":"onFollowWrite","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"primeplus-11a85@appspot.gserviceaccount.com","updateTime":"2025-05-26T14:00:02.898Z","versionId":"18","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"c02212473c47728a9762ba93a0d8bac52679c73c"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-68527360735.us-central1.cloudfunctions.appspot.com/41d3d097-db0c-43d6-b72e-b36e906b34c8.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/functions/onFollowWrite"},"runtime":"nodejs18","maxInstances":3000,"ingressSettings":"ALLOW_ALL","buildId":"e81f3489-6e74-4a44-b0b3-f3b8d352466c","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/226103289373/locations/us-central1/builds/e81f3489-6e74-4a44-b0b3-f3b8d352466c","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","satisfiesPzi":true}]}
+[debug] [2025-05-26T15:35:46.708Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:46.708Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:46.709Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/primeplus-11a85/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2025-05-26T15:35:47.898Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/primeplus-11a85/locations/-/functions 200
+[debug] [2025-05-26T15:35:47.898Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/primeplus-11a85/locations/-/functions {"functions":[{"name":"projects/primeplus-11a85/locations/us-central1/functions/testHttp","buildConfig":{"build":"projects/226103289373/locations/us-central1/builds/3eec2d09-77d1-43f6-bee6-0109e8ed76c6","runtime":"nodejs18","entryPoint":"testHttp","source":{"storageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"testHttp/function-source.zip","generation":"1748267982590611"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/primeplus-11a85/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"testHttp/function-source.zip","generation":"1748267982590611"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/primeplus-11a85/locations/us-central1/services/testhttp","timeoutSeconds":60,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/services/testHttp","FUNCTION_TARGET":"testHttp","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://testhttp-w47gxftz3q-uc.a.run.app","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","availableMemory":"256Mi","allTrafficOnLatestRevision":true,"revision":"testhttp-00018-mex","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-05-26T13:59:52.985675581Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"23fbda5e42626d40898edada7c786316ab6431b6"},"environment":"GEN_2","url":"https://us-central1-primeplus-11a85.cloudfunctions.net/testHttp","createTime":"2025-05-18T19:48:37.873721051Z","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/deleteCreatorVerificationDataHttp","buildConfig":{"build":"projects/226103289373/locations/us-central1/builds/3eec2d09-77d1-43f6-bee6-0109e8ed76c6","runtime":"nodejs18","entryPoint":"deleteCreatorVerificationDataHttp","source":{"storageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"deleteCreatorVerificationDataHttp/function-source.zip","generation":"1748267982609113"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/primeplus-11a85/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"deleteCreatorVerificationDataHttp/function-source.zip","generation":"1748267982609113"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/primeplus-11a85/locations/us-central1/services/deletecreatorverificationdatahttp","timeoutSeconds":60,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/services/deleteCreatorVerificationDataHttp","FUNCTION_TARGET":"deleteCreatorVerificationDataHttp","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://deletecreatorverificationdatahttp-w47gxftz3q-uc.a.run.app","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","availableMemory":"256Mi","allTrafficOnLatestRevision":true,"revision":"deletecreatorverificationdatahttp-00018-mok","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-05-26T13:59:53.076711075Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"23fbda5e42626d40898edada7c786316ab6431b6"},"environment":"GEN_2","url":"https://us-central1-primeplus-11a85.cloudfunctions.net/deleteCreatorVerificationDataHttp","createTime":"2025-05-18T19:49:31.867152244Z","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/subscriptionsApi","buildConfig":{"build":"projects/226103289373/locations/us-central1/builds/3eec2d09-77d1-43f6-bee6-0109e8ed76c6","runtime":"nodejs18","entryPoint":"subscriptionsApi","source":{"storageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"subscriptionsApi/function-source.zip","generation":"1748267982586068"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/primeplus-11a85/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"subscriptionsApi/function-source.zip","generation":"1748267982586068"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/primeplus-11a85/locations/us-central1/services/subscriptionsapi","timeoutSeconds":60,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/services/subscriptionsApi","FUNCTION_TARGET":"subscriptionsApi","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://subscriptionsapi-w47gxftz3q-uc.a.run.app","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","availableMemory":"256Mi","allTrafficOnLatestRevision":true,"revision":"subscriptionsapi-00034-mos","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-05-26T13:59:49.260687310Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"23fbda5e42626d40898edada7c786316ab6431b6"},"environment":"GEN_2","url":"https://us-central1-primeplus-11a85.cloudfunctions.net/subscriptionsApi","createTime":"2025-05-14T17:06:08.961892753Z","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/plansApi","buildConfig":{"build":"projects/226103289373/locations/us-central1/builds/3eec2d09-77d1-43f6-bee6-0109e8ed76c6","runtime":"nodejs18","entryPoint":"plansApi","source":{"storageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"plansApi/function-source.zip","generation":"1748267982543631"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/primeplus-11a85/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"plansApi/function-source.zip","generation":"1748267982543631"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/primeplus-11a85/locations/us-central1/services/plansapi","timeoutSeconds":60,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/services/plansApi","FUNCTION_TARGET":"plansApi","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://plansapi-w47gxftz3q-uc.a.run.app","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","availableMemory":"256Mi","allTrafficOnLatestRevision":true,"revision":"plansapi-00032-nav","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-05-26T13:59:49.347881484Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"23fbda5e42626d40898edada7c786316ab6431b6"},"environment":"GEN_2","url":"https://us-central1-primeplus-11a85.cloudfunctions.net/plansApi","createTime":"2025-05-14T17:06:09.218671648Z","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/cleanupStorageOnUserDelete","buildConfig":{"build":"projects/226103289373/locations/us-central1/builds/3eec2d09-77d1-43f6-bee6-0109e8ed76c6","runtime":"nodejs18","entryPoint":"cleanupStorageOnUserDelete","source":{"storageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"cleanupStorageOnUserDelete/function-source.zip","generation":"1748267982652555"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/primeplus-11a85/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"cleanupStorageOnUserDelete/function-source.zip","generation":"1748267982652555"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/primeplus-11a85/locations/us-central1/services/cleanupstorageonuserdelete","timeoutSeconds":60,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/services/cleanupStorageOnUserDelete","FUNCTION_TARGET":"cleanupStorageOnUserDelete","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://cleanupstorageonuserdelete-w47gxftz3q-uc.a.run.app","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","availableMemory":"256Mi","allTrafficOnLatestRevision":true,"revision":"cleanupstorageonuserdelete-00032-wiy","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-05-26T13:59:53.481125127Z","labels":{"firebase-functions-hash":"23fbda5e42626d40898edada7c786316ab6431b6","deployment-tool":"cli-firebase"},"environment":"GEN_2","url":"https://us-central1-primeplus-11a85.cloudfunctions.net/cleanupStorageOnUserDelete","createTime":"2025-05-14T17:06:08.962718933Z","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/sendNotificationHttp","buildConfig":{"build":"projects/226103289373/locations/us-central1/builds/3eec2d09-77d1-43f6-bee6-0109e8ed76c6","runtime":"nodejs18","entryPoint":"sendNotificationHttp","source":{"storageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"sendNotificationHttp/function-source.zip","generation":"1748267982626009"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/primeplus-11a85/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"sendNotificationHttp/function-source.zip","generation":"1748267982626009"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/primeplus-11a85/locations/us-central1/services/sendnotificationhttp","timeoutSeconds":60,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/services/sendNotificationHttp","FUNCTION_TARGET":"sendNotificationHttp","LOG_EXECUTION_ID":"true","FUNCTION_SIGNATURE_TYPE":"http"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://sendnotificationhttp-w47gxftz3q-uc.a.run.app","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","availableMemory":"256Mi","allTrafficOnLatestRevision":true,"revision":"sendnotificationhttp-00017-zab","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"state":"ACTIVE","updateTime":"2025-05-26T13:59:53.287276035Z","labels":{"firebase-functions-hash":"23fbda5e42626d40898edada7c786316ab6431b6","deployment-tool":"cli-firebase"},"environment":"GEN_2","url":"https://us-central1-primeplus-11a85.cloudfunctions.net/sendNotificationHttp","createTime":"2025-05-18T20:47:43.739751258Z","satisfiesPzi":true},{"name":"projects/primeplus-11a85/locations/us-central1/functions/cleanupStorageOnPostDelete","buildConfig":{"build":"projects/226103289373/locations/us-central1/builds/3eec2d09-77d1-43f6-bee6-0109e8ed76c6","runtime":"nodejs18","entryPoint":"cleanupStorageOnPostDelete","source":{"storageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"cleanupStorageOnPostDelete/function-source.zip","generation":"1748267928403856"}},"environmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"dockerRepository":"projects/primeplus-11a85/locations/us-central1/repositories/gcf-artifacts","sourceProvenance":{"resolvedStorageSource":{"bucket":"gcf-v2-sources-226103289373-us-central1","object":"cleanupStorageOnPostDelete/function-source.zip","generation":"1748267928403856"}},"dockerRegistry":"ARTIFACT_REGISTRY","serviceAccount":"projects/primeplus-11a85/serviceAccounts/226103289373-compute@developer.gserviceaccount.com","automaticUpdatePolicy":{}},"serviceConfig":{"service":"projects/primeplus-11a85/locations/us-central1/services/cleanupstorageonpostdelete","timeoutSeconds":60,"environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"primeplus-11a85\",\"databaseURL\":\"https://primeplus-11a85-default-rtdb.firebaseio.com\",\"storageBucket\":\"primeplus-11a85.firebasestorage.app\"}","GCLOUD_PROJECT":"primeplus-11a85","EVENTARC_CLOUD_EVENT_SOURCE":"projects/primeplus-11a85/locations/us-central1/services/cleanupStorageOnPostDelete","FUNCTION_SIGNATURE_TYPE":"cloudevent","FUNCTION_TARGET":"cleanupStorageOnPostDelete","LOG_EXECUTION_ID":"true"},"maxInstanceCount":3,"ingressSettings":"ALLOW_ALL","uri":"https://cleanupstorageonpostdelete-w47gxftz3q-uc.a.run.app","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","availableMemory":"256Mi","allTrafficOnLatestRevision":true,"revision":"cleanupstorageonpostdelete-00032-xez","maxInstanceRequestConcurrency":80,"availableCpu":"1"},"eventTrigger":{"trigger":"projects/primeplus-11a85/locations/nam5/triggers/cleanupstorageonpostdelete-387824","triggerRegion":"nam5","eventType":"google.cloud.firestore.document.v1.deleted","eventFilters":[{"attribute":"namespace","value":"(default)"},{"attribute":"document","value":"posts/{postId}","operator":"match-path-pattern"},{"attribute":"database","value":"(default)"}],"pubsubTopic":"projects/primeplus-11a85/topics/eventarc-nam5-cleanupstorageonpostdelete-387824-211","serviceAccountEmail":"226103289373-compute@developer.gserviceaccount.com","retryPolicy":"RETRY_POLICY_DO_NOT_RETRY"},"state":"ACTIVE","updateTime":"2025-05-26T13:59:49.588230Z","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"23fbda5e42626d40898edada7c786316ab6431b6"},"environment":"GEN_2","url":"https://us-central1-primeplus-11a85.cloudfunctions.net/cleanupStorageOnPostDelete","createTime":"2025-05-14T17:04:52.972638303Z","satisfiesPzi":true}]}
+[debug] [2025-05-26T15:35:47.901Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:47.901Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:47.901Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:47.901Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:47.901Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/primeplus-11a85/databases/(default) [none]
+[debug] [2025-05-26T15:35:47.903Z] >>> [apiv2][query] GET https://firestore.googleapis.com/v1/projects/primeplus-11a85/databases/(default) [none]
+[debug] [2025-05-26T15:35:48.992Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/primeplus-11a85/databases/(default) 200
+[debug] [2025-05-26T15:35:48.992Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/primeplus-11a85/databases/(default) {"name":"projects/primeplus-11a85/databases/(default)","uid":"24aaf488-e9f5-4a94-b6b0-3e93e3bdef5b","createTime":"2025-04-05T10:37:25.130549Z","updateTime":"2025-04-05T10:37:25.130549Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2025-05-26T14:35:50.629978Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"etag":"IOC4gZ+7wY0DMNCTjMW1wYwD"}
+[debug] [2025-05-26T15:35:50.004Z] <<< [apiv2][status] GET https://firestore.googleapis.com/v1/projects/primeplus-11a85/databases/(default) 200
+[debug] [2025-05-26T15:35:50.004Z] <<< [apiv2][body] GET https://firestore.googleapis.com/v1/projects/primeplus-11a85/databases/(default) {"name":"projects/primeplus-11a85/databases/(default)","uid":"24aaf488-e9f5-4a94-b6b0-3e93e3bdef5b","createTime":"2025-04-05T10:37:25.130549Z","updateTime":"2025-04-05T10:37:25.130549Z","locationId":"nam5","type":"FIRESTORE_NATIVE","concurrencyMode":"PESSIMISTIC","versionRetentionPeriod":"3600s","earliestVersionTime":"2025-05-26T14:35:51.640459Z","appEngineIntegrationMode":"DISABLED","keyPrefix":"s","pointInTimeRecoveryEnablement":"POINT_IN_TIME_RECOVERY_DISABLED","deleteProtectionState":"DELETE_PROTECTION_DISABLED","databaseEdition":"STANDARD","freeTier":true,"etag":"IJOOv5+7wY0DMNCTjMW1wYwD"}
+[info] i  functions: ensuring required API cloudscheduler.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:50.006Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:50.006Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:50.006Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudscheduler.googleapis.com [none]
+[debug] [2025-05-26T15:35:50.006Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudscheduler.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:51.104Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudscheduler.googleapis.com 200
+[debug] [2025-05-26T15:35:51.104Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudscheduler.googleapis.com [omitted]
+[info] +  functions: required API cloudscheduler.googleapis.com is enabled 
+[info] i  functions: ensuring required API run.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:51.105Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:51.105Z] Checked if tokens are valid: true, expires at: 1748276169412
+[info] i  functions: ensuring required API eventarc.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:51.105Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:51.105Z] Checked if tokens are valid: true, expires at: 1748276169412
+[info] i  functions: ensuring required API pubsub.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:51.105Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:51.105Z] Checked if tokens are valid: true, expires at: 1748276169412
+[info] i  functions: ensuring required API storage.googleapis.com is enabled... 
+[debug] [2025-05-26T15:35:51.105Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:51.106Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:35:51.106Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/run.googleapis.com [none]
+[debug] [2025-05-26T15:35:51.106Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/run.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:51.107Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/eventarc.googleapis.com [none]
+[debug] [2025-05-26T15:35:51.107Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/eventarc.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:51.109Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/pubsub.googleapis.com [none]
+[debug] [2025-05-26T15:35:51.109Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/pubsub.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:51.110Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/storage.googleapis.com [none]
+[debug] [2025-05-26T15:35:51.110Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/storage.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:35:52.037Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/eventarc.googleapis.com 429
+[debug] [2025-05-26T15:35:52.037Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/eventarc.googleapis.com [omitted]
+[debug] [2025-05-26T15:35:52.041Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/storage.googleapis.com 429
+[debug] [2025-05-26T15:35:52.041Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/storage.googleapis.com [omitted]
+[debug] [2025-05-26T15:35:52.043Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/pubsub.googleapis.com 429
+[debug] [2025-05-26T15:35:52.044Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/pubsub.googleapis.com [omitted]
+[error] 
+[error] Error: Request to https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/eventarc.googleapis.com had HTTP Error: 429, Quota exceeded for quota metric 'Default requests' and limit 'Default requests per minute' of service 'serviceusage.googleapis.com' for consumer 'project_number:563584335869'.
+[debug] [2025-05-26T15:35:52.179Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 429,
+      "message": "Quota exceeded for quota metric 'Default requests' and limit 'Default requests per minute' of service 'serviceusage.googleapis.com' for consumer 'project_number:563584335869'.",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "RATE_LIMIT_EXCEEDED",
+          "domain": "googleapis.com",
+          "metadata": {
+            "quota_limit_value": "600",
+            "consumer": "projects/563584335869",
+            "quota_location": "global",
+            "service": "serviceusage.googleapis.com",
+            "quota_limit": "DefaultRequestsPerMinutePerProject",
+            "quota_unit": "1/min/{project}",
+            "quota_metric": "serviceusage.googleapis.com/default_requests"
+          }
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.Help",
+          "links": [
+            {
+              "description": "Request a higher quota limit.",
+              "url": "https://cloud.google.com/docs/quotas/help/request_increase"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "statusCode": 429
+  }
+}
+[debug] [2025-05-26T15:35:52.231Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/run.googleapis.com 200
+[debug] [2025-05-26T15:35:52.231Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/run.googleapis.com [omitted]
+[info] +  functions: required API run.googleapis.com is enabled 
+[debug] [2025-05-26T15:38:16.371Z] ----------------------------------------------------------------------
+[debug] [2025-05-26T15:38:16.373Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\iaaoa\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions:cleanupStorageOnStoryDelete --project=primeplus-11a85 --debug
+[debug] [2025-05-26T15:38:16.373Z] CLI Version:   13.35.1
+[debug] [2025-05-26T15:38:16.374Z] Platform:      win32
+[debug] [2025-05-26T15:38:16.374Z] Node Version:  v18.20.8
+[debug] [2025-05-26T15:38:16.374Z] Time:          Mon May 26 2025 18:38:16 GMT+0300 (Israel Daylight Time)
+[debug] [2025-05-26T15:38:16.374Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-05-26T15:38:16.567Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-05-26T15:38:16.569Z] > authorizing via signed-in user (iaaoamar12@gmail.com)
+[debug] [2025-05-26T15:38:16.569Z] [iam] checking project primeplus-11a85 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2025-05-26T15:38:16.570Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:16.571Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:16.572Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions [none]
+[debug] [2025-05-26T15:38:16.572Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:38:16.573Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-05-26T15:38:17.659Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions 200
+[debug] [2025-05-26T15:38:17.660Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2025-05-26T15:38:17.660Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:17.660Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:17.660Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2025-05-26T15:38:17.660Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2025-05-26T15:38:18.603Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2025-05-26T15:38:18.603Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/primeplus-11a85/serviceAccounts/primeplus-11a85@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'primeplus-11a85'...
+[info] 
+[info] i  deploying functions 
+[debug] [2025-05-26T15:38:18.606Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.606Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.606Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85 [none]
+[debug] [2025-05-26T15:38:18.913Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85 200
+[debug] [2025-05-26T15:38:18.913Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/primeplus-11a85 {"projectNumber":"226103289373","projectId":"primeplus-11a85","lifecycleState":"ACTIVE","name":"PrimePlus","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2025-04-05T10:23:27.840298Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[debug] [2025-05-26T15:38:18.914Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.914Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.915Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.915Z] Checked if tokens are valid: true, expires at: 1748276169412
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[debug] [2025-05-26T15:38:18.915Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.915Z] Checked if tokens are valid: true, expires at: 1748276169412
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2025-05-26T15:38:18.915Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.915Z] Checked if tokens are valid: true, expires at: 1748276169412
+[debug] [2025-05-26T15:38:18.916Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com [none]
+[debug] [2025-05-26T15:38:18.916Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:38:18.917Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com [none]
+[debug] [2025-05-26T15:38:18.917Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:38:18.921Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com [none]
+[debug] [2025-05-26T15:38:18.921Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:38:18.922Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com [none]
+[debug] [2025-05-26T15:38:18.923Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com x-goog-quota-user=projects/primeplus-11a85
+[debug] [2025-05-26T15:38:19.866Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com 429
+[debug] [2025-05-26T15:38:19.866Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com [omitted]
+[error] 
+[error] Error: Request to https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudbuild.googleapis.com had HTTP Error: 429, Quota exceeded for quota metric 'Default requests' and limit 'Default requests per minute' of service 'serviceusage.googleapis.com' for consumer 'project_number:563584335869'.
+[debug] [2025-05-26T15:38:20.006Z] Error Context: {
+  "body": {
+    "error": {
+      "code": 429,
+      "message": "Quota exceeded for quota metric 'Default requests' and limit 'Default requests per minute' of service 'serviceusage.googleapis.com' for consumer 'project_number:563584335869'.",
+      "status": "RESOURCE_EXHAUSTED",
+      "details": [
+        {
+          "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+          "reason": "RATE_LIMIT_EXCEEDED",
+          "domain": "googleapis.com",
+          "metadata": {
+            "quota_limit_value": "600",
+            "quota_metric": "serviceusage.googleapis.com/default_requests",
+            "quota_unit": "1/min/{project}",
+            "consumer": "projects/563584335869",
+            "quota_limit": "DefaultRequestsPerMinutePerProject",
+            "service": "serviceusage.googleapis.com",
+            "quota_location": "global"
+          }
+        },
+        {
+          "@type": "type.googleapis.com/google.rpc.Help",
+          "links": [
+            {
+              "description": "Request a higher quota limit.",
+              "url": "https://cloud.google.com/docs/quotas/help/request_increase"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "response": {
+    "statusCode": 429
+  }
+}
+[debug] [2025-05-26T15:38:20.162Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com 200
+[debug] [2025-05-26T15:38:20.163Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/runtimeconfig.googleapis.com [omitted]
+[debug] [2025-05-26T15:38:20.187Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com 200
+[debug] [2025-05-26T15:38:20.188Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/cloudfunctions.googleapis.com [omitted]
+[info] +  functions: required API cloudfunctions.googleapis.com is enabled 
+[debug] [2025-05-26T15:38:20.198Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com 200
+[debug] [2025-05-26T15:38:20.198Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/primeplus-11a85/services/artifactregistry.googleapis.com [omitted]
+[info] +  artifactregistry: required API artifactregistry.googleapis.com is enabled 

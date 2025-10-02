@@ -1,0 +1,24 @@
+{
+  "rules": {
+    "status": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "streams": {
+      "$streamId": {
+        ".read": true,
+        ".write": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid)",
+        "viewers": {
+          ".read": true,
+          ".write": "auth != null"
+        },
+        "status": {
+          ".read": true,
+          ".write": "auth != null && (!data.exists() || data.child('userId').val() === auth.uid)"
+        }
+      }
+    }
+  }
+} 

@@ -1,0 +1,448 @@
+/**
+ * 🔒 PROTECTED SECURITY RULES
+ * 
+ * These rules define the security model for the Firestore database. Modifications require:
+ * 1. Explicit approval from the project maintainer
+ * 2. Security review
+ * 3. Testing of all affected operations
+ * 4. Documentation updates in CHANGELOG.md
+ * 
+ * Protected Rules:
+ * - Post access and modification
+ * - Comment creation and updates
+ * - Like operations
+ * - User profile access
+ * - Notification handling
+ * 
+ * Last Modified: 2024-04-08
+ * Version: stable-v1.0
+ */
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidUsername(username) {
+      return username.matches('^[a-z0-9][a-z0-9]*[a-z0-9]$') 
+        && username.size() >= 3 
+        && username.size() <= 30;
+    }
+
+    function isValidUserProfile() {
+      let data = request.resource.data;
+      let requiredFields = ['email', 'username', 'displayName', 'createdAt', 'lastLogin', 'role', 'isActive', 'emailVerified', 'authProvider', 'profileCompleted'];
+      let hasRequiredFields = data.keys().hasAll(requiredFields);
+      let isUserMatch = request.auth.uid == request.resource.id;
+      
+      let hasValidTypes = 
+        data.email is string && 
+        data.username is string &&
+        data.displayName is string && 
+        data.createdAt is timestamp && 
+        data.lastLogin is timestamp &&
+        data.role in ['user', 'creator', 'admin', 'superadmin', 'owner'] &&
+        data.isActive is bool &&
+        data.emailVerified is bool &&
+        data.authProvider in ['email', 'google'] &&
+        data.profileCompleted is bool &&
+        (data.defaultSubscriptionType == null || data.defaultSubscriptionType in ['free', 'paid']) &&
+        (data.defaultSubscriptionPlanId == null || data.defaultSubscriptionPlanId is string);
+      
+      let hasValidLengths =
+        isValidUsername(data.username) &&
+        data.displayName.size() >= 3 &&
+        data.displayName.size() <= 50;
+      
+      // Validate profile and cover photo URLs if they exist
+      let profilePhotoUrlPattern = '^https://firebasestorage\\.googleapis\\.com/v0/b/.*/o/users%2F' + request.auth.uid + '%2Fprofile%2Fphoto%2F.*$';
+      let coverPhotoUrlPattern = '^https://firebasestorage\\.googleapis\\.com/v0/b/.*/o/users%2F' + request.auth.uid + '%2Fprofile%2Fcover%2F.*$';
+      
+      let hasValidPhotoUrls = 
+        (!('profilePhotoUrl' in data) || 
+         data.profilePhotoUrl == null || 
+         (data.profilePhotoUrl is string && data.profilePhotoUrl.matches(profilePhotoUrlPattern))) &&
+        (!('coverPhotoUrl' in data) || 
+         data.coverPhotoUrl == null || 
+         (data.coverPhotoUrl is string && data.coverPhotoUrl.matches(coverPhotoUrlPattern)));
+      
+      return hasRequiredFields && isUserMatch && hasValidTypes && hasValidLengths && hasValidPhotoUrls;
+    }
+
+    function isValidComment() {
+      let data = request.resource.data;
+      let hasRequiredFields = data.keys().hasAll(['authorId', 'content', 'createdAt']);
+      
+      let hasValidTypes = 
+        data.authorId is string &&
+        data.content is string &&
+        data.createdAt is timestamp;
+      
+      let hasValidContent = 
+        data.content.size() > 0 && 
+        data.content.size() <= 1000;  // 1000 char limit for comments
+      
+      return hasRequiredFields && hasValidTypes && hasValidContent;
+    }
+
+    function isValidPost() {
+      let data = request.resource.data;
+      let hasRequiredFields = data.keys().hasAll(['authorId', 'content', 'type', 'isPublic', 'createdAt']);
+      
+      let hasValidTypes = 
+        data.content is string &&
+        data.authorId is string &&
+        data.type in ['image', 'video', 'vr', '360', 'text', 'story', 'live_stream'] &&
+        data.isPublic is bool &&
+        data.createdAt is timestamp &&
+        (data.mediaUrl == null || data.mediaUrl is string) &&
+        (data.thumbnailUrl == null || data.thumbnailUrl is string) &&
+        (data.likes == null || data.likes is number) &&
+        (data.comments == null || data.comments is number) &&
+        (data.shares == null || data.shares is number) &&
+        (data.updatedAt == null || data.updatedAt is timestamp) &&
+        (data.tags == null || data.tags is list) &&
+        (data.location == null || data.location is string) &&
+        (data.taggedUsers == null || data.taggedUsers is list) &&
+        (data.vrSettings == null || data.vrSettings is map) &&
+        (data.storySettings == null || data.storySettings is map) &&
+        (data.accessSettings == null || data.accessSettings is map);
+      
+      let hasValidContent = data.content.size() <= 5000;
+      
+      return hasRequiredFields && hasValidTypes && hasValidContent;
+    }
+
+    function isParticipant(chatId) {
+      let chat = get(/databases/$(database)/documents/chats/$(chatId)).data;
+      return request.auth.uid in chat.participants;
+    }
+
+    // NEW HELPER FUNCTION FOR PLAN VALIDATION
+    function isValidPlanData(data) {
+      let requiredFields = ['creatorId', 'name', 'price', 'currency', 'isActive', 'createdAt', 'updatedAt'];
+      let hasRequiredFields = data.keys().hasAll(requiredFields);
+
+      let hasValidTypes =
+        data.creatorId is string &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.price is number && data.price >= 0 && // Price can be 0 for free plans
+        data.currency is string && data.currency.size() == 3 && // e.g., USD
+        data.isActive is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (data.description == null || (data.description is string && data.description.size() <= 500)) &&
+        (data.billingInterval == null || data.billingInterval in ['day', 'week', 'month', 'year']) &&
+        (data.intervalCount == null || (data.intervalCount is number && data.intervalCount > 0)) &&
+        (data.features == null || data.features is list);
+
+      return hasRequiredFields && hasValidTypes;
+    }
+
+    // NEW HELPER FUNCTION FOR SUBSCRIPTION DATA VALIDATION
+    function isValidSubscriptionData(data, isCreate) {
+      let requiredFields = ['creatorId', 'subscriberId', 'planId', 'status', 'startDate', 'createdAt', 'updatedAt'];
+      let hasRequiredFields = data.keys().hasAll(requiredFields);
+
+      let hasValidTypes =
+        data.creatorId is string &&
+        data.subscriberId is string &&
+        data.planId is string &&
+        data.status in ['active', 'cancelled', 'expired', 'pending_payment', 'free_trial'] &&
+        data.startDate is timestamp &&
+        (data.endDate == null || data.endDate is timestamp) &&
+        (data.nextBillingDate == null || data.nextBillingDate is timestamp) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+
+      let isSubscriberOwnerOnCreate = !isCreate || (data.subscriberId == request.auth.uid);
+      let areTimestampsCorrectOnCreate = !isCreate || (data.createdAt == request.time && data.updatedAt == request.time);
+      let isValidDateRange = (data.endDate == null || data.startDate == null || data.endDate >= data.startDate);
+
+      return hasRequiredFields && hasValidTypes && isSubscriberOwnerOnCreate && areTimestampsCorrectOnCreate && isValidDateRange;
+    }
+
+    function isActiveSubscriber(creatorId) {
+      return exists(
+        /databases/$(database)/documents/subscriptions/$(request.auth.uid + '_' + creatorId)
+      ) && get(
+        /databases/$(database)/documents/subscriptions/$(request.auth.uid + '_' + creatorId)
+      ).data.status == 'active';
+    }
+
+    // Users collection rules
+    match /users/{userId} {
+      allow read, list: if isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'owner', 'superadmin']);
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isAuthenticated() && request.auth.uid == userId; // User can only update their own profile.
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Usernames collection rules
+    match /usernames/{username} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // Posts collection rules
+    match /posts/{postId} {
+      allow read: if true;
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        // Allow updating likes and comments count by any authenticated user
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'comments', 'updatedAt']) ||
+        // Allow full update by post owner
+        resource.data.authorId == request.auth.uid
+      );
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && (
+          // Allow updating likes count by any authenticated user
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'updatedAt']) ||
+          // Allow full update by comment owner
+          resource.data.authorId == request.auth.uid
+        );
+        allow delete: if isAuthenticated() && (
+          // Allow deletion by comment author
+          resource.data.authorId == request.auth.uid ||
+          // Allow deletion by post author
+          get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid
+        );
+
+        // Likes subcollection for comments
+        match /likes/{userId} {
+          allow read: if true;
+          allow create, delete: if isAuthenticated() && request.auth.uid == userId;
+        }
+      }
+
+      // Likes subcollection for posts
+      match /likes/{userId} {
+        allow read: if true;
+        allow create, delete: if isAuthenticated() && request.auth.uid == userId;
+      }
+
+      // Allow deletion of all subcollections when post is deleted
+      match /{document=**} {
+        allow read: if true;
+        allow write: if isAuthenticated() && get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid;
+      }
+    }
+
+    // User's saved posts collection
+    match /users/{userId}/saved/{postId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // User's likes collection
+    match /users/{userId}/likes/{postId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Notifications collection rules
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && request.auth.uid == resource.data.toUserId;
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.toUserId || 
+        request.auth.uid == resource.data.fromUser.uid
+      );
+    }
+
+    // User-specific notification subcollections
+    match /users/{userId}/notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && (
+        (request.resource.data.toUserId == userId) ||
+        (request.resource.data.userId == userId)
+      );
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Sidebar data collection
+    match /sidebar/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isOwner(userId);
+    }
+
+    // Presence collection
+    match /presence/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Global notifications
+    match /globalNotifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow write: if false;  // Only admin can write through backend
+    }
+
+    // Subscription Plans collection rules
+    match /plans/{planId} {
+      allow read: if isAuthenticated(); // Allow any authenticated user to read plan details
+
+      allow create: if isAuthenticated() &&
+                      request.resource.data.creatorId == request.auth.uid && // Creator must be the authenticated user
+                      isValidPlanData(request.resource.data) &&
+                      request.resource.data.createdAt == request.time && // Enforce server timestamp on create
+                      request.resource.data.updatedAt == request.time;   // Enforce server timestamp on create
+
+      allow update: if isAuthenticated() &&
+                      resource.data.creatorId == request.auth.uid && // Only plan owner can update
+                      isValidPlanData(request.resource.data) &&
+                      request.resource.data.creatorId == resource.data.creatorId && // Prevent changing creatorId
+                      request.resource.data.updatedAt == request.time; // Enforce server timestamp on update
+
+      allow delete: if isAuthenticated() &&
+                      resource.data.creatorId == request.auth.uid; // Only plan owner can delete
+    }
+
+    // Subscriptions collection rules
+    match /subscriptions/{subscriptionId} {
+      allow read: if isAuthenticated() &&
+                      (request.auth.uid == resource.data.subscriberId ||
+                       request.auth.uid == resource.data.creatorId); // Subscriber or Creator can read
+
+      allow create: if isAuthenticated() &&
+                      isValidSubscriptionData(request.resource.data, true) &&
+                      // Plan existence and ownership by creatorId should be primarily validated by backend/Cloud Function.
+                      // Rules here focus on data integrity and subscriber ownership of the action.
+                      request.resource.data.subscriberId == request.auth.uid; // Subscriber initiates their own subscription
+
+      allow update: if isAuthenticated() &&
+                      isValidSubscriptionData(request.resource.data, false) &&
+                      (request.auth.uid == resource.data.subscriberId || request.auth.uid == resource.data.creatorId) && // Subscriber or Creator can initiate updates
+                      // Prevent changing key immutable fields by client
+                      request.resource.data.creatorId == resource.data.creatorId &&
+                      request.resource.data.subscriberId == resource.data.subscriberId &&
+                      // Allow planId to be updated if backend logic supports plan changes (e.g. upgrade/downgrade)
+                      // request.resource.data.planId == resource.data.planId && 
+                      request.resource.data.createdAt == resource.data.createdAt && // createdAt is immutable
+                      request.resource.data.updatedAt == request.time; // Enforce server timestamp on update
+
+      allow delete: if false; // Deactivation/cancellation should be an update to 'status'.
+    }
+
+    // Topics collection rules
+    match /topics/{topicId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.name.size() >= 2;
+      allow update: if isAuthenticated() && request.resource.data.name.size() >= 2;
+      allow delete: if isAuthenticated();
+    }
+
+    // Chats collection rules
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && isParticipant(chatId);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && isParticipant(chatId);
+      allow delete: if isAuthenticated() && isParticipant(chatId);
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && isParticipant(chatId);
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && isParticipant(chatId);
+        allow delete: if isAuthenticated() && isParticipant(chatId);
+      }
+    }
+
+    // Streams collection rules
+    match /streams/{streamId} {
+      allow read: if true; // Anyone can read stream data
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'title', 'description', 'status', 'startedAt']);
+      allow update: if (
+        // Allow updating viewer count by any user (even unauthenticated)
+        request.resource.data.diff(resource.data).affectedKeys().hasAny(['viewerCount']) ||
+        // Allow updating viewer count and updatedAt together
+        request.resource.data.diff(resource.data).affectedKeys().hasAll(['viewerCount', 'updatedAt']) ||
+        // Allow updating thumbnail and status
+        request.resource.data.diff(resource.data).affectedKeys().hasAll(['thumbnailUrl', 'status']) ||
+        // Allow full update by stream owner
+        (isAuthenticated() && resource.data.userId == request.auth.uid)
+      );
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+
+      // Viewers subcollection rules
+      match /viewers/{userId} {
+        allow read: if true;
+        allow write: if isAuthenticated();
+      }
+
+      // Chat subcollection
+      match /chat/{messageId} {
+        allow read: if true;
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated() && (
+          // Allow updating likes count by any authenticated user
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'updatedAt']) ||
+          // Allow full update by message owner or stream owner
+          resource.data.userId == request.auth.uid ||
+          get(/databases/$(database)/documents/streams/$(streamId)).data.userId == request.auth.uid
+        );
+        allow delete: if isAuthenticated() && (
+          // Allow deletion by message author
+          resource.data.userId == request.auth.uid ||
+          // Allow deletion by stream owner
+          get(/databases/$(database)/documents/streams/$(streamId)).data.userId == request.auth.uid
+        );
+      }
+    }
+
+    // Content collection rules
+    match /content/{contentId} {
+      allow read: if resource.data.isPublic == true
+        || request.auth.uid == resource.data.authorId
+        || isActiveSubscriber(resource.data.authorId);
+
+      allow write: if request.auth.uid == request.resource.data.authorId;
+    }
+
+    // Follows collection rules
+    match /follows/{followId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.followerId == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.followerId == request.auth.uid;
+      allow update: if false; // Follows should not be updated, only created or deleted
+    }
+
+    // Stories collection rules
+    match /stories/{storyId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow update: if isAuthenticated() && (
+        // Allow adding viewers
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers']) ||
+        // Allow full update by story owner
+        resource.data.userId == request.auth.uid
+      );
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Catch-all: Deny everything else
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+} 

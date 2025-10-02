@@ -1,0 +1,200 @@
+/* Tab Navigation Styles - From Uiverse.io by zanina-yassine */
+/* Prevent page jumping and improve performance */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+.tab-container {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  padding: 2px;
+  background-color: #dadadb;
+  border-radius: 9px;
+  width: fit-content;
+  margin: 0 auto;
+  overflow: hidden;
+  contain: layout style paint;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  isolation: isolate;
+  height: 32px;
+  min-height: 32px;
+}
+
+.indicator {
+  content: "";
+  width: 80px;
+  height: 28px;
+  background: #ffffff;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 9;
+  border: 0.5px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.12), 0px 3px 1px rgba(0, 0, 0, 0.04);
+  border-radius: 7px;
+  transition: transform 0.2s ease-out;
+  will-change: transform;
+  transform: translateX(0) translateZ(0);
+  backface-visibility: hidden;
+}
+
+.tab {
+  width: 80px;
+  height: 28px;
+  position: absolute;
+  z-index: 99;
+  outline: none;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tab_label {
+  width: 80px;
+  height: 28px;
+  position: relative;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  opacity: 0.6;
+  cursor: pointer;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  transition: opacity 0.15s ease-out;
+  will-change: opacity;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+.tab:checked + .tab_label {
+  opacity: 1;
+  color: #333;
+}
+
+/* Prevent radio inputs from causing layout shifts */
+.tab:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.tab:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* Position indicators for each tab using transform for smoother animation */
+.tab--1:checked ~ .indicator {
+  transform: translateX(0);
+}
+
+.tab--2:checked ~ .indicator {
+  transform: translateX(80px);
+}
+
+.tab--3:checked ~ .indicator {
+  transform: translateX(160px);
+}
+
+.tab--4:checked ~ .indicator {
+  transform: translateX(240px);
+}
+
+.tab--5:checked ~ .indicator {
+  transform: translateX(320px);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .tab-container {
+    padding: 1px;
+  }
+  
+  .indicator {
+    width: 60px;
+    height: 24px;
+  }
+  
+  .tab {
+    width: 60px;
+    height: 24px;
+  }
+  
+  .tab_label {
+    width: 60px;
+    height: 24px;
+    font-size: 0.6rem;
+  }
+  
+  .tab--1:checked ~ .indicator {
+    transform: translateX(0);
+  }
+  
+  .tab--2:checked ~ .indicator {
+    transform: translateX(60px);
+  }
+  
+  .tab--3:checked ~ .indicator {
+    transform: translateX(120px);
+  }
+  
+  .tab--4:checked ~ .indicator {
+    transform: translateX(180px);
+  }
+  
+  .tab--5:checked ~ .indicator {
+    transform: translateX(240px);
+  }
+}
+
+@media (max-width: 480px) {
+  .indicator {
+    width: 50px;
+    height: 22px;
+  }
+  
+  .tab {
+    width: 50px;
+    height: 22px;
+  }
+  
+  .tab_label {
+    width: 50px;
+    height: 22px;
+    font-size: 0.55rem;
+  }
+  
+  .tab--1:checked ~ .indicator {
+    transform: translateX(0);
+  }
+  
+  .tab--2:checked ~ .indicator {
+    transform: translateX(50px);
+  }
+  
+  .tab--3:checked ~ .indicator {
+    transform: translateX(100px);
+  }
+  
+  .tab--4:checked ~ .indicator {
+    transform: translateX(150px);
+  }
+  
+  .tab--5:checked ~ .indicator {
+    transform: translateX(200px);
+  }
+}
