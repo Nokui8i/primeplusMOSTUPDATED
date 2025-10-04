@@ -57,21 +57,11 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState(post.content)
 
-  // Debug log for initial props and state
   useEffect(() => {
-    console.debug('[Post] MOUNT', {
-      post,
-      currentUserId: user?.uid,
-      initialShowComments: showComments,
-      currentPost,
-      showComments
-    })
-  }, [post, user?.uid, showComments, currentPost])
+    }, [post, user?.uid, showComments, currentPost])
 
-  // Debug log for showComments state changes
   useEffect(() => {
-    console.debug('[Post] showComments state changed', { showComments })
-  }, [showComments])
+    }, [showComments])
 
   // Handle post updates with cleanup
   useEffect(() => {
@@ -266,16 +256,6 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
     );
   }
 
-  // Debug log for comments section rendering
-  console.debug('[Post] Render comments section', {
-    showComments,
-    postId: currentPost.id,
-    authorId: currentPost.authorId
-  });
-
-  // Debug log for action bar rendering
-  console.debug('[Post] Action bar debug', { userUid: user?.uid, authorId: currentPost.authorId, engagement: (currentPost as any)?.engagement });
-
   useEffect(() => {
     // Increment views only once per session per post
     if (!post.id) return;
@@ -305,7 +285,11 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
   }
 
   return (
-    <div ref={ref} className="relative rounded-xl shadow-sm bg-white dark:bg-gray-800 w-full max-w-3xl mx-auto">
+    <div ref={ref} className="relative w-full max-w-3xl mx-auto mb-6" style={{
+      background: 'white',
+      borderRadius: '17px 17px 27px 27px',
+      boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
+    }}>
       {currentPost.type === 'text' ? (
         <TextPost post={currentPost} />
       ) : (
@@ -386,36 +370,34 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
 
           {/* Post Actions */}
           <div className="px-6 py-3 flex items-center gap-6">
-            <div className="flex flex-col items-center">
-              <button 
-                onClick={handleLike}
-                className={`flex items-center gap-2 py-2 ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-              >
-                {isLiked ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                  </svg>
-                )}
-                <span className="text-sm">{likeCount}</span>
-              </button>
-              <span className="text-xs text-gray-500 dark:text-gray-400">like</span>
-            </div>
+             <div className="flex flex-col items-center">
+               <button 
+                 onClick={handleLike}
+                 className={`flex items-center gap-1.5 py-1.5 ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+               >
+                 {isLiked ? (
+                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                   </svg>
+                 ) : (
+                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                   </svg>
+                 )}
+                 <span className="text-xs font-medium">{likeCount}</span>
+               </button>
+             </div>
 
             <div className="flex flex-col items-center">
               <button
                 onClick={handleComment}
-                className="flex items-center gap-2 py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                className="flex items-center gap-1.5 py-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
                 </svg>
-                <span className="text-sm">{commentCount}</span>
+                <span className="text-xs font-medium">{commentCount}</span>
               </button>
-              <span className="text-xs text-gray-500 dark:text-gray-400">comments</span>
             </div>
 
             <div className="flex flex-col items-center">
@@ -433,10 +415,13 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
             {user?.uid === currentPost.authorId && (currentPost as any)?.engagement && (
               <div className="flex flex-col items-center">
                 <button
-                  className="flex items-center gap-2 py-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  className="flex items-center gap-1.5 py-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 >
-                  <FiEye className="h-4 w-4" />
-                  <span>{(currentPost as any)?.engagement?.views || 0} view{((currentPost as any)?.engagement?.views || 0) === 1 ? '' : 's'}</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <span className="text-xs font-medium">{(currentPost as any)?.engagement?.views || 0}</span>
                 </button>
               </div>
             )}

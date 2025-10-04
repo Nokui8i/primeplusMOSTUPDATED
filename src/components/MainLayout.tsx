@@ -3,12 +3,14 @@
 import { ReactNode, useState, useEffect, useRef } from 'react';
 import { LeftSidebar } from './LeftSidebar';
 import { RightSidebar } from './RightSidebar';
+import { NotificationsDropdown } from './NotificationsDropdown';
+import { Search } from './Search';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useRouter } from 'next/navigation';
 import AppLoader from './common/AppLoader';
 import { AnimatePresence } from 'framer-motion';
-import { FiMenu, FiFilter, FiX } from 'react-icons/fi';
+import { FiMenu, FiFilter, FiX, FiBell } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { UserProfile } from '@/lib/types/user';
 
@@ -144,12 +146,27 @@ export default function MainLayout({ children }: MainLayoutProps) {
             <LeftSidebar />
           </aside>
 
-          {/* Main Content - Responsive */}
-          <main ref={mainContentRef} className="flex-1 flex flex-col h-screen overflow-y-auto w-full invisible-scrollbar border-l border-gray-200">
-            <div className="w-full py-8">
-              {children}
+          {/* Center Area with Header and Main Content */}
+          <div className="flex-1 flex flex-col border-l border-gray-200">
+            {/* Center Header */}
+            <div className="hidden md:block">
+              <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-b border-gray-200">
+                <div className="w-1/2 max-w-md">
+                  <Search />
+                </div>
+                <div className="flex-shrink-0">
+                  <NotificationsDropdown />
+                </div>
+              </div>
             </div>
-          </main>
+
+            {/* Main Content - Responsive */}
+            <main ref={mainContentRef} className="flex-1 flex flex-col h-screen overflow-y-auto w-full invisible-scrollbar">
+              <div className="w-full">
+                {children}
+              </div>
+            </main>
+          </div>
 
           {/* Right Sidebar */}
           <aside className="hidden md:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
@@ -172,6 +189,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
       >
         <FiMenu className="w-6 h-6 text-gray-700" />
       </button>
+      
+      {/* Mobile Notification Button */}
+      <div className="fixed top-2 right-12 z-40 md:hidden">
+        <NotificationsDropdown />
+      </div>
+      
       <button
         className="fixed top-2 right-2 z-40 md:hidden bg-white/80 rounded-full p-1.5 shadow-lg backdrop-blur-lg"
         onClick={() => setShowMobileRight(true)}

@@ -394,6 +394,11 @@ button[class*="profile-btn"]:hover {
   }
 }
 
+/* Messages Page - Clean and Simple */
+
+/* Messages Page Layout Fixes - Removed custom overrides, using standard container pattern */
+
+
 /* Post Image Styles */
 .post-image-container {
   width: 100%;
@@ -536,6 +541,145 @@ div button.profile-btn:hover {
 .profile-btn[class*="border-"],
 .profile-btn[class*="rounded-"],
 .profile-btn[class*="px-"],
+
+/* Uiverse.io Comments Design */
+.text-box {
+  width: 100%;
+  height: fit-content;
+  background-color: #f1f1f1;
+  padding: 8px;
+}
+
+.text-box .box-container {
+  background-color: #ffffff;
+  border-radius: 8px 8px 21px 21px;
+  padding: 8px;
+}
+
+.text-box textarea {
+  width: 100%;
+  height: 32px;
+  resize: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 12px 6px 12px;
+  font-size: 13px;
+  outline: none;
+  caret-color: #0a84ff;
+}
+
+.text-box .formatting {
+  display: grid;
+  grid-template-columns: auto auto auto auto auto 1fr;
+}
+
+.text-box .formatting button {
+  width: 30px;
+  height: 30px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border-radius: 50%;
+  border: 0;
+  outline: none;
+}
+
+.text-box .formatting button:hover {
+  background-color: #f1f1f1;
+}
+
+.text-box .formatting .send {
+  width: 30px;
+  height: 30px;
+  background-color: #0a84ff;
+  margin: 0 0 0 auto;
+}
+
+.text-box .formatting .send:hover {
+  background-color: #026eda;
+}
+
+/* Uiverse.io Comments Design - Comment Container */
+.comment-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px 0;
+  margin: 0;
+  position: relative;
+}
+
+.comment-container:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background-color: #e5e7eb;
+}
+
+.comment-container .user {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 10px;
+}
+
+.comment-container .user .user-pic {
+  width: 40px;
+  height: 40px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f1f1f1;
+  border-radius: 50%;
+}
+
+.comment-container .user .user-pic:after {
+  content: '';
+  width: 9px;
+  height: 9px;
+  position: absolute;
+  right: 0px;
+  bottom: 0px;
+  border-radius: 50%;
+  background-color: #0fc45a;
+  border: 2px solid #ffffff;
+}
+
+.comment-container .user .user-info {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.comment-container .user .user-info span {
+  font-weight: 700;
+  font-size: 12px;
+  color: #47484b;
+}
+
+.comment-container .user .user-info p {
+  font-weight: 600;
+  font-size: 10px;
+  color: #acaeb4;
+  margin: 0;
+}
+
+.comment-container .comment-content {
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: #2d2d2d;
+  margin-left: 50px;
+  margin-top: -10px;
+}
 .profile-btn[class*="py-"],
 .profile-btn[class*="p-"],
 .profile-btn[class*="m-"],

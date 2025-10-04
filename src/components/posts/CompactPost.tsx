@@ -59,6 +59,7 @@ interface CompactPostProps {
   commentId?: string | null
   highlight?: boolean
   showAsGridItem?: boolean
+  showAsGalleryOnly?: boolean
 }
 
 interface Subscription {
@@ -75,7 +76,7 @@ function toDate(date: { toDate: () => Date } | Date): Date {
   return date instanceof Date ? date : date.toDate();
 }
 
-export function CompactPost({ post, currentUserId, onPostDeleted, commentId, highlight, showAsGridItem = false }: CompactPostProps) {
+export function CompactPost({ post, currentUserId, onPostDeleted, commentId, highlight, showAsGridItem = false, showAsGalleryOnly = false }: CompactPostProps) {
   const { user } = useAuth()
   const [currentPost, setCurrentPost] = useState<PostWithAuthor>(post)
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
@@ -579,14 +580,14 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
                 
                 {/* 360° Badge */}
                 {(post.type === 'image360' || post.type === 'video360') && (
-                  <div className="absolute top-2 left-2 bg-purple-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                  <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md font-medium backdrop-blur-sm">
                     360°
                   </div>
                 )}
                 
                 {/* VR Badge */}
                 {post.type === 'vr' && (
-                  <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                  <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md font-medium backdrop-blur-sm">
                     VR
                   </div>
                 )}
@@ -677,6 +678,78 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     }
   }
 
+  // Render gallery-only mode if showAsGalleryOnly is true
+  if (showAsGalleryOnly) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center">
+        {subChecked ? (
+          post.mediaUrl && (
+            canViewPost ? (
+              <div className="relative w-full h-full">
+                <MediaContent
+                  url={post.mediaUrl}
+                  type={post.type}
+                  thumbnailUrl={post.thumbnailUrl}
+                  compact={false}
+                  username={post.author?.username}
+                  showWatermark={post.showWatermark}
+                />
+              </div>
+            ) : (
+              <div className="relative w-full h-full flex items-center justify-center bg-gray-200 overflow-hidden rounded-lg group">
+                {/* Thumbnail or Logo background */}
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  {post.thumbnailUrl ? (
+                    <img
+                      src={post.thumbnailUrl}
+                      alt="Locked content thumbnail"
+                      className="w-full h-full object-cover select-none"
+                      draggable="false"
+                    />
+                  ) : (
+                    <img
+                      src="/images/LOGO only.png"
+                      alt="Locked content logo"
+                      className="w-[60px] h-[60px] opacity-30 select-none"
+                      draggable="false"
+                    />
+                  )}
+                </div>
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-400/80 via-gray-300/40 to-transparent" />
+                {/* Lock icon */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
+                  <div className="bg-gradient-to-br from-white/90 via-gray-100/80 to-fuchsia-100/60 rounded-full p-1.5 shadow-md mb-1 flex items-center justify-center border border-fuchsia-100">
+                    <Lock size={20} strokeWidth={1.5} className="text-[#6437ff] drop-shadow-sm" />
+                  </div>
+                  <button
+                    className="profile-btn subscribe text-xs px-3 py-1"
+                    onClick={() => setShowPlansModal(true)}
+                    disabled={plansLoading || plans.length === 0}
+                  >
+                    {plansLoading ? 'Loading...' : 'SUBSCRIBE'}
+                  </button>
+                </div>
+                {/* Plans Modal for subscribing */}
+                <PlansModal
+                  open={showPlansModal}
+                  onClose={() => setShowPlansModal(false)}
+                  plans={plans}
+                  creatorId={post.authorId}
+                  onSelectPlan={() => setShowPlansModal(false)}
+                />
+              </div>
+            )
+          )
+        ) : (
+          <div className="w-full h-full bg-gray-200 rounded-lg flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-gray-300 border-t-[#6437ff] rounded-full animate-spin"></div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!currentPost?.author) return null;
 
   // Add a helper to render content with clickable @mentions and URLs
@@ -761,7 +834,11 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   }
 
     return (
-      <div className="relative w-full bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="relative w-full mb-4" style={{
+        background: 'white',
+        borderRadius: '17px 17px 27px 27px',
+        boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
+      }}>
         {/* Post Header - Profile and Time */}
         <div className="flex items-center justify-between gap-2 px-3 py-1.5">
           <div className="flex items-center gap-2">
@@ -997,11 +1074,12 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
         <div className="flex items-center gap-2">
           {/* Views counter, only for post author */}
           {user?.uid === currentPost.authorId && (currentPost as any)?.engagement && (
-            <div className="views-button">
-              <div className="views-main">
-                <FiEye className="views-icon" />
-                <span className="views-text">{(currentPost as any)?.engagement?.views || 0}</span>
-              </div>
+            <div className="flex items-center gap-1.5 text-gray-500">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span className="text-xs font-medium">{(currentPost as any)?.engagement?.views || 0}</span>
             </div>
           )}
           <LikeButton

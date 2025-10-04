@@ -221,14 +221,6 @@ export function ProfilePhoto({ photoUrl, size = 'md', className = '', onPhotoUpd
     };
   }, [tempPhotoUrl, currentPhotoUrl]);
 
-  // DEBUG: Log current state
-  console.log('🔍 ProfilePhoto Debug:', {
-    userId: userId || user?.uid,
-    presence: JSON.stringify(presence, null, 2),
-    isOnline: presence && presence.status === 'online',
-    borderColor: (presence && presence.status === 'online') ? '#22C55E' : '#9CA3AF'
-  });
-
   return (
     <div 
       className={`relative ${className}`} 
@@ -251,7 +243,7 @@ export function ProfilePhoto({ photoUrl, size = 'md', className = '', onPhotoUpd
           boxShadow: (presence && presence.status === 'online') 
             ? '0 0 20px rgba(34, 197, 94, 0.6), 0 0 40px rgba(34, 197, 94, 0.3)' 
             : '0 0 10px rgba(156, 163, 175, 0.3)', // Glowing effect for online, subtle for offline
-          // DEBUG: Add a temporary background to see the border
+          
           backgroundColor: 'rgba(255, 0, 0, 0.1)'
         }}
         onMouseEnter={() => {

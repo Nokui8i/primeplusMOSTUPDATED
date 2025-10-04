@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotifications, type Notification, type NotificationData } from '@/lib/notifications';
+import { useNotification } from '@/contexts/NotificationContext';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -30,7 +30,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
-import { toast } from 'react-hot-toast';
+// import { toast } from 'react-hot-toast'; // TODO: Add toast functionality
 import { db } from '@/lib/firebase';
 
 type NotificationWithTag = Notification & { type: 'like' | 'comment' | 'follow' | 'tag' | 'mention' };
@@ -44,20 +44,24 @@ type NotificationWithMetadata = Notification & { metadata?: Record<string, any>;
 
 export function NotificationsDropdown() {
   const { user } = useAuth();
-  const { notifications, unreadCount, loading, markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotifications();
+  const { notifications } = useNotification();
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
   const router = useRouter();
+  
+  // Mock data for now
+  const unreadCount = 0;
+  const loading = false;
 
   // Mark all notifications as read when opening the dropdown
   useEffect(() => {
     if (isOpen && unreadCount > 0) {
-      markAllAsRead();
+      // markAllAsRead(); // TODO: Implement when needed
     }
-  }, [isOpen, unreadCount, markAllAsRead]);
+  }, [isOpen, unreadCount]);
 
   // Split notifications into New and Earlier
   const now = new Date();
@@ -136,67 +140,49 @@ export function NotificationsDropdown() {
   const handleDeleteNotification = async (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault(); // Prevent any default behavior
-    try {
-      await deleteNotification(notificationId);
-      toast.success('Notification deleted');
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      toast.error('Failed to delete notification');
-    }
+    // TODO: Implement delete notification
+    console.log('Delete notification:', notificationId);
   };
 
   const handleDeleteAllNotifications = async (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault(); // Prevent any default behavior
-    try {
-      await deleteAllNotifications();
-      toast.success('All notifications deleted');
-    } catch (error) {
-      console.error('Error deleting all notifications:', error);
-      toast.error('Failed to delete notifications');
-    }
+    // TODO: Implement delete all notifications
+    console.log('Delete all notifications');
   };
 
   const confirmDeleteNotification = async () => {
     if (notificationToDelete) {
-      try {
-        await deleteNotification(notificationToDelete);
-        setDeleteDialogOpen(false);
-        setNotificationToDelete(null);
-        toast.success('Notification deleted');
-      } catch (error) {
-        console.error('Error deleting notification:', error);
-        toast.error('Failed to delete notification');
-      }
+      // TODO: Implement delete notification
+      console.log('Confirm delete notification:', notificationToDelete);
+      setDeleteDialogOpen(false);
+      setNotificationToDelete(null);
     }
   };
 
   const confirmDeleteAllNotifications = async () => {
-    try {
-      await deleteAllNotifications();
-      setDeleteAllDialogOpen(false);
-      toast.success('All notifications deleted');
-    } catch (error) {
-      console.error('Error deleting all notifications:', error);
-      toast.error('Failed to delete notifications');
-    }
+    // TODO: Implement delete all notifications
+    console.log('Confirm delete all notifications');
+    setDeleteAllDialogOpen(false);
   };
 
   return (
     <>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <div 
-            className="notification" 
-            data-count={unreadCount > 0 ? unreadCount : ''}
-            style={{ position: 'relative' }}
-          >
-            <div className="bell-container">
-              <div className="bell"></div>
-            </div>
-          </div>
+          <button className="relative p-0 text-gray-600 hover:text-gray-900 focus:outline-none transition-colors duration-200 w-8 h-8 flex items-center justify-center">
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/2 -translate-y-1/2 bg-red-500 rounded-full animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-80 max-h-[500px] bg-white border border-gray-200 shadow-lg">
+        <DropdownMenuContent 
+          align="end" 
+          className="w-80 max-h-[500px] bg-white border border-gray-200 shadow-lg animate-in fade-in-0 zoom-in-95 duration-200"
+        >
           <div className="px-4 py-3 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-base font-semibold text-gray-900">Notifications</h3>
             <div className="flex items-center space-x-2">
@@ -237,7 +223,7 @@ export function NotificationsDropdown() {
               {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                  className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-all duration-200 ease-in-out ${
                     !notification.read ? 'bg-blue-50' : ''
                   }`}
                   onClick={() => handleNotificationClick(notification as NotificationTagFix)}

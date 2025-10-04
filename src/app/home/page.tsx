@@ -399,8 +399,8 @@ export default function HomePage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-2xl mx-auto">
+    <div className="w-full"> {/* REMOVED py-8 - no padding needed */}
+      <div className="w-full"> {/* REMOVED max-w-2xl mx-auto - use full available width */}
         <div className="space-y-6">
           {posts
             .filter(post => post.type !== 'live_stream' || (post.type === 'live_stream' && post.status === 'live'))

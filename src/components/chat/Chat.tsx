@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, getDocs, doc, setDoc, updateDoc, getDoc, DocumentData, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2 } from 'lucide-react';
@@ -73,10 +73,12 @@ const waveAnimation = `
 }
 `;
 
-// Add this style tag to your component
-const style = document.createElement('style');
-style.textContent = waveAnimation;
-document.head.appendChild(style);
+// Add this style tag to your component (only on client side)
+if (typeof window !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = waveAnimation;
+  document.head.appendChild(style);
+}
 
 export function Chat({ recipientId, recipientName, hideHeader = false }: ChatProps) {
   const { user } = useAuth();
@@ -229,7 +231,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false }: ChatPro
   }, [recipientId, recipientName]);
 
   useEffect(() => {
-    if (!user || !recipientId) return;
+    if (!user || !user.uid || !recipientId) return;
     // Fetch the current user's subscription to this creator
     const fetchPlanType = async () => {
       const subsSnap = await getDocs(query(collection(db, 'subscriptions'), where('subscriberId', '==', user.uid), where('creatorId', '==', recipientId), where('status', '==', 'active')));
@@ -698,20 +700,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false }: ChatPro
     <div className="flex flex-col h-full">
       {/* Chat Title Bar */}
       {!hideHeader && recipientProfile && (
-        <div className="flex items-center gap-3 px-4 py-2 border-b sticky top-0 z-10 bg-white/80 backdrop-blur-lg"
+        <div className="flex items-center gap-3 px-4 py-2 border-b sticky top-0 z-10 bg-white/80 backdrop-blur-lg" /* PADDING: gap-3 px-4 py-2 */
              style={{ borderColor: themeColors.brand.blue.deep }}>
           <div
-            className="flex items-center gap-2 cursor-pointer hover:underline"
+            className="flex items-center gap-3 cursor-pointer hover:underline" /* PADDING: gap-3 - increased spacing */
             onClick={() => router.push(`/${recipientProfile.username}`)}
           >
-            <Avatar className="h-8 w-8">
-              {recipientProfile.photoURL ? (
-                <AvatarImage src={recipientProfile.photoURL} alt={recipientProfile.displayName} />
-              ) : (
-                <AvatarImage src='/default-avatar.png' />
-              )}
-              <AvatarFallback>{recipientProfile.displayName?.[0] || '?'}</AvatarFallback>
-            </Avatar>
+            <div className="relative flex-shrink-0 w-12 h-12"> {/* PADDING: w-12 h-12 (48px) - exact avatar size */}
+              <MessagesAvatar 
+                src={recipientProfile.photoURL || '/default-avatar.png'}
+                alt={recipientProfile.displayName}
+                fallback={recipientProfile.displayName?.[0] || '?'}
+                size="md"
+              />
+            </div>
             <span className="font-semibold text-base" style={{ color: themeColors.brand.blue.deep }}>{recipientProfile.displayName}</span>
             {isRecipientTyping && (
               <span

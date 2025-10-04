@@ -28,6 +28,11 @@ export function CreatorCard({
   const [plansLoading, setPlansLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
+  // Debug logging
+  console.log('CreatorCard props:', { userId, username, displayName, photoURL, coverPhotoUrl });
+  console.log('Display name value:', displayName);
+  console.log('Username value:', username);
+
   const SUBSCRIPTIONS_API_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_API_URL || '';
 
   useEffect(() => {
@@ -108,32 +113,63 @@ export function CreatorCard({
   }, [userId]);
 
   return (
-    <div className="w-full rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center space-x-3">
-        <div className="flex-shrink-0">
-          <img
-            src={photoURL || '/default-avatar.png'}
-            alt={displayName || username || 'User'}
-            className="w-12 h-12 rounded-full object-cover"
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <Link href={`/${username || userId}`} className="block">
-            <p className="text-sm font-medium text-gray-900 truncate">
-              {displayName || username}
-            </p>
-            <p className="text-xs text-gray-500 truncate">@{username}</p>
-          </Link>
-        </div>
-        <div className="flex-shrink-0">
-          <button
-            onClick={() => setShowPlansModal(true)}
-            className="rounded-md px-3 py-1 text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-          >
-            {isSubscribed ? 'Subscribed' : 'Subscribe'}
-          </button>
+    <div className="w-full mb-4" style={{
+      background: 'white',
+      borderRadius: '17px 17px 27px 27px',
+      boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
+    }}>
+      {/* Cover Photo with gradient overlay and overlaid content */}
+      <div className="relative h-32 w-full overflow-hidden" style={{ 
+        borderRadius: '17px 17px 27px 27px'
+      }}>
+        <img
+          src={coverPhotoUrl || '/default-avatar.png'}
+          alt={`${displayName || username}'s cover`}
+          className="w-full h-full object-cover"
+        />
+        {/* Dark gradient overlay for text visibility */}
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to bottom, transparent 0%, transparent 20%, rgba(0, 0, 0, 0.3) 60%, rgba(0, 0, 0, 0.8) 100%)',
+            borderRadius: '17px 17px 27px 27px'
+          }}
+        />
+        
+        {/* Profile Photo and Names positioned over cover photo */}
+        <div className="absolute bottom-0 left-0 right-0 px-3 pb-3"> {/* PADDING: px-3 pb-3 */}
+          <div className="flex items-start">
+            <img
+              src={photoURL || '/default-avatar.png'}
+              alt={displayName || username || 'User'}
+              className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" /* PADDING: w-16 h-16 (64px) */
+              style={{ marginTop: '-20px' }} /* PADDING: marginTop: -20px */
+            />
+            <div className="flex-1 min-w-0 ml-2"> {/* PADDING: ml-2 (8px) */}
+              <Link href={`/${username || userId}`} className="block hover:opacity-80 transition-opacity">
+                <div style={{ 
+                  color: '#ffffff', 
+                  fontWeight: '700',
+                  fontSize: '16px',
+                  lineHeight: '1.2',
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                }}>
+                  {displayName || username || 'User'}
+                </div>
+                <div style={{ 
+                  color: '#d1d5db',
+                  fontSize: '12px',
+                  lineHeight: '1.2',
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                }}>
+                  @{username || 'username'}
+                </div>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
+      
       <PlansModal
         open={showPlansModal}
         onClose={() => setShowPlansModal(false)}

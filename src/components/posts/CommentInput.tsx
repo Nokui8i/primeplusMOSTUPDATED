@@ -31,7 +31,6 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    console.debug('[CommentInput] handleSubmit called', { comment });
     if (!user) {
       toast.error('You must be logged in to comment')
       return
@@ -47,7 +46,6 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
     try {
       // Use the unified createComment function
       const commentId = await createComment(postId, comment, user, parentId || undefined)
-      console.debug('[CommentInput] createComment result', { commentId })
       // Send notifications to tagged users
       for (const taggedUserId of taggedUsers) {
         if (taggedUserId !== user.uid) {
