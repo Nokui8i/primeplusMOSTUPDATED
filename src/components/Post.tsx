@@ -401,15 +401,15 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
             {/* Views counter, only for post author */}
             {user?.uid === currentPost.authorId && (currentPost as any)?.engagement && (
               <div className="flex flex-col items-center">
-                <button
-                  className="flex items-center gap-1.5 py-1.5 text-blue-400 hover:text-blue-500"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <div className="w-7.5 h-7.5 flex items-center justify-center">
+                  <svg className="w-6 h-6" fill="none" stroke="rgb(91, 173, 255)" strokeWidth="2" viewBox="0 0 24 24">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
-                  <span className="text-xs font-medium text-blue-400">{(currentPost as any)?.engagement?.views || 0}</span>
-                </button>
+                </div>
+                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 min-w-[16px] text-center -mt-2">
+                  {(currentPost as any)?.engagement?.views || 0}
+                </span>
               </div>
             )}
           </div>
