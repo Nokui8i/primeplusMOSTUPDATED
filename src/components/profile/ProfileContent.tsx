@@ -214,9 +214,6 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
     };
   }, [loading, hasMore, lastDoc, profileId]);
 
-  useEffect(() => {
-    // Empty effect for loading state changes
-  }, [loading]);
 
   const handlePostDeleted = useCallback((deletedPostId: string) => {
     setPosts(prevPosts => prevPosts.filter(post => post.id !== deletedPostId));
@@ -493,7 +490,6 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
                 post={selectedPost}
                 currentUserId={profile.id}
                 onPostDeleted={handlePostDeleted}
-                showAsFullScreen={true}
               />
             </div>
           </div>

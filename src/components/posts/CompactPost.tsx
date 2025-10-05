@@ -27,7 +27,8 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import PostOptionsMenu from '@/components/posts/PostOptionsMenu'
 import MediaContent from '@/components/posts/MediaContent'
 import { LikeButton } from '@/components/posts/LikeButton'
-import { CommentButton } from '@/components/posts/CommentButton'
+import { HeartButton } from '@/components/ui/HeartButton'
+import { CommentButton } from '@/components/ui/CommentButton'
 import { Badge } from '@/components/ui/badge'
 import { PostDetailsDialog } from '@/components/posts/PostDetailsDialog'
 import { EditPostDialog } from '@/components/posts/EditPostDialog'
@@ -231,6 +232,19 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     checkSubscriptionAndPlan();
   }, [user, post.authorId, post.isPublic, post.accessSettings]);
 
+  // Listen to likes count changes
+  useEffect(() => {
+    if (!currentPost?.id) return;
+
+    const likesRef = collection(db, `posts/${currentPost.id}/likes`);
+    const unsubscribe = onSnapshot(likesRef, (snapshot) => {
+      const likesCount = snapshot.docs.length;
+      setCurrentPost(prev => prev ? { ...prev, likes: likesCount } : null);
+    });
+
+    return () => unsubscribe();
+  }, [currentPost?.id]);
+
   // Fetch creator's active plans for the modal
   useEffect(() => {
     if (!post.authorId) return;
@@ -293,6 +307,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   }, [post.id]);
 
   const handleLike = async () => {
+    console.log('handleLike called!', { currentPostId: currentPost.id, isLiked, user: user?.uid });
     if (!user) {
       toast.error('Please sign in to like posts')
       return
@@ -303,13 +318,11 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       const userData = userDoc.data()
       const displayName = userData?.displayName || 'Anonymous'
 
-      const result = await toggleLike(
-        `posts/${currentPost.id}`,
-        user.uid,
-        displayName,
-        user.photoURL || ''
-      )
+      console.log('Calling toggleLike with postId:', currentPost.id);
+
+      const result = await toggleLike(currentPost.id)
       
+      console.log('toggleLike result:', result);
       setIsLiked(result)
     } catch (error) {
       console.error('Error toggling like:', error)
@@ -1044,33 +1057,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
         className="px-4 py-2 flex items-center justify-between border-t border-gray-100 dark:border-gray-700/50"
         whileHover={{ backgroundColor: 'rgba(0,0,0,0.01)' }}
       >
-        {/* Sort Dropdown - Left side */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-              <ArrowUpDown className="h-3 w-3" />
-              <span className="text-xs">
-                {sortBy === 'newest' ? 'Newest' : 'Oldest'}
-              </span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-32">
-            <DropdownMenuItem 
-              onClick={() => setSortBy('newest')}
-              className="text-xs py-1.5"
-            >
-              Newest First
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => setSortBy('oldest')}
-              className="text-xs py-1.5"
-            >
-              Oldest First
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Like and Comment buttons - Right side */}
+        {/* Like button - Left side (moved from right) */}
         <div className="flex items-center gap-2">
           {/* Views counter, only for post author */}
           {user?.uid === currentPost.authorId && (currentPost as any)?.engagement && (
@@ -1082,12 +1069,24 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
               <span className="text-xs font-medium">{(currentPost as any)?.engagement?.views || 0}</span>
             </div>
           )}
-          <LikeButton
-            isLiked={isLiked}
-            onLike={handleLike}
-            likes={currentPost.likes || 0}
-            postId={currentPost.id}
-          />
+          <div className="flex flex-col items-center gap-0">
+            <HeartButton
+              isLiked={isLiked}
+              onToggle={() => {
+                console.log('HeartButton onToggle called!');
+                handleLike();
+              }}
+              likesCount={currentPost.likes || 0}
+              className="scale-50"
+            />
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 min-w-[16px] text-center -mt-2">
+              {currentPost.likes || 0}
+            </span>
+          </div>
+        </div>
+
+        {/* Comment button - Right side */}
+        <div className="flex items-center gap-2">
           <CommentButton
             onClick={handleComment}
             comments={currentPost.comments || 0}
@@ -1115,6 +1114,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
                 highlight={highlight}
                 onCommentAdded={handleCommentAdded}
                 sortBy={sortBy}
+                onSortChange={setSortBy}
               />
             </div>
           </motion.div>

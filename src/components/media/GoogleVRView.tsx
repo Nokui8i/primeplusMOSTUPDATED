@@ -44,25 +44,11 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
   useEffect(() => {
     if (!src) return
 
-
-    // Check if this is a CloudFront or direct S3 URL
+    // Use direct CloudFront URL for better compatibility (working implementation)
     if (src.includes('cloudfront.net') || src.includes('.amazonaws.com')) {
-      try {
-        const s3Key = extractS3KeyFromUrl(src)
-        
-        if (s3Key) {
-          // Use proxy for S3/CloudFront URLs
-          const proxyUrl = `/api/vr-proxy?key=${encodeURIComponent(s3Key)}`
-          const fullProxyUrl = `${window.location.origin}${proxyUrl}`
-          setFinalUrl(fullProxyUrl)
-        } else {
-          console.warn('⚠️ Could not extract S3 key from URL:', src)
-          setFinalUrl(src)
-        }
-      } catch (error) {
-        console.error('❌ Error processing S3 URL:', error)
-        setFinalUrl(src)
-      }
+      // Use direct CloudFront URL
+      setFinalUrl(src)
+      console.log('🌐 Using direct CloudFront URL for 360° content:', src)
     } else {
       // Direct URL, use as-is
       setFinalUrl(src)
@@ -72,8 +58,8 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
   useEffect(() => {
     if (!finalUrl || vrFailed) return
     
-    // Check if this is a localhost URL or our proxy URL - if so, use A-Frame
-    if (finalUrl.includes('localhost') || finalUrl.includes('127.0.0.1') || finalUrl.includes('/api/vr-proxy')) {
+    // Use A-Frame for CloudFront URLs and localhost/proxy URLs
+    if (finalUrl.includes('localhost') || finalUrl.includes('127.0.0.1') || finalUrl.includes('/api/vr-proxy') || finalUrl.includes('cloudfront.net') || finalUrl.includes('.amazonaws.com')) {
       setShowAFrame(true)
       
       // Check if it's a video file and if it's MOV format
@@ -98,7 +84,7 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
           </style>
         </head>
         <body>
-          <a-scene embedded vr-mode-ui="enabled: false">
+          <a-scene embedded vr-mode-ui="enabled: true">
             ${isVideo ? 
               `<a-videosphere src="${finalUrl}" rotation="0 -90 0"></a-videosphere>` : 
               `<a-sky src="${finalUrl}" rotation="0 -90 0"></a-sky>`
@@ -112,12 +98,12 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
       setIsLoaded(true)
       onReady?.()
     } else {
-      // For public URLs, use Google VR View
+      // For other public URLs, use Google VR View
       setShowAFrame(false)
       
       const params = new URLSearchParams()
       
-      if (type === 'image') {
+      if (type === 'image' || type === 'image360') {
         params.set('image', finalUrl)
       } else {
         params.set('video', finalUrl)

@@ -55,6 +55,13 @@ export async function createComment(postId: string, content: string) {
   return { id: commentRef.id, ...commentData };
 }
 
+export async function deleteComment(postId: string, commentId: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Must be logged in to delete comments');
+
+  await deleteDoc(doc(db, `posts/${postId}/comments`, commentId));
+}
+
 // Like Functions
 export async function toggleLike(postId: string) {
   const user = auth.currentUser;

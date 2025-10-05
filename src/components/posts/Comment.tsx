@@ -88,6 +88,7 @@ export function Comment({
   const [repliesCount, setRepliesCount] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -209,9 +210,126 @@ export function Comment({
             <span>{author.displayName}</span>
             <p>{createdAt ? formatDistanceToNow(createdAt.toDate(), { addSuffix: true }) : 'just now'}</p>
           </div>
+          {/* 3 dots menu for edit/delete */}
+          {canModify && (
+            <div className="ml-auto">
+              <DropdownMenu modal={false} onOpenChange={setIsMenuOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`h-8 w-8 p-0 opacity-100 transition-colors ${
+                      isMenuOpen 
+                        ? 'text-blue-600' 
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="start" 
+                  className="w-32 bg-white border border-gray-200 shadow-lg mt-3 -ml-8 z-50" 
+                  sideOffset={-15}
+                  avoidCollisions={false}
+                  onCloseAutoFocus={(e) => e.preventDefault()}
+                  style={{ 
+                    pointerEvents: 'auto',
+                    zIndex: 99999,
+                    position: 'fixed'
+                  }}
+                >
+                  <DropdownMenuItem 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🔍 Comment Edit clicked!');
+                      setIsEditing(true);
+                    }}
+                    className="text-xs py-1.5 cursor-pointer bg-white hover:bg-gray-50"
+                    style={{
+                      pointerEvents: 'auto',
+                      cursor: 'pointer',
+                      zIndex: 99999,
+                      position: 'relative'
+                    }}
+                  >
+                    <Edit2 className="h-3 w-3 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🔍 Comment Delete clicked!');
+                      setShowDeleteDialog(true);
+                    }}
+                    className="text-xs py-1.5 cursor-pointer text-red-600 bg-white hover:bg-red-50"
+                    style={{
+                      pointerEvents: 'auto',
+                      cursor: 'pointer',
+                      zIndex: 99999,
+                      position: 'relative'
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
         <div className="comment-content">
-          {renderContentWithMentions(initialContent)}
+          {isEditing ? (
+            <div className="mt-2 comment-edit-container">
+              <div className="comment-edit-input-wrapper">
+                <textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  className="comment-edit-textarea"
+                  placeholder="Edit your comment..."
+                  rows={3}
+                />
+              </div>
+              <div className="comment-edit-buttons">
+                <button
+                  onClick={async () => {
+                    if (!editedContent.trim()) return;
+                    setIsSubmitting(true);
+                    try {
+                      await updateDoc(doc(db, 'comments', id), {
+                        content: editedContent.trim(),
+                        updatedAt: serverTimestamp()
+                      });
+                      setIsEditing(false);
+                      toast.success('Comment updated');
+                    } catch (error) {
+                      console.error('Error updating comment:', error);
+                      toast.error('Failed to update comment');
+                    } finally {
+                      setIsSubmitting(false);
+                    }
+                  }}
+                  disabled={!editedContent.trim() || isSubmitting}
+                  className="comment-edit-save-btn"
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditing(false);
+                    setEditedContent(initialContent);
+                  }}
+                  className="comment-edit-cancel-btn"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            renderContentWithMentions(initialContent)
+          )}
         </div>
       </div>
 
@@ -236,11 +354,18 @@ export function Comment({
       <ConfirmationDialog
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           setIsDeleting(true);
-          // Add delete logic here
-          setShowDeleteDialog(false);
-          setIsDeleting(false);
+          try {
+            await deleteComment(id);
+            toast.success('Comment deleted');
+            setShowDeleteDialog(false);
+          } catch (error) {
+            console.error('Error deleting comment:', error);
+            toast.error('Failed to delete comment');
+          } finally {
+            setIsDeleting(false);
+          }
         }}
         title="Delete Comment"
         message="Are you sure you want to delete this comment? This action cannot be undone."

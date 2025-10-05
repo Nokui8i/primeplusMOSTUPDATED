@@ -22,6 +22,7 @@ import PostOptionsMenu from '@/components/posts/PostOptionsMenu'
 import { EditPostDialog } from '@/components/posts/EditPostDialog'
 import { CommentButton } from '@/components/posts/CommentButton'
 import { LikeButton } from '@/components/posts/LikeButton'
+import { HeartButton } from '@/components/ui/HeartButton'
 import { motion } from 'framer-motion'
 import { Video as VideoIcon, Image as ImageIcon, Type as TextIcon, Box as BoxIcon, Globe as GlobeIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -57,11 +58,6 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState(post.content)
 
-  useEffect(() => {
-    }, [post, user?.uid, showComments, currentPost])
-
-  useEffect(() => {
-    }, [showComments])
 
   // Handle post updates with cleanup
   useEffect(() => {
@@ -371,21 +367,12 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
           {/* Post Actions */}
           <div className="px-6 py-3 flex items-center gap-6">
              <div className="flex flex-col items-center">
-               <button 
-                 onClick={handleLike}
-                 className={`flex items-center gap-1.5 py-1.5 ${isLiked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
-               >
-                 {isLiked ? (
-                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                   </svg>
-                 ) : (
-                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-                   </svg>
-                 )}
-                 <span className="text-xs font-medium">{likeCount}</span>
-               </button>
+               <HeartButton 
+                 isLiked={isLiked}
+                 onToggle={handleLike}
+                 likesCount={likeCount}
+                 className="scale-75"
+               />
              </div>
 
             <div className="flex flex-col items-center">
@@ -429,7 +416,7 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
 
           {/* Comments Section */}
           {showComments && (
-            <div className="border-t border-gray-100 dark:border-gray-700">
+            <div className="post-comments-section">
               <div className="p-4">
                 <CommentInput
                   postId={currentPost.id || ''}

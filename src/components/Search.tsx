@@ -117,7 +117,7 @@ export function Search() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => setShowResults(true)}
-          className="input w-full pr-4"
+          className="input"
         />
         {searchQuery && (
           <button

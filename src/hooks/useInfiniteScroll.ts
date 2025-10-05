@@ -29,7 +29,15 @@ export function useInfiniteScroll<T>({
   const shouldLoadMore = useRef(true)
   const retryAttempts = useRef(0)
   const lastLoadTime = useRef(0)
+  const onLoadMoreRef = useRef(onLoadMore)
   const MIN_LOAD_INTERVAL = 1000 // Minimum time between loads in milliseconds
+
+  // Keep the ref updated with the latest onLoadMore
+  useEffect(() => {
+    onLoadMoreRef.current = onLoadMore
+  }, [onLoadMore])
+
+  const loadMoreRef = useRef<() => Promise<void>>()
 
   const loadMore = useCallback(async () => {
     if (!shouldLoadMore.current || isLoading) return
@@ -43,7 +51,7 @@ export function useInfiniteScroll<T>({
     lastLoadTime.current = now
 
     try {
-      await onLoadMore()
+      await onLoadMoreRef.current()
       retryAttempts.current = 0 // Reset retry attempts on successful load
     } catch (err) {
       console.error('Error loading more data:', err)
@@ -51,19 +59,24 @@ export function useInfiniteScroll<T>({
         retryAttempts.current++
         shouldLoadMore.current = true
         setTimeout(() => {
-          loadMore()
+          loadMoreRef.current?.()
         }, 1000 * retryAttempts.current) // Exponential backoff
       }
     } finally {
       shouldLoadMore.current = true
     }
-  }, [isLoading, onLoadMore, retryCount])
+  }, [isLoading, retryCount])
+
+  // Keep the ref updated with the latest loadMore
+  useEffect(() => {
+    loadMoreRef.current = loadMore
+  }, [loadMore])
 
   useEffect(() => {
     if (inView && hasMore && !isLoading && shouldLoadMore.current) {
-      loadMore()
+      loadMoreRef.current?.()
     }
-  }, [inView, hasMore, isLoading, loadMore])
+  }, [inView, hasMore, isLoading])
 
   // Reset retry attempts when data changes
   useEffect(() => {

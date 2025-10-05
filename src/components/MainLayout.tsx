@@ -147,9 +147,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </aside>
 
           {/* Center Area with Header and Main Content */}
-          <div className="flex-1 flex flex-col border-l border-gray-200">
+          <div className="flex-1 flex flex-col border-l border-gray-200 h-screen">
             {/* Center Header */}
-            <div className="hidden md:block">
+            <div className="hidden md:block flex-shrink-0 z-10">
               <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-b border-gray-200">
                 <div className="w-1/2 max-w-md">
                   <Search />
@@ -161,8 +161,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </div>
 
             {/* Main Content - Responsive */}
-            <main ref={mainContentRef} className="flex-1 flex flex-col h-screen overflow-y-auto w-full invisible-scrollbar">
-              <div className="w-full">
+            <main ref={mainContentRef} className="flex-1 overflow-y-auto w-full invisible-scrollbar">
+              <div className="w-full pt-2">
                 {children}
               </div>
             </main>

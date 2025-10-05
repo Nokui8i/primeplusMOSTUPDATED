@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth';
-import { useNotifications } from '@/lib/notifications';
+import { useNotificationsPage } from '@/lib/notifications';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
@@ -22,7 +22,7 @@ import {
 
 export default function NotificationsPage() {
   const { user } = useAuth();
-  const { notifications, loading, deleteNotification, deleteAllNotifications } = useNotifications();
+  const { notifications, loading, deleteNotification, deleteAllNotifications } = useNotificationsPage(user?.uid || '');
   const [filter, setFilter] = useState('all');
   const [displayedNotifications, setDisplayedNotifications] = useState(20);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -185,7 +185,7 @@ export default function NotificationsPage() {
                   {notification.data?.message || notification.data?.text || getNotificationText(notification)}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {formatDistanceToNow(notification.createdAt.toDate(), { addSuffix: true })}
+                  {formatDistanceToNow(notification.createdAt, { addSuffix: true })}
                 </p>
               </div>
               <div className="flex items-center space-x-2">

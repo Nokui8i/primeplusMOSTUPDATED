@@ -19,10 +19,17 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const key = searchParams.get('key');
 
+    console.log('🔍 VR Proxy Debug:', {
+      key,
+      awsRegion: process.env.AWS_REGION,
+      hasAccessKey: !!process.env.AWS_ACCESS_KEY_ID,
+      hasSecretKey: !!process.env.AWS_SECRET_ACCESS_KEY,
+      bucketName: process.env.AWS_S3_BUCKET_NAME
+    });
+
     if (!key) {
       return NextResponse.json({ error: 'Missing key parameter' }, { status: 400 });
     }
-
 
     // Get the object from S3
     const command = new GetObjectCommand({
@@ -56,7 +63,6 @@ export async function GET(request: NextRequest) {
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     headers.set('Access-Control-Allow-Headers', 'Content-Type');
-
 
     return new NextResponse(buffer, {
       status: 200,

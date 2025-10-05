@@ -109,14 +109,14 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
   });
 
   return (
-    <aside className="w-64 h-screen sticky top-0 bg-white px-6 py-8 flex flex-col" role="navigation" aria-label="Main navigation">
+    <aside className="w-64 h-screen sticky top-0 bg-white px-0 -pt-8 pb-8 flex flex-col relative z-20" role="navigation" aria-label="Main navigation" style={{ pointerEvents: 'auto' }}>
       {/* Logo */}
-      <div className="mb-6 -ml-4">
-        <NewLogo size="lg" showText={false} />
+      <div className="mb-0 -ml-4 -mt-24 p-0 m-0">
+        <NewLogo size="xxxl" showText={false} />
       </div>
 
       {/* Navigation Items */}
-      <nav className="flex-1">
+      <nav className="flex-1 px-4 -mt-20">
         <ul className="space-y-1" role="menu">
           {isLoading ? (
             // Loading skeletons
@@ -130,17 +130,24 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
               {filteredNavItems.map((item) => (
                 <li key={item.path} role="menuitem">
                   <button
-                    onClick={() => router.push(item.path)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🔍 Clicking navigation item:', item.label, item.path);
+                      router.push(item.path);
+                    }}
                     onKeyDown={(e) => handleKeyPress(e, item.path)}
                     className={cn(
                       "w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm",
                       "focus:outline-none",
+                      "relative z-10 cursor-pointer",
                       pathname === item.path
                         ? "text-blue-600 bg-blue-50 font-medium"
                         : "text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-normal"
                     )}
                     aria-label={item.ariaLabel}
                     aria-current={pathname === item.path ? 'page' : undefined}
+                    style={{ pointerEvents: 'auto' }}
                   >
                     {item.label}
                   </button>
@@ -153,7 +160,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     onKeyDown={(e) => handleKeyPress(e, '/admin')}
                     className={cn(
                       "w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm",
-                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+                      "focus:outline-none",
                       pathname === '/admin'
                         ? "text-blue-600 bg-blue-50 font-medium"
                         : "text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-normal"

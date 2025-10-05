@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import '@/styles/globals.css'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ChatProvider } from '@/contexts/ChatContext'
 import { RootLayoutContent } from '@/components/RootLayoutContent'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { NotificationList } from '@/components/common/NotificationList'
@@ -22,10 +23,12 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <NotificationProvider>
-            <RootLayoutContent>{children}</RootLayoutContent>
-            <NotificationList />
-          </NotificationProvider>
+          <ChatProvider>
+            <NotificationProvider>
+              <RootLayoutContent>{children}</RootLayoutContent>
+              <NotificationList />
+            </NotificationProvider>
+          </ChatProvider>
         </AuthProvider>
       </body>
     </html>

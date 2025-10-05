@@ -28,10 +28,6 @@ export function CreatorCard({
   const [plansLoading, setPlansLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
-  // Debug logging
-  console.log('CreatorCard props:', { userId, username, displayName, photoURL, coverPhotoUrl });
-  console.log('Display name value:', displayName);
-  console.log('Username value:', username);
 
   const SUBSCRIPTIONS_API_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_API_URL || '';
 

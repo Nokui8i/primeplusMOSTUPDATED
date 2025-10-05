@@ -79,11 +79,13 @@ export function Feed() {
     fetchPosts(true)
   }, [fetchPosts])
 
+  const handleLoadMore = useCallback(() => fetchPosts(false), [fetchPosts])
+
   const { loadMoreRef, loadMore } = useInfiniteScroll({
     data: posts,
     hasMore,
     isLoading,
-    onLoadMore: () => fetchPosts(false),
+    onLoadMore: handleLoadMore,
     error
   })
 

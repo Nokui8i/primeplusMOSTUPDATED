@@ -160,8 +160,8 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
   }
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="space-y-3 max-h-[500px] overflow-y-auto">
+    <div className={cn("space-y-0", className)}>
+      <div className="space-y-0 max-h-[500px] overflow-y-auto">
         {visibleComments.map((comment) => (
           <CommentWithReplies
             key={comment.id}
