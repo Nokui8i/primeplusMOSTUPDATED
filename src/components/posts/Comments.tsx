@@ -155,26 +155,26 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
     <div className="comments-bubble-container">
       {/* Sort Filter - Inside comments window */}
       {onSortChange && (
-        <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-700/50">
+        <div className="px-2 py-1 border-b border-gray-100 dark:border-gray-700/50">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                <ArrowUpDown className="h-3 w-3" />
+              <Button variant="ghost" size="sm" className="h-5 gap-0.5 px-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100">
+                <ArrowUpDown className="h-2.5 w-2.5" />
                 <span className="text-xs">
                   {sortBy === 'newest' ? 'Newest' : 'Oldest'}
                 </span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-32">
+            <DropdownMenuContent align="start" className="w-24 bg-white">
               <DropdownMenuItem 
                 onClick={() => onSortChange('newest')}
-                className="text-xs py-1.5"
+                className="text-xs py-0.5"
               >
                 Newest First
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onSortChange('oldest')}
-                className="text-xs py-1.5"
+                className="text-xs py-0.5"
               >
                 Oldest First
               </DropdownMenuItem>

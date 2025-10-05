@@ -11,7 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotificationsInfiniteScroll, Notification, createTestNotification, markAllNotificationsAsRead } from '@/lib/notifications';
+import { useNotificationsInfiniteScroll, Notification, markAllNotificationsAsRead } from '@/lib/notifications';
+import { deleteNotification, restoreNotification } from '@/lib/firebase/db';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -42,6 +43,7 @@ export function NotificationsDropdown() {
   const { toast: simpleToast } = useSimpleToast();
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('all');
+  const [undoMessage, setUndoMessage] = useState<{id: string, data: any} | null>(null);
   const router = useRouter();
   
   // Use infinite scroll notifications
@@ -150,15 +152,50 @@ export function NotificationsDropdown() {
       url = `/profile/${notification.fromUserId}`;
       router.push(url);
     } else if (notification.type === 'comment') {
-      // For comments, we might need to get the postId from somewhere else
-      // For now, just go to the user's profile
-      url = `/profile/${notification.fromUserId}`;
-      router.push(url);
+      // Navigate to the specific post with comment highlighted
+      const postId = notification.data?.postId;
+      const commentId = notification.data?.commentId;
+      if (postId) {
+        url = `/post/${postId}`;
+        if (commentId) {
+          url += `?showComments=true&commentId=${commentId}&highlight=true`;
+        } else {
+          url += '?showComments=true';
+        }
+        router.push(url);
+      } else {
+        // Fallback to user profile if no postId
+        url = `/profile/${notification.fromUserId}`;
+        router.push(url);
+      }
     } else if (notification.type === 'like') {
-      // For likes, we might need to get the postId from somewhere else
-      // For now, just go to the user's profile
-      url = `/profile/${notification.fromUserId}`;
-      router.push(url);
+      // Navigate to the specific post
+      const postId = notification.data?.postId;
+      if (postId) {
+        url = `/post/${postId}`;
+        router.push(url);
+      } else {
+        // Fallback to user profile if no postId
+        url = `/profile/${notification.fromUserId}`;
+        router.push(url);
+      }
+    } else if (notification.type === 'mention') {
+      // Navigate to the specific post with comment highlighted
+      const postId = notification.data?.postId;
+      const commentId = notification.data?.commentId;
+      if (postId) {
+        url = `/post/${postId}`;
+        if (commentId) {
+          url += `?showComments=true&commentId=${commentId}&highlight=true`;
+        } else {
+          url += '?showComments=true';
+        }
+        router.push(url);
+      } else {
+        // Fallback to user profile if no postId
+        url = `/profile/${notification.fromUserId}`;
+        router.push(url);
+      }
     }
     setIsOpen(false); // Close the dropdown after navigation
   };
@@ -169,35 +206,40 @@ export function NotificationsDropdown() {
     
     try {
       console.log('🔔 Deleting notification:', notificationId);
-      // Import deleteDoc from firebase/firestore
-      const { deleteDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
       
-      await deleteDoc(doc(db, 'notifications', notificationId));
+      // Find the notification to delete and store its data for potential undo
+      const notificationToDelete = notifications.find(n => n.id === notificationId);
+      if (!notificationToDelete) {
+        console.error('🔔 Notification not found:', notificationId);
+        return;
+      }
+      
+      // Store notification data for undo
+      const notificationData = {
+        type: notificationToDelete.type,
+        fromUserId: notificationToDelete.fromUserId,
+        toUserId: notificationToDelete.toUserId,
+        fromUser: notificationToDelete.fromUser,
+        read: notificationToDelete.read,
+        data: notificationToDelete.data,
+        createdAt: notificationToDelete.createdAt // Preserve original timestamp
+      };
+      
+      // Delete the notification
+      await deleteNotification(notificationId);
       console.log('🔔 Notification deleted successfully');
       
       // Update local state immediately
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       
-      // Show toast notification
-      console.log('🔔 Showing toast notification');
-      simpleToast({
-        title: "Notification deleted",
-        description: "The notification has been removed",
-        action: (
-          <button
-            onClick={() => {
-              // TODO: Implement undo functionality
-              console.log('Undo delete notification');
-            }}
-            className="text-blue-600 hover:text-blue-700 font-medium text-xs"
-          >
-            Undo
-          </button>
-        ),
-        duration: 5000
-      });
-      console.log('🔔 Toast notification called');
+      // Show undo message within the dropdown
+      console.log('🔔 Showing undo message in dropdown');
+      setUndoMessage({ id: notificationId, data: notificationData });
+      
+      // Auto-hide undo message after 5 seconds
+      setTimeout(() => {
+        setUndoMessage(null);
+      }, 5000);
     } catch (error) {
       console.error('🔔 Error deleting notification:', error);
     }
@@ -245,14 +287,6 @@ export function NotificationsDropdown() {
       });
     } catch (error) {
       console.error('🔔 Error deleting all notifications:', error);
-    }
-  };
-
-
-  const handleCreateTestNotification = async () => {
-    if (user?.uid) {
-      console.log('🔔 Creating test notification for user:', user.uid);
-      await createTestNotification(user.uid, user.uid);
     }
   };
 
@@ -318,13 +352,6 @@ export function NotificationsDropdown() {
                   <Trash2 className="h-3 w-3" />
                 </Button>
               )}
-              <Button
-                onClick={handleCreateTestNotification}
-                className="text-xs px-2 py-1 h-6 mr-2"
-                size="sm"
-              >
-                Test
-              </Button>
               <Link 
                 href="/notifications" 
                 className="text-xs text-gray-600 hover:text-gray-800 font-medium transition-all duration-200"
@@ -355,6 +382,36 @@ export function NotificationsDropdown() {
               </label>
             </div>
           </div>
+          
+          {/* Undo Message */}
+          {undoMessage && (
+            <div className="px-3 py-2 bg-blue-50 border-b border-blue-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-blue-700 font-medium">Notification deleted</span>
+                </div>
+                <button
+                  onClick={async () => {
+                    try {
+                      console.log('🔔 Undoing delete notification');
+                      const restoredId = await restoreNotification(undoMessage.data);
+                      
+                      console.log('🔔 Notification restored successfully with ID:', restoredId);
+                      setUndoMessage(null); // Hide the undo message
+                      
+                      // The real-time listener will automatically pick up the restored notification
+                    } catch (error) {
+                      console.error('🔔 Error restoring notification:', error);
+                    }
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 font-medium underline"
+                >
+                  Undo
+                </button>
+              </div>
+            </div>
+          )}
           
           {loading ? (
             <div className="p-4 text-center text-xs text-gray-500 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg mx-3 my-1">

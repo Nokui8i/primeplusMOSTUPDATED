@@ -55,9 +55,9 @@ export default function AppLoader({ isVisible = true }: { isVisible?: boolean })
               ease: 'easeOut',
               times: [0, 0.6, 1]
             }}
-            className="z-10 mb-8"
+            className="z-10 mb-12"
           >
-              <NewLogo size="xl" showText={false} />
+              <NewLogo size="xxxl" showText={false} />
           </motion.div>
 
           {/* Loading dots */}
@@ -65,12 +65,12 @@ export default function AppLoader({ isVisible = true }: { isVisible?: boolean })
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8, duration: 0.5 }}
-            className="flex space-x-2 z-10"
+            className="flex space-x-3 z-10"
           >
             {[0, 1, 2].map((index) => (
               <motion.div
                 key={index}
-                className="w-3 h-3 bg-blue-500 rounded-full"
+                className="w-4 h-4 bg-blue-500 rounded-full"
                 animate={{
                   scale: [1, 1.2, 1],
                   opacity: [0.5, 1, 0.5]

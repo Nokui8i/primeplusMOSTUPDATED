@@ -15,6 +15,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import LiveKitStream from '@/components/live/LiveKitStream'
 import LiveChat from '@/components/live/LiveChat'
 import { onSnapshot as onDocSnapshot } from 'firebase/firestore'
+import AppLoader from '@/components/common/AppLoader'
 
 const POSTS_PER_PAGE = 10
 
@@ -376,6 +377,53 @@ export default function HomePage() {
     };
   }, [posts]);
 
+  // Infinite scroll effect
+  useEffect(() => {
+    if (inView && hasMore && !loading) {
+      console.log('🔄 Loading more posts...');
+      const loadMorePosts = async () => {
+        if (!lastDoc) return;
+        
+        try {
+          setLoading(true);
+          const postsRef = collection(db, 'posts');
+          const q = query(
+            postsRef, 
+            orderBy('createdAt', 'desc'), 
+            startAfter(lastDoc), 
+            limit(POSTS_PER_PAGE)
+          );
+          
+          const snapshot = await getDocs(q);
+          const newPosts: PostWithAuthor[] = [];
+          
+          for (const doc of snapshot.docs) {
+            try {
+              const processedPost = await processPost(doc);
+              newPosts.push(processedPost);
+            } catch (error) {
+              console.error('Error processing post:', error);
+            }
+          }
+          
+          if (newPosts.length > 0) {
+            setPosts(prev => [...prev, ...newPosts]);
+            setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+            setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
+          } else {
+            setHasMore(false);
+          }
+        } catch (error) {
+          console.error('Error loading more posts:', error);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadMorePosts();
+    }
+  }, [inView, hasMore, loading, lastDoc]);
+
   const handleEndStream = async (streamId: string) => {
     if (!streamId) return;
     try {
@@ -395,13 +443,13 @@ export default function HomePage() {
   };
 
   if (loading && posts.length === 0) {
-    return <div>Loading...</div>;
+    return <AppLoader isVisible={true} />;
   }
 
   return (
     <div className="w-full"> {/* REMOVED py-8 - no padding needed */}
       <div className="w-full"> {/* REMOVED max-w-2xl mx-auto - use full available width */}
-        <div className="space-y-6">
+        <div className="space-y-3">
           {posts
             .filter(post => post.type !== 'live_stream' || (post.type === 'live_stream' && post.status === 'live'))
             .map((post) => (

@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface NewLogoProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'xxxl';
   showText?: boolean;
   className?: string;
 }

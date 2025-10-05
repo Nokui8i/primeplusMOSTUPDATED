@@ -380,7 +380,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
             </div>
           ) : activeTab === 'feed' ? (
             // Feed tab: Show full posts like home page
-            <div className="space-y-6">
+            <div className="space-y-3">
               {filteredPosts.map((post) => (
                 <div key={post.id}>
                   {post.type === 'live_stream' ? (

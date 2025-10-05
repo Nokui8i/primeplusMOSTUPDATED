@@ -49,7 +49,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { createNotification } from '@/lib/firebase/db'
 import { LiveStreamPost } from '@/components/posts/LiveStreamPost'
 import PlansModal from '@/components/creator/PlansModal'
 import { FiEye } from 'react-icons/fi'
@@ -963,7 +962,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   }
 
     return (
-      <div className="relative w-full mb-4" style={{
+      <div className="relative w-full mb-2" style={{
         background: 'white',
         borderRadius: '17px 17px 27px 27px',
         boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'

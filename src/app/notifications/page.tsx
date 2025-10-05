@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/lib/auth';
-import { useNotificationsPage } from '@/lib/notifications';
+import { useAuth } from '@/hooks/useAuth';
+import { useNotificationsInfiniteScroll } from '@/lib/notifications';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Bell, Heart, Users, Image, MessageSquare, FileText, Clock, BellRing, Trash2 } from 'lucide-react';
 import {
   AlertDialog,
@@ -22,19 +21,10 @@ import {
 
 export default function NotificationsPage() {
   const { user } = useAuth();
-  const { notifications, loading, deleteNotification, deleteAllNotifications } = useNotificationsPage(user?.uid || '');
-  const [filter, setFilter] = useState('all');
-  const [displayedNotifications, setDisplayedNotifications] = useState(20);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const { notifications, loading, hasMore, loadMore } = useNotificationsInfiniteScroll(user?.uid || '', 20);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
-
-  const filteredNotifications = filter === 'all' 
-    ? notifications.slice(0, displayedNotifications)
-    : notifications.filter(n => !n.read).slice(0, displayedNotifications);
-
-  const hasMore = notifications.length > displayedNotifications;
 
   const getNotificationText = (notification: any) => {
     switch (notification.type) {
@@ -81,17 +71,97 @@ export default function NotificationsPage() {
 
   const handleNotificationClick = (notification: any) => {
     if (notification.type === 'follow') {
-      window.location.href = `/profile/${notification.data?.userId}`;
+      window.location.href = `/profile/${notification.data?.userId || notification.fromUserId}`;
+    } else if (notification.type === 'comment') {
+      // Navigate to the specific post with comment highlighted
+      const postId = notification.data?.postId;
+      const commentId = notification.data?.commentId;
+      if (postId) {
+        let url = `/post/${postId}`;
+        if (commentId) {
+          url += `?showComments=true&commentId=${commentId}&highlight=true`;
+        } else {
+          url += '?showComments=true';
+        }
+        window.location.href = url;
+      } else {
+        // Fallback to user profile if no postId
+        window.location.href = `/profile/${notification.fromUserId}`;
+      }
+    } else if (notification.type === 'like') {
+      // Navigate to the specific post
+      const postId = notification.data?.postId;
+      if (postId) {
+        window.location.href = `/post/${postId}`;
+      } else {
+        // Fallback to user profile if no postId
+        window.location.href = `/profile/${notification.fromUserId}`;
+      }
+    } else if (notification.type === 'mention') {
+      // Navigate to the specific post with comment highlighted
+      const postId = notification.data?.postId;
+      const commentId = notification.data?.commentId;
+      if (postId) {
+        let url = `/post/${postId}`;
+        if (commentId) {
+          url += `?showComments=true&commentId=${commentId}&highlight=true`;
+        } else {
+          url += '?showComments=true';
+        }
+        window.location.href = url;
+      } else {
+        // Fallback to user profile if no postId
+        window.location.href = `/profile/${notification.fromUserId}`;
+      }
     }
-    // Remove post-related navigation
   };
 
-  const loadMore = () => {
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setDisplayedNotifications(prev => prev + 20);
-      setIsLoadingMore(false);
-    }, 500);
+
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      await deleteDoc(doc(db, 'notifications', notificationId));
+      console.log('🔔 Notification deleted:', notificationId);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      throw error;
+    }
+  };
+
+  const deleteAllNotifications = async () => {
+    try {
+      const { collection, query, where, getDocs, writeBatch } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      if (!user?.uid) return;
+      
+      // Get all notifications for the user
+      const q = query(
+        collection(db, 'notifications'),
+        where('toUserId', '==', user.uid)
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('🔔 No notifications to delete');
+        return;
+      }
+      
+      // Use batch delete for better performance
+      const batch = writeBatch(db);
+      
+      snapshot.forEach((docSnapshot) => {
+        batch.delete(docSnapshot.ref);
+      });
+      
+      await batch.commit();
+      console.log('🔔 Deleted', snapshot.size, 'notifications for user:', user.uid);
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
+      throw error;
+    }
   };
 
   const handleDeleteNotification = (notificationId: string) => {
@@ -125,95 +195,140 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Notifications</h1>
+    <div className="w-full max-w-4xl mx-auto">
+      <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-white">
+        <h1 className="text-sm font-medium text-gray-700">
+          Notifications
+        </h1>
         {notifications.length > 0 && (
           <Button
             variant="ghost"
             size="icon"
-            className="text-gray-500 hover:text-red-500"
+            className="h-6 w-6 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-all duration-200"
             onClick={handleDeleteAllNotifications}
+            style={{
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+              background: 'rgba(255, 255, 255, 0.8)',
+              backdropFilter: 'blur(10px)'
+            }}
           >
-            <Trash2 className="h-5 w-5" />
+            <Trash2 className="h-3 w-3" />
           </Button>
         )}
       </div>
 
-      <div className="mb-6">
-        <Tabs value={filter} onValueChange={setFilter} className="w-full">
-          <TabsList className="grid w-48 grid-cols-2">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="unread">Unread</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-      
       {loading ? (
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg animate-pulse">
-              <div className="h-10 w-10 rounded-full bg-gray-200" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-3/4" />
-                <div className="h-3 bg-gray-200 rounded w-1/2" />
-              </div>
-            </div>
-          ))}
+        <div className="p-4 text-center text-xs text-gray-500 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg mx-3 my-1">
+          <div className="animate-spin w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-1"></div>
+          Loading...
         </div>
-      ) : filteredNotifications.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No notifications</p>
+      ) : notifications.length === 0 ? (
+        <div className="p-4 text-center text-xs text-gray-500 bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg mx-3 my-1">
+          <Bell className="w-5 h-5 text-gray-400 mx-auto mb-1" />
+          No notifications
         </div>
       ) : (
-        <div className="space-y-4">
-          {filteredNotifications.map((notification) => (
-            <div 
-              key={notification.id} 
-              className="flex items-start space-x-4 p-4 hover:bg-gray-50 cursor-pointer transition-colors duration-200 group"
+        <div 
+          className="max-h-[600px] overflow-y-auto p-1 pb-4 invisible-scrollbar" 
+          style={{
+            scrollBehavior: 'smooth',
+            overscrollBehavior: 'contain'
+          }}
+        >
+          {notifications.map((notification) => (
+            <div
+              key={notification.id}
+              className="notification-card"
+              role="alert"
               onClick={() => handleNotificationClick(notification)}
+              style={{
+                width: '100%',
+                maxWidth: '100%',
+                padding: '0.5rem 0.75rem',
+                color: '#111827',
+                backgroundColor: 'white',
+                borderRadius: '0.5rem',
+                boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                marginBottom: '0.5rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
             >
-              <Avatar className="h-10 w-10">
-                <AvatarImage src={notification.fromUser?.photoURL} />
-                <AvatarFallback>
-                  {notification.fromUser?.displayName?.[0]}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-gray-900">
-                  <span className="font-medium">{notification.fromUser?.displayName}</span>{' '}
-                  {notification.data?.message || notification.data?.text || getNotificationText(notification)}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {formatDistanceToNow(notification.createdAt, { addSuffix: true })}
-                </p>
-              </div>
-              <div className="flex items-center space-x-2">
-                {getNotificationIcon(notification.type)}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+              <div className="notification-header" style={{ marginBottom: '0.0625rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="notification-close-btn"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDeleteNotification(notification.id);
                   }}
+                  aria-label="Close"
+                  style={{
+                    backgroundColor: 'white',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    flexShrink: 0,
+                    color: '#9ca3af',
+                    borderRadius: '0.25rem',
+                    padding: '0.125rem',
+                    height: '1.25rem',
+                    width: '1.25rem',
+                    display: 'inline-flex',
+                    transition: 'all 0.2s ease',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="notification-content" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', paddingTop: '0.25rem' }}>
+                <div className="notification-avatar-container" style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
+                  <div className="notification-avatar" style={{ width: '2.5rem', height: '2.5rem', borderRadius: '50%', backgroundColor: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
+                    {notification.fromUser?.photoURL ? (
+                      <img 
+                        src={notification.fromUser.photoURL} 
+                        alt={notification.fromUser?.displayName || 'User'} 
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                    ) : (
+                      notification.fromUser?.displayName?.[0] || 'U'
+                    )}
+                  </div>
+                  <div className="notification-status-badge" style={{ position: 'absolute', bottom: 0, right: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '1rem', height: '1rem', backgroundColor: '#2563eb', borderRadius: '50%' }}>
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                </div>
+                <div className="notification-text" style={{ flex: 1, minWidth: 0 }}>
+                  <div className="notification-user-name" style={{ fontSize: '0.875rem', fontWeight: 600, color: '#111827', marginBottom: '0.125rem' }}>
+                    {notification.fromUser?.displayName || 'Unknown User'}
+                  </div>
+                  <div className="notification-message" style={{ fontSize: '0.875rem', fontWeight: 400, color: '#374151', marginBottom: '0.125rem' }}>
+                    {notification.data?.message || notification.data?.text || getNotificationText(notification)}
+                  </div>
+                  <div className="notification-time" style={{ fontSize: '0.75rem', fontWeight: 500, color: '#2563eb' }}>
+                    {formatDistanceToNow(notification.createdAt, { addSuffix: true })}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
 
           {hasMore && (
-            <div className="text-center pt-4">
+            <div className="text-center pt-4 px-3">
               <Button
                 variant="outline"
                 onClick={loadMore}
-                disabled={isLoadingMore}
-                className="text-gray-600 hover:text-gray-900"
+                disabled={loading}
+                className="text-xs text-gray-600 hover:text-gray-900 bg-white border-gray-200 hover:bg-gray-50"
+                style={{
+                  fontSize: '0.75rem',
+                  padding: '0.25rem 0.75rem',
+                  height: 'auto',
+                  borderRadius: '0.375rem'
+                }}
               >
-                {isLoadingMore ? 'Loading...' : 'See previous notifications'}
+                {loading ? 'Loading...' : 'Load more notifications'}
               </Button>
             </div>
           )}
