@@ -4,7 +4,7 @@ import { doc, getDoc, collection, addDoc, serverTimestamp, writeBatch, increment
 import { db } from '@/lib/firebase/config'
 import { toast } from 'react-hot-toast'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { createNotification } from '@/lib/notifications'
+import { createNotification } from '@/lib/firebase/db'
 import { isCommand } from '@/lib/utils'
 import { UserTagInput } from '@/components/ui/user-tag-input'
 import { createComment } from '@/lib/firebase/db'
@@ -122,15 +122,16 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId, p
     try {
       // Use the unified createComment function
       const commentId = await createComment(postId, comment, user, parentId || undefined)
-      // Send notifications to tagged users
+      // Send notifications to tagged users (mentions)
       for (const taggedUserId of taggedUsers) {
         if (taggedUserId !== user.uid) {
           await createNotification({
-            type: 'comment',
+            type: 'mention',
             fromUser: {
               uid: user.uid,
               displayName: user.displayName || 'Anonymous',
-              photoURL: user.photoURL || ''
+              photoURL: user.photoURL || '',
+              username: user.displayName || 'Anonymous'
             },
             toUser: taggedUserId,
             data: {
@@ -138,7 +139,7 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId, p
               commentId,
               text: comment.trim().length > 100 ? comment.trim().substring(0, 100) + '...' : comment.trim(),
               isCommand: isCommand(comment.trim()),
-              timestamp: Timestamp.now()
+              timestamp: serverTimestamp()
             }
           });
         }

@@ -18,6 +18,9 @@ import { setupExistingUsers } from './migrations/setupExistingUsers';
 // Import and re-export Follow triggers
 import { onFollowWrite } from './triggers/followTriggers';
 
+// Import and re-export Notification triggers
+import { onLikeCreate, onCommentCreate, onFollowCreate } from './triggers/notificationTriggers';
+
 import { deleteCreatorVerificationDataHttp } from './admin/supportActions';
 import { sendNotificationHttp } from './admin/notifications';
 
@@ -163,7 +166,7 @@ export const testHttp = onRequest((req, res) => {
   res.json({ message: 'Test function is working!' });
 });
 
-export { plansApi, subscriptionsApi, onUserCreate, setupExistingUsers, onFollowWrite, deleteCreatorVerificationDataHttp, sendNotificationHttp };
+export { plansApi, subscriptionsApi, onUserCreate, setupExistingUsers, onFollowWrite, onLikeCreate, onCommentCreate, onFollowCreate, deleteCreatorVerificationDataHttp, sendNotificationHttp };
 
 // Scheduled tasks
 export { restoreUserRoles } from './scheduled/restoreUserRoles';

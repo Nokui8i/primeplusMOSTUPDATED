@@ -16,7 +16,7 @@ import { MoreVertical, Edit2, Trash2, ThumbsUp, Heart, MessageSquare, MoreHorizo
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { Textarea } from '@/components/ui/textarea';
-import { createNotification, toggleLike, deleteComment, deleteNotification, createComment } from '@/lib/firebase/db';
+import { toggleLike, deleteComment, createComment } from '@/lib/firebase/db';
 import { FaHeart, FaRegHeart, FaReply, FaTrash, FaEdit } from 'react-icons/fa';
 import { LikesList } from './LikesList';
 import { CommentsList } from './CommentsList';

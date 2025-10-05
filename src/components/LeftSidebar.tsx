@@ -12,6 +12,7 @@ import { signOut } from 'firebase/auth'
 import Link from 'next/link'
 import { useTotalUnreadMessagesCount } from '@/lib/messages'
 import { useAuth } from '@/hooks/useAuth';
+import { useRoutePrefetch } from './common/RoutePrefetcher'
 import { ContentUploadDialog } from '@/components/creator/ContentUploadDialog';
 
 interface NavItem {
@@ -66,6 +67,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
   const [userRole, setUserRole] = useState<string | null>(null)
   const unreadCount = useTotalUnreadMessagesCount()
   const { logout } = useAuth();
+  const { prefetchOnHover } = useRoutePrefetch();
 
   useEffect(() => {
     async function fetchUserData() {
@@ -136,6 +138,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                       console.log('🔍 Clicking navigation item:', item.label, item.path);
                       router.push(item.path);
                     }}
+                    onMouseEnter={() => prefetchOnHover(item.path)}
                     onKeyDown={(e) => handleKeyPress(e, item.path)}
                     className={cn(
                       "w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm",

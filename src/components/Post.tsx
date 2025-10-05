@@ -402,12 +402,15 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
             {user?.uid === currentPost.authorId && (currentPost as any)?.engagement && (
               <div className="flex flex-col items-center">
                 <div className="flex items-center justify-center" style={{ width: '30px', height: '30px' }}>
-                  <svg className="w-6 h-6" fill="none" stroke="rgb(91, 173, 255)" strokeWidth="2" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8" fill="none" stroke="rgb(91, 173, 255)" strokeWidth="2" viewBox="0 0 24 24">
                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                     <circle cx="12" cy="12" r="3"/>
                   </svg>
                 </div>
-                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 min-w-[16px] text-center -mt-2">
+                <span 
+                  className="text-xs font-semibold text-gray-700 dark:text-gray-300 min-w-[16px] text-center"
+                  style={{ transform: 'translateY(12px)', paddingTop: '12px', marginTop: '12px' }}
+                >
                   {(currentPost as any)?.engagement?.views || 0}
                 </span>
               </div>

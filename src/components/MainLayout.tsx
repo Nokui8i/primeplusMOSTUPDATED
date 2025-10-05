@@ -13,6 +13,8 @@ import { AnimatePresence } from 'framer-motion';
 import { FiMenu, FiFilter, FiX, FiBell } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 import { UserProfile } from '@/lib/types/user';
+import { RoutePrefetcher } from './common/RoutePrefetcher';
+import { DataPreloader } from './common/DataPreloader';
 
 interface Creator {
   id: string;
@@ -117,22 +119,87 @@ export default function MainLayout({ children }: MainLayoutProps) {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Global scroll handler - redirect all scroll events to main content
+
+  // Global scroll handler - redirect scroll events to main content when mouse is over feed
   useEffect(() => {
+    let scrollAccumulator = 0;
+    let animationFrame: number;
+    let accumulatorTimeout: NodeJS.Timeout;
+
     const handleGlobalScroll = (e: WheelEvent) => {
-      // Only handle scroll if we're not already scrolling the main content
-      if (mainContentRef.current && !mainContentRef.current.contains(e.target as Node)) {
-        e.preventDefault();
-        const scrollAmount = e.deltaY;
-        mainContentRef.current.scrollTop += scrollAmount;
-      }
+
+            // Only redirect scroll to main content when mouse is over the feed area
+            if (mainContentRef.current) {
+              // Check if we're already scrolling within the main content area
+              const isWithinMainContent = mainContentRef.current.contains(e.target as Node);
+              
+              // Check if mouse is over the main content area
+              const mainContentRect = mainContentRef.current.getBoundingClientRect();
+              const isMouseOverFeed = (
+                e.clientX >= mainContentRect.left &&
+                e.clientX <= mainContentRect.right &&
+                e.clientY >= mainContentRect.top &&
+                e.clientY <= mainContentRect.bottom
+              );
+              
+              
+              // Only redirect scroll if mouse is over the feed area and we're not already scrolling within it
+              if (!isWithinMainContent && isMouseOverFeed) {
+          // Prevent default scroll behavior
+          e.preventDefault();
+          e.stopPropagation();
+          
+          // Accumulate scroll delta for smoother scrolling
+          scrollAccumulator += e.deltaY;
+          
+          // Clear existing timeout and set new one to reset accumulator after inactivity
+          if (accumulatorTimeout) {
+            clearTimeout(accumulatorTimeout);
+          }
+          accumulatorTimeout = setTimeout(() => {
+            scrollAccumulator = 0;
+          }, 150); // Reset after 150ms of inactivity
+          
+          // Use requestAnimationFrame for smooth scrolling
+          if (animationFrame) {
+            cancelAnimationFrame(animationFrame);
+          }
+          
+          animationFrame = requestAnimationFrame(() => {
+            if (mainContentRef.current) {
+              // Apply accumulated scroll with smooth multiplier
+              const scrollAmount = scrollAccumulator * 1.5;
+              mainContentRef.current.scrollTop += scrollAmount;
+              scrollAccumulator *= 0.4; // Persistence factor
+              
+              // Continue animation if there's still accumulated scroll
+              if (Math.abs(scrollAccumulator) > 1.0) {
+                animationFrame = requestAnimationFrame(() => {
+                  if (mainContentRef.current) {
+                    mainContentRef.current.scrollTop += scrollAccumulator;
+                    scrollAccumulator = 0;
+                  }
+                });
+              } else {
+                scrollAccumulator = 0;
+              }
+            }
+          });
+              }
+            }
     };
 
-    // Add event listener to document
+    // Add event listener with passive: false to allow preventDefault
     document.addEventListener('wheel', handleGlobalScroll, { passive: false });
 
     return () => {
       document.removeEventListener('wheel', handleGlobalScroll);
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+      if (accumulatorTimeout) {
+        clearTimeout(accumulatorTimeout);
+      }
     };
   }, []);
 
@@ -161,8 +228,18 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </div>
 
             {/* Main Content - Responsive */}
-            <main ref={mainContentRef} className="flex-1 overflow-y-auto w-full invisible-scrollbar">
-              <div className="w-full pt-2">
+            <main 
+              ref={mainContentRef} 
+              className="flex-1 overflow-y-auto w-full invisible-scrollbar"
+              style={{ 
+                scrollBehavior: 'smooth',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch',
+                minHeight: '0' // Ensure flex item can shrink
+              }}
+            >
+              <div className="w-full pt-2 min-h-full">
                 {children}
               </div>
             </main>
@@ -264,6 +341,12 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </AnimatePresence>
 
       <AnimatePresence>{showLoader && <AppLoader isVisible={showLoader} />}</AnimatePresence>
+      
+      {/* Route Prefetcher for faster navigation */}
+      <RoutePrefetcher />
+      
+      {/* Data Preloader for common data */}
+      <DataPreloader />
     </div>
   );
 } 

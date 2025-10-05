@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteStoryAndFileHttp = exports.cleanupExpiredStories = exports.restoreUserRoles = exports.sendNotificationHttp = exports.deleteCreatorVerificationDataHttp = exports.onFollowWrite = exports.setupExistingUsers = exports.onUserCreate = exports.subscriptionsApi = exports.plansApi = exports.testHttp = exports.cleanupStorageOnStoryDelete = exports.cleanupStorageOnUserDelete = exports.cleanupStorageOnPostDelete = void 0;
+exports.deleteStoryAndFileHttp = exports.cleanupExpiredStories = exports.restoreUserRoles = exports.sendNotificationHttp = exports.deleteCreatorVerificationDataHttp = exports.onFollowCreate = exports.onCommentCreate = exports.onLikeCreate = exports.onFollowWrite = exports.setupExistingUsers = exports.onUserCreate = exports.subscriptionsApi = exports.plansApi = exports.testHttp = exports.cleanupStorageOnStoryDelete = exports.cleanupStorageOnUserDelete = exports.cleanupStorageOnPostDelete = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
@@ -51,6 +51,11 @@ Object.defineProperty(exports, "setupExistingUsers", { enumerable: true, get: fu
 // Import and re-export Follow triggers
 const followTriggers_1 = require("./triggers/followTriggers");
 Object.defineProperty(exports, "onFollowWrite", { enumerable: true, get: function () { return followTriggers_1.onFollowWrite; } });
+// Import and re-export Notification triggers
+const notificationTriggers_1 = require("./triggers/notificationTriggers");
+Object.defineProperty(exports, "onLikeCreate", { enumerable: true, get: function () { return notificationTriggers_1.onLikeCreate; } });
+Object.defineProperty(exports, "onCommentCreate", { enumerable: true, get: function () { return notificationTriggers_1.onCommentCreate; } });
+Object.defineProperty(exports, "onFollowCreate", { enumerable: true, get: function () { return notificationTriggers_1.onFollowCreate; } });
 const supportActions_1 = require("./admin/supportActions");
 Object.defineProperty(exports, "deleteCreatorVerificationDataHttp", { enumerable: true, get: function () { return supportActions_1.deleteCreatorVerificationDataHttp; } });
 const notifications_1 = require("./admin/notifications");

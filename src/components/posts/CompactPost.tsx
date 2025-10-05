@@ -1177,13 +1177,16 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
           {/* Views counter, only for post author */}
           {user?.uid === currentPost.authorId && (currentPost as any)?.engagement && (
             <div className="flex flex-col items-center gap-0">
-              <div className="w-5 h-5 flex items-center justify-center" style={{ width: '20px', height: '20px' }}>
-                <svg className="w-4 h-4" fill="none" stroke="rgb(91, 173, 255)" strokeWidth="2" viewBox="0 0 24 24">
+              <div className="flex items-center justify-center" style={{ width: '20px', height: '20px', transform: 'translateY(4px)' }}>
+                <svg className="w-6 h-6" fill="none" stroke="rgb(91, 173, 255)" strokeWidth="2" viewBox="0 0 24 24">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
                 </svg>
               </div>
-              <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 min-w-[16px] text-center -mt-2">
+              <span 
+                className="text-xs font-semibold text-gray-700 dark:text-gray-300 min-w-[16px] text-center"
+                style={{ transform: 'translateY(11px)', paddingTop: '0px', marginTop: '0px' }}
+              >
                 {(currentPost as any)?.engagement?.views || 0}
               </span>
             </div>

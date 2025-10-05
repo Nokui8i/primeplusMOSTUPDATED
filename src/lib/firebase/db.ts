@@ -1,5 +1,5 @@
 import { db, auth } from '../firebase';
-import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy, limit, serverTimestamp, increment } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy, limit, serverTimestamp, increment, addDoc } from 'firebase/firestore';
 import type { UserProfile, Post, Comment, Subscription, Like } from '@/types/user';
 
 // User Functions
@@ -70,6 +70,10 @@ export async function createComment(postId: string, content: string, user?: any,
   await setDoc(commentRef, commentData);
   
   console.log('[createComment] Comment created with data:', commentData);
+
+  // Note: Notification creation for post author is now handled by Firebase trigger onCommentCreate
+  // Only mention notifications are handled here for tagged users
+
   return { id: commentRef.id, ...commentData };
 }
 
@@ -99,6 +103,8 @@ export async function toggleLike(postId: string) {
       createdAt: serverTimestamp(),
     };
     await setDoc(likeRef, likeData);
+    
+    // Note: Notification creation is now handled by Firebase trigger onLikeCreate
     return true; // Like
   }
 }
@@ -238,12 +244,61 @@ export async function toggleSave(postId: string): Promise<boolean> {
   throw new Error('toggleSave function not implemented');
 }
 
-export async function createNotification(notification: any): Promise<void> {
-  // Placeholder implementation
-  throw new Error('createNotification function not implemented');
+export async function createNotification(notification: {
+  type: 'like' | 'comment' | 'follow' | 'mention';
+  fromUser: {
+    uid: string;
+    displayName: string;
+    photoURL?: string;
+    username?: string;
+  };
+  toUser: string;
+  data?: any;
+}): Promise<void> {
+  try {
+    const notificationData = {
+      type: notification.type,
+      fromUserId: notification.fromUser.uid,
+      toUserId: notification.toUser,
+      fromUser: {
+        uid: notification.fromUser.uid,
+        displayName: notification.fromUser.displayName,
+        photoURL: notification.fromUser.photoURL || '',
+        username: notification.fromUser.username || ''
+      },
+      read: false,
+      data: notification.data || {},
+      createdAt: serverTimestamp()
+    };
+
+    await addDoc(collection(db, 'notifications'), notificationData);
+    console.log('🔔 Notification created:', notificationData);
+  } catch (error) {
+    console.error('Error creating notification:', error);
+  }
 }
 
 export async function deleteNotification(notificationId: string): Promise<void> {
-  // Placeholder implementation
-  throw new Error('deleteNotification function not implemented');
+  try {
+    await deleteDoc(doc(db, 'notifications', notificationId));
+    console.log('🔔 Notification deleted:', notificationId);
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    throw error;
+  }
+}
+
+export async function restoreNotification(notificationData: any): Promise<string> {
+  try {
+    const docRef = await addDoc(collection(db, 'notifications'), {
+      ...notificationData,
+      // Use the original createdAt timestamp if provided, otherwise use current time
+      createdAt: notificationData.createdAt || serverTimestamp()
+    });
+    console.log('🔔 Notification restored:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Error restoring notification:', error);
+    throw error;
+  }
 } 

@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, onSnapshot, doc, getDoc, updateDoc, writeBatch, getDocs, startAfter } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, onSnapshot, doc, getDoc, updateDoc, writeBatch, getDocs, startAfter, deleteDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 export interface Notification {
@@ -137,61 +137,58 @@ export function useNotificationsInfiniteScroll(userId: string, pageSize: number 
       limit(pageSize)
     );
 
-    // Use getDocs for initial load to avoid real-time interference
-    const loadInitialNotifications = async () => {
-      try {
-        const snapshot = await getDocs(q);
-        const notifications: Notification[] = [];
-        
-        snapshot.forEach((doc) => {
-          const data = doc.data();
-          try {
-            // Extract fromUserId from either direct field or nested fromUser.uid
-            const fromUserId = data.fromUserId || data.fromUser?.uid;
-            
-            // Validate notification data
-            if (fromUserId && data.toUserId && data.type) {
-              notifications.push({
-                id: doc.id,
-                type: data.type,
-                fromUserId: fromUserId,
-                toUserId: data.toUserId,
-                read: data.read || false,
-                data: data.data || {},
-                createdAt: data.createdAt?.toDate() || new Date(),
-                fromUser: data.fromUser // Include the full fromUser object if available
-              });
-            } else {
-              console.warn('🔔 Skipping malformed notification:', doc.id, data);
-            }
-          } catch (error) {
-            console.error('🔔 Error processing notification:', doc.id, error);
+    // Use real-time listener for immediate updates (including restored notifications)
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifications: Notification[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        try {
+          // Extract fromUserId from either direct field or nested fromUser.uid
+          const fromUserId = data.fromUserId || data.fromUser?.uid;
+          
+          // Validate notification data
+          if (fromUserId && data.toUserId && data.type) {
+            notifications.push({
+              id: doc.id,
+              type: data.type,
+              fromUserId: fromUserId,
+              toUserId: data.toUserId,
+              read: data.read || false,
+              data: data.data || {},
+              createdAt: data.createdAt?.toDate() || new Date(),
+              fromUser: data.fromUser // Include the full fromUser object if available
+            });
+          } else {
+            console.warn('🔔 Skipping malformed notification:', doc.id, data);
           }
-        });
-
-        console.log('🔔 useNotificationsInfiniteScroll: Fetched', notifications.length, 'notifications');
-        setNotifications(notifications);
-        setLoading(false);
-        setIsInitialLoad(false);
-        
-        // Set lastDoc for pagination
-        if (snapshot.docs.length > 0) {
-          setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
-          setHasMore(snapshot.docs.length === pageSize);
-          console.log('🔔 Initial load: HasMore set to', snapshot.docs.length === pageSize, 'for', snapshot.docs.length, 'notifications');
-        } else {
-          setHasMore(false);
-          console.log('🔔 Initial load: No notifications found. HasMore set to false');
+        } catch (error) {
+          console.error('🔔 Error processing notification:', doc.id, error);
         }
-      } catch (error) {
-        console.error('🔔 useNotificationsInfiniteScroll: Firebase error:', error);
-        setNotifications([]);
-        setLoading(false);
-        setIsInitialLoad(false);
-      }
-    };
+      });
 
-    loadInitialNotifications();
+      console.log('🔔 useNotificationsInfiniteScroll: Real-time update - Fetched', notifications.length, 'notifications');
+      setNotifications(notifications);
+      setLoading(false);
+      setIsInitialLoad(false);
+      
+      // Set lastDoc for pagination
+      if (snapshot.docs.length > 0) {
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+        setHasMore(snapshot.docs.length === pageSize);
+        console.log('🔔 Real-time update: HasMore set to', snapshot.docs.length === pageSize, 'for', snapshot.docs.length, 'notifications');
+      } else {
+        setHasMore(false);
+        console.log('🔔 Real-time update: No notifications found. HasMore set to false');
+      }
+    }, (error) => {
+      console.error('🔔 useNotificationsInfiniteScroll: Firebase error:', error);
+      setNotifications([]);
+      setLoading(false);
+      setIsInitialLoad(false);
+    });
+
+    return unsubscribe;
   }, [userId, pageSize]);
 
   const loadMore = async () => {
@@ -386,13 +383,43 @@ export function useNotificationsPage(userId: string) {
   }, [userId]);
 
   const deleteNotification = async (notificationId: string) => {
-    // TODO: Implement delete notification
-    console.log('Delete notification:', notificationId);
+    try {
+      await deleteDoc(doc(db, 'notifications', notificationId));
+      console.log('🔔 Notification deleted:', notificationId);
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      throw error;
+    }
   };
 
   const deleteAllNotifications = async () => {
-    // TODO: Implement delete all notifications
-    console.log('Delete all notifications');
+    try {
+      // Get all notifications for the user
+      const q = query(
+        collection(db, 'notifications'),
+        where('toUserId', '==', userId)
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('🔔 No notifications to delete');
+        return;
+      }
+      
+      // Use batch delete for better performance
+      const batch = writeBatch(db);
+      
+      snapshot.forEach((docSnapshot) => {
+        batch.delete(docSnapshot.ref);
+      });
+      
+      await batch.commit();
+      console.log('🔔 Deleted', snapshot.size, 'notifications for user:', userId);
+    } catch (error) {
+      console.error('Error deleting all notifications:', error);
+      throw error;
+    }
   };
 
   return {

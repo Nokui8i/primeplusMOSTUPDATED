@@ -3,33 +3,22 @@ const webpack = require('webpack');
 
 const nextConfig = {
   reactStrictMode: true,
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'doelz7dqz8shj.cloudfront.net',
-      },
-      {
-        protocol: 'https',
-        hostname: 'picsum.photos',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.pravatar.cc',
-      },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-      }
-    ],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  // Enable aggressive prefetching for faster navigation
+  experimental: {
+    serverActions: {
+      fallback: true
+    },
+    memoryBasedWorkersCount: true,
+    // Enable faster page transitions
+    optimizePackageImports: ['@/components', '@/lib', '@/hooks'],
+    // Enable static optimization
+    staticPageGenerationTimeout: 1000,
   },
-  webpack: (config, { isServer }) => {
+  // Enable compression and optimization
+  compress: true,
+  poweredByHeader: false,
+  // Optimize bundle splitting
+  webpack: (config, { isServer, dev }) => {
     // Handle WebGL and Three.js
     config.externals = [...(config.externals || [])];
     
@@ -97,14 +86,34 @@ const nextConfig = {
 
     return config
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'doelz7dqz8shj.cloudfront.net',
+      },
+      {
+        protocol: 'https',
+        hostname: 'picsum.photos',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.pravatar.cc',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      }
+    ],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+  },
   compiler: {
     styledComponents: true,
-  },
-  experimental: {
-    serverActions: {
-      fallback: true
-    },
-    memoryBasedWorkersCount: true,
   },
   output: 'standalone',
   async headers() {
