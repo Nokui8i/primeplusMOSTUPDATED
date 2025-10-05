@@ -44,7 +44,20 @@ export interface Comment {
 }
 
 export interface Like {
+  id: string;
   userId: string;
   postId: string;
   createdAt: Timestamp | FieldValue;
+}
+
+export interface Subscription {
+  id: string;
+  subscriberId: string;
+  creatorId: string;
+  planId: string;
+  status: 'active' | 'cancelled' | 'expired';
+  startDate: Date;
+  endDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
 } 

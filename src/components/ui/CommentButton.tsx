@@ -4,14 +4,16 @@ interface CommentButtonProps {
   onClick: () => void;
   comments: number;
   postId: string;
+  disabled?: boolean;
 }
 
-export function CommentButton({ onClick, comments, postId }: CommentButtonProps) {
+export function CommentButton({ onClick, comments, postId, disabled = false }: CommentButtonProps) {
   return (
     <button 
-      className="bookmarkBtn"
-      onClick={onClick}
-      title="Comment"
+      className={`bookmarkBtn ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+      onClick={disabled ? undefined : onClick}
+      title={disabled ? "Subscribe to comment on this content" : "Comment"}
+      disabled={disabled}
     >
       <span className="IconContainer"> 
         <svg fill="white" viewBox="0 0 512 512" height="1em" className="icon">

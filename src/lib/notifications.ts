@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, onSnapshot, doc, getDoc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, orderBy, limit, onSnapshot, doc, getDoc, updateDoc, writeBatch, getDocs, startAfter } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 
 export interface Notification {
@@ -110,6 +110,154 @@ export async function markAllNotificationsAsRead(userId: string) {
   } catch (error) {
     console.error('Error marking all notifications as read:', error);
   }
+}
+
+// Infinite scroll hook for notifications
+export function useNotificationsInfiniteScroll(userId: string, pageSize: number = 20) {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastDoc, setLastDoc] = useState<any>(null);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    console.log('🔔 useNotificationsInfiniteScroll: Setting up Firebase listener for userId:', userId);
+    setLoading(true);
+    
+    // Create Firebase query for notifications with pagination
+    const q = query(
+      collection(db, 'notifications'),
+      where('toUserId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(pageSize)
+    );
+
+    // Use getDocs for initial load to avoid real-time interference
+    const loadInitialNotifications = async () => {
+      try {
+        const snapshot = await getDocs(q);
+        const notifications: Notification[] = [];
+        
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          try {
+            // Extract fromUserId from either direct field or nested fromUser.uid
+            const fromUserId = data.fromUserId || data.fromUser?.uid;
+            
+            // Validate notification data
+            if (fromUserId && data.toUserId && data.type) {
+              notifications.push({
+                id: doc.id,
+                type: data.type,
+                fromUserId: fromUserId,
+                toUserId: data.toUserId,
+                read: data.read || false,
+                data: data.data || {},
+                createdAt: data.createdAt?.toDate() || new Date(),
+                fromUser: data.fromUser // Include the full fromUser object if available
+              });
+            } else {
+              console.warn('🔔 Skipping malformed notification:', doc.id, data);
+            }
+          } catch (error) {
+            console.error('🔔 Error processing notification:', doc.id, error);
+          }
+        });
+
+        console.log('🔔 useNotificationsInfiniteScroll: Fetched', notifications.length, 'notifications');
+        setNotifications(notifications);
+        setLoading(false);
+        setIsInitialLoad(false);
+        
+        // Set lastDoc for pagination
+        if (snapshot.docs.length > 0) {
+          setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+          setHasMore(snapshot.docs.length === pageSize);
+          console.log('🔔 Initial load: HasMore set to', snapshot.docs.length === pageSize, 'for', snapshot.docs.length, 'notifications');
+        } else {
+          setHasMore(false);
+          console.log('🔔 Initial load: No notifications found. HasMore set to false');
+        }
+      } catch (error) {
+        console.error('🔔 useNotificationsInfiniteScroll: Firebase error:', error);
+        setNotifications([]);
+        setLoading(false);
+        setIsInitialLoad(false);
+      }
+    };
+
+    loadInitialNotifications();
+  }, [userId, pageSize]);
+
+  const loadMore = async () => {
+    if (!hasMore || loading || !lastDoc || !userId) return;
+
+    console.log('🔔 Loading more notifications...');
+    setLoading(true);
+
+    try {
+      // Create query for next page
+      const nextQuery = query(
+        collection(db, 'notifications'),
+        where('toUserId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        startAfter(lastDoc),
+        limit(pageSize)
+      );
+
+      const snapshot = await getDocs(nextQuery);
+      const newNotifications: Notification[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        try {
+          const fromUserId = data.fromUserId || data.fromUser?.uid;
+          
+          if (fromUserId && data.toUserId && data.type) {
+            newNotifications.push({
+              id: doc.id,
+              type: data.type,
+              fromUserId: fromUserId,
+              toUserId: data.toUserId,
+              read: data.read || false,
+              data: data.data || {},
+              createdAt: data.createdAt?.toDate() || new Date(),
+              fromUser: data.fromUser
+            });
+          }
+        } catch (error) {
+          console.error('🔔 Error processing notification:', doc.id, error);
+        }
+      });
+
+      if (newNotifications.length > 0) {
+        setNotifications(prev => [...prev, ...newNotifications]);
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
+        setHasMore(snapshot.docs.length === pageSize);
+        console.log('🔔 Loaded', newNotifications.length, 'more notifications. HasMore:', snapshot.docs.length === pageSize);
+      } else {
+        setHasMore(false);
+        console.log('🔔 No more notifications found. HasMore set to false');
+      }
+    } catch (error) {
+      console.error('🔔 Error loading more notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    notifications,
+    loading,
+    hasMore,
+    loadMore,
+    setNotifications
+  };
 }
 
 export function useNotifications(userId: string, callback: (notifications: Notification[]) => void) {

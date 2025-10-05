@@ -5,15 +5,18 @@ interface HeartButtonProps {
   onToggle: () => void;
   likesCount: number;
   className?: string;
+  disabled?: boolean;
 }
 
-export function HeartButton({ isLiked, onToggle, likesCount, className = '' }: HeartButtonProps) {
+export function HeartButton({ isLiked, onToggle, likesCount, className = '', disabled = false }: HeartButtonProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
     console.log('🔥 HeartButton checkbox changed!', { isLiked, likesCount, checked: e.target.checked });
     onToggle();
   };
 
   const handleClick = (e: React.MouseEvent) => {
+    if (disabled) return;
     console.log('🔥 HeartButton div clicked!', { isLiked, likesCount });
     e.preventDefault();
     e.stopPropagation();
@@ -21,13 +24,18 @@ export function HeartButton({ isLiked, onToggle, likesCount, className = '' }: H
   };
 
   return (
-    <div title="Like" className={`heart-container ${className}`} onClick={handleClick}>
+    <div 
+      title={disabled ? "Subscribe to like this content" : "Like"} 
+      className={`heart-container ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`} 
+      onClick={handleClick}
+    >
       <input 
         id={`heart-${Math.random()}`}
         className="checkbox" 
         type="checkbox"
         checked={isLiked}
         onChange={handleChange}
+        disabled={disabled}
       />
       <div className="svg-container">
         <svg xmlns="http://www.w3.org/2000/svg" className="svg-outline" viewBox="0 0 24 24">

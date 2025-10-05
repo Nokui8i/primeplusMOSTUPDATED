@@ -1,5 +1,5 @@
 import { db, auth } from '../firebase';
-import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy, limit, serverTimestamp, increment } from 'firebase/firestore';
 import type { UserProfile, Post, Comment, Subscription, Like } from '@/types/user';
 
 // User Functions
@@ -38,20 +38,38 @@ export async function createPost(content: string, mediaUrl?: string) {
 }
 
 // Comment Functions
-export async function createComment(postId: string, content: string) {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Must be logged in to comment');
+export async function createComment(postId: string, content: string, user?: any, parentId?: string) {
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error('Must be logged in to comment');
+
+  // Get user profile data - always fetch from Firestore to get complete profile
+  let userProfile = null;
+  try {
+    const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+    userProfile = userDoc.data();
+    console.log('[createComment] Fetched user profile:', userProfile);
+  } catch (error) {
+    console.error('Error fetching user profile for comment:', error);
+  }
 
   const now = new Date();
-  const commentData: Omit<Comment, 'id'> = {
+  const commentData: any = {
     postId,
-    userId: user.uid,
+    authorId: currentUser.uid,
     content,
     createdAt: now,
+    authorDisplayName: userProfile?.displayName || userProfile?.username || 'Anonymous',
+    authorUsername: userProfile?.username || 'Anonymous',
+    authorPhotoURL: userProfile?.photoURL || null,
+    parentId: parentId || null,
+    likes: 0,
+    isEdited: false
   };
 
-  const commentRef = doc(collection(db, `posts/${postId}/comments`));
+  const commentRef = doc(collection(db, 'comments'));
   await setDoc(commentRef, commentData);
+  
+  console.log('[createComment] Comment created with data:', commentData);
   return { id: commentRef.id, ...commentData };
 }
 
@@ -59,7 +77,8 @@ export async function deleteComment(postId: string, commentId: string) {
   const user = auth.currentUser;
   if (!user) throw new Error('Must be logged in to delete comments');
 
-  await deleteDoc(doc(db, `posts/${postId}/comments`, commentId));
+  // Delete from main comments collection (consistent with createComment)
+  await deleteDoc(doc(db, 'comments', commentId));
 }
 
 // Like Functions
@@ -74,10 +93,10 @@ export async function toggleLike(postId: string) {
     await deleteDoc(likeRef);
     return false; // Unlike
   } else {
-    const likeData: Like = {
+    const likeData: Omit<Like, 'id'> = {
       userId: user.uid,
       postId,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
     };
     await setDoc(likeRef, likeData);
     return true; // Like
@@ -96,10 +115,12 @@ export async function createSubscription(creatorId: string, tier?: string) {
   const subscriptionData: Omit<Subscription, 'id'> = {
     subscriberId: user.uid,
     creatorId,
-    tier,
-    createdAt: now,
-    expiresAt,
+    planId: tier || 'default',
     status: 'active',
+    startDate: now,
+    endDate: expiresAt,
+    createdAt: now,
+    updatedAt: now,
   };
 
   const subscriptionRef = doc(collection(db, 'subscriptions'));
@@ -204,4 +225,25 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     console.error('Error fetching user profile:', error);
     return null;
   }
+}
+
+// Missing exports that are being imported by other components
+export async function uploadMedia(file: File, path: string, progress?: (progress: number) => void): Promise<string> {
+  // Placeholder implementation - this should be implemented with Firebase Storage
+  throw new Error('uploadMedia function not implemented');
+}
+
+export async function toggleSave(postId: string): Promise<boolean> {
+  // Placeholder implementation
+  throw new Error('toggleSave function not implemented');
+}
+
+export async function createNotification(notification: any): Promise<void> {
+  // Placeholder implementation
+  throw new Error('createNotification function not implemented');
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  // Placeholder implementation
+  throw new Error('deleteNotification function not implemented');
 } 

@@ -238,4 +238,15 @@ export interface PostWithAuthor extends Omit<PostData, 'comments'> {
   shares: number
   taggedUsers: string[]
   comments: number
+  accessSettings?: {
+    isPremium: boolean;
+    subscriptionTier?: string;
+    price?: number;
+    promoCode?: string;
+    accessLevel?: 'free' | 'premium' | 'exclusive' | 'followers';
+    availableFrom?: Timestamp;
+    availableUntil?: Timestamp;
+    geoRestrictions?: string[];
+    ageRestriction?: number;
+  };
 } 

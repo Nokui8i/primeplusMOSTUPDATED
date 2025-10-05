@@ -1,13 +1,12 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { doc, getDoc, collection, addDoc, serverTimestamp, writeBatch, increment, Timestamp } from 'firebase/firestore'
+import { doc, getDoc, collection, addDoc, serverTimestamp, writeBatch, increment, Timestamp, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { toast } from 'react-hot-toast'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { createNotification } from '@/lib/notifications'
 import { isCommand } from '@/lib/utils'
 import { UserTagInput } from '@/components/ui/user-tag-input'
-import { query, where, getDocs } from 'firebase/firestore'
 import { createComment } from '@/lib/firebase/db'
 
 interface CommentInputProps {
@@ -15,9 +14,10 @@ interface CommentInputProps {
   postAuthorId: string
   onCommentAdded?: () => void
   parentId?: string
+  post?: any // Add post prop to check access level
 }
 
-export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }: CommentInputProps) {
+export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId, post }: CommentInputProps) {
   const { user } = useAuth()
   const [comment, setComment] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -27,7 +27,76 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
   const [searchTerm, setSearchTerm] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [isCommentingDisabled, setIsCommentingDisabled] = useState(false)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  // Check commenting permissions when component mounts or post changes
+  useEffect(() => {
+    const checkCommentingPermissions = async () => {
+      if (user && post) {
+        const canUserComment = await canComment();
+        setIsCommentingDisabled(!canUserComment);
+      }
+    };
+    checkCommentingPermissions();
+  }, [user, post]);
+
+  // Check if user can comment on this post
+  const canComment = async () => {
+    if (!user || !post) return true; // Allow if no post data or user
+    
+    // Always allow the creator to comment on their own post
+    if (user.uid === post.authorId) return true;
+    
+    // If post is public, allow everyone to comment
+    if (post.isPublic) return true;
+    
+    // Check access level
+    const accessLevel = post.accessSettings?.accessLevel;
+    
+    // If no access level or free content, allow commenting
+    if (!accessLevel || accessLevel === 'free') return true;
+    
+    // For locked content, check subscription status
+    if (accessLevel === 'free_subscriber' || accessLevel === 'followers' || 
+        accessLevel === 'paid_subscriber' || accessLevel === 'premium' || 
+        accessLevel === 'exclusive') {
+      
+      try {
+        // Check subscription in Firebase
+        const q = query(
+          collection(db, 'subscriptions'),
+          where('subscriberId', '==', user.uid),
+          where('creatorId', '==', post.authorId),
+          where('status', 'in', ['active', 'cancelled'])
+        );
+        
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const now = new Date();
+          const hasValidSubscription = querySnapshot.docs.some(doc => {
+            const data = doc.data();
+            const isActive = data.status === 'active';
+            const isCancelledButValid = data.status === 'cancelled' && 
+              data.endDate && 
+              data.endDate.toDate() > now;
+            return isActive || isCancelledButValid;
+          });
+          
+          if (hasValidSubscription) return true;
+        }
+        
+        // If no valid subscription found, user cannot comment
+        return false;
+      } catch (error) {
+        console.error('Error checking subscription for commenting:', error);
+        return false;
+      }
+    }
+    
+    return false;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -38,6 +107,13 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
 
     if (!comment.trim()) {
       toast.error('Comment cannot be empty')
+      return
+    }
+
+    // Check if user can comment on this post
+    const userCanComment = await canComment();
+    if (!userCanComment) {
+      toast.error('You need to subscribe to this creator to comment on their locked content')
       return
     }
 
@@ -97,7 +173,7 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
     setTaggedUsers(allowed);
   };
 
-  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setComment(value);
     const cursorPos = e.target.selectionStart || 0;
@@ -179,7 +255,8 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
             ref={inputRef}
             value={comment}
             onChange={handleInputChange}
-            placeholder="Reply"
+            placeholder={isCommentingDisabled ? "Subscribe to comment on locked content" : "Reply"}
+            disabled={isCommentingDisabled}
             style={{
               width: '100%',
               height: '32px',
@@ -189,9 +266,9 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
               padding: '8px 12px',
               fontSize: '14px',
               outline: 'none',
-              caretColor: '#0a84ff',
+              caretColor: isCommentingDisabled ? '#ccc' : '#0a84ff',
               background: 'transparent',
-              color: '#333',
+              color: isCommentingDisabled ? '#999' : 'inherit',
               fontFamily: 'inherit',
               lineHeight: 'normal',
               boxShadow: 'none'
@@ -280,7 +357,7 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId }:
                 <path strokeLinejoin="round" strokeLinecap="round" strokeWidth="3" stroke="#707277" d="M8.00897 9L8 9M16 9L15.991 9"></path>
               </svg>
             </button>
-            <button type="submit" className="send" title="Send" disabled={!comment.trim() || isSubmitting}>
+            <button type="submit" className="send" title="Send" disabled={!comment.trim() || isSubmitting || isCommentingDisabled}>
               <svg fill="none" viewBox="0 0 24 24" height="18" width="18" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinejoin="round" strokeLinecap="round" strokeWidth="2.5" stroke="#ffffff" d="M12 5L12 20"></path>
                 <path strokeLinejoin="round" strokeLinecap="round" strokeWidth="2.5" stroke="#ffffff" d="M7 9L11.2929 4.70711C11.6262 4.37377 11.7929 4.20711 12 4.20711C12.2071 4.20711 12.3738 4.37377 12.7071 4.70711L17 9"></path>

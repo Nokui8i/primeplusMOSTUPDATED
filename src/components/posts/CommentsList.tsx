@@ -58,23 +58,26 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
 
   useEffect(() => {
     console.log('[CommentsList] Setting up listener for postId:', postId, 'parentId:', parentId, 'sortBy:', sortBy);
+    console.log('[CommentsList] Component mounted/updated, setting up new listener');
     
-    const commentsRef = collection(db, `posts/${postId}/comments`)
+    const commentsRef = collection(db, 'comments')
     // For top-level comments, parentId should be null
     const targetParentId = parentId === undefined ? null : parentId;
     console.log('[CommentsList] Target parentId:', targetParentId);
     
-    // Simplified approach - just get all comments and filter in memory
-    // This avoids the need for complex Firebase indexes
+    // Query comments for this specific post - use simpler query to avoid index requirement
     const q = query(
-      commentsRef, 
-      orderBy('createdAt', sortBy === 'newest' ? 'desc' : 'asc')
+      commentsRef,
+      where('postId', '==', postId)
+      // Remove orderBy to avoid composite index requirement
     );
     
     console.log('[CommentsList] Query created:', q);
     
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       console.log('[CommentsList] Snapshot received, docs count:', snapshot.docs.length);
+      console.log('[CommentsList] Snapshot metadata:', snapshot.metadata);
+      console.log('[CommentsList] Snapshot fromCache:', snapshot.metadata.fromCache);
       
       // Filter comments by parentId in memory
       const filteredDocs = snapshot.docs.filter(doc => {
@@ -87,12 +90,55 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
       
       const commentsData = await Promise.all(filteredDocs.map(async (docSnapshot) => {
         const data = docSnapshot.data()
-        console.log('[CommentsList] Processing comment:', docSnapshot.id, data);
         
-        const userProfileDoc = await getDoc(doc(db, 'users', data.authorId));
-        const userProfile = userProfileDoc.data();
-        const photoURL = userProfile?.photoURL || data.authorPhotoURL || undefined;
-        const username = userProfile?.username || data.authorUsername || undefined;
+        // Check if data exists before processing
+        if (!data) {
+          console.warn('[CommentsList] No data found for comment:', docSnapshot.id);
+          return null; // Skip this comment
+        }
+        
+        console.log('[CommentsList] Processing comment:', docSnapshot.id, data);
+        console.log('[CommentsList] Comment data fields:', {
+          authorId: data.authorId,
+          authorDisplayName: data.authorDisplayName,
+          authorUsername: data.authorUsername,
+          authorPhotoURL: data.authorPhotoURL
+        });
+        
+        // Check if authorId exists before trying to fetch user profile
+        let photoURL = data.authorPhotoURL || undefined;
+        let username = data.authorUsername || undefined;
+        let userProfile = null; // Declare userProfile outside the if block
+        
+        if (data.authorId) {
+          try {
+            console.log('[CommentsList] Fetching user profile for authorId:', data.authorId);
+            const userProfileDoc = await getDoc(doc(db, 'users', data.authorId));
+            userProfile = userProfileDoc.data();
+            console.log('[CommentsList] User profile data:', userProfile);
+            photoURL = userProfile?.photoURL || data.authorPhotoURL || undefined;
+            username = userProfile?.username || data.authorUsername || undefined;
+            console.log('[CommentsList] Final values - photoURL:', photoURL, 'username:', username);
+          } catch (error) {
+            console.error('[CommentsList] Error fetching user profile for authorId:', data.authorId, error);
+            // Fall back to the data already in the comment
+          }
+        } else {
+          console.warn('[CommentsList] No authorId found for comment:', docSnapshot.id, 'Using fallback data');
+          // For old comments without authorId, try to get user data from other fields
+          if (data.userId) {
+            try {
+              console.log('[CommentsList] Trying to fetch user profile for old comment with userId:', data.userId);
+              const userProfileDoc = await getDoc(doc(db, 'users', data.userId));
+              userProfile = userProfileDoc.data();
+              console.log('[CommentsList] User profile data for old comment:', userProfile);
+              photoURL = userProfile?.photoURL || data.authorPhotoURL || undefined;
+              username = userProfile?.username || data.authorUsername || undefined;
+            } catch (error) {
+              console.error('[CommentsList] Error fetching user profile for old comment userId:', data.userId, error);
+            }
+          }
+        }
         
         // Get replies count for this comment
         const repliesQuery = query(
@@ -106,7 +152,7 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
           return replyParentId === docSnapshot.id;
         }).length;
         
-        return {
+        const commentData = {
           id: docSnapshot.id,
           content: data.content,
           authorId: data.authorId,
@@ -119,11 +165,29 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
           isEdited: data.isEdited || false,
           parentId: data.parentId || data.parentCommentId || null, // Use parentId if available, fallback to parentCommentId
           repliesCount
-        } as CommentType
+        } as CommentType;
+        
+        console.log('[CommentsList] Final comment data:', commentData);
+        return commentData;
       }))
 
-      console.log('[CommentsList] Processed comments:', commentsData);
-      setComments(commentsData)
+      // Filter out null values (comments with no data)
+      const validComments = commentsData.filter(comment => comment !== null);
+      
+      // Sort comments client-side since we removed orderBy from query
+      const sortedComments = validComments.sort((a, b) => {
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        
+        if (sortBy === 'newest') {
+          return bTime.getTime() - aTime.getTime(); // Newest first
+        } else {
+          return aTime.getTime() - bTime.getTime(); // Oldest first
+        }
+      });
+      
+      console.log('[CommentsList] Processed and sorted comments:', sortedComments);
+      setComments(sortedComments)
       setLoading(false)
     }, (error) => {
       console.error('[CommentsList] Error in onSnapshot:', error);

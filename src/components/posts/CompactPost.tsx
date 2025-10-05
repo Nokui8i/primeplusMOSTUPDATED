@@ -23,6 +23,7 @@ import { doc, onSnapshot, getDoc, collection, query, where, getDocs, updateDoc, 
 import Link from 'next/link'
 import { db } from '@/lib/firebase/config'
 import { useAuth } from '@/hooks/useAuth'
+import { useCommentCount } from '@/hooks/useCommentCount'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import PostOptionsMenu from '@/components/posts/PostOptionsMenu'
 import MediaContent from '@/components/posts/MediaContent'
@@ -72,6 +73,34 @@ interface Subscription {
   planId?: string;
 }
 
+// Helper function to determine the correct isPublic value
+function determineCorrectIsPublic(post: any): boolean {
+  // If isPublic is explicitly set to true, respect it
+  if (post.isPublic === true) {
+    return true;
+  }
+  
+  // If isPublic is explicitly set to false, check if it should actually be public
+  if (post.isPublic === false) {
+    // If there are no access settings, it should be public
+    if (!post.accessSettings) {
+      return true;
+    }
+    
+    // If access level is 'free' or undefined, it should be public
+    const accessLevel = post.accessSettings.accessLevel;
+    if (!accessLevel || accessLevel === 'free') {
+      return true;
+    }
+    
+    // For other access levels, respect the false value (it's intentionally locked)
+    return false;
+  }
+  
+  // If isPublic is undefined, default to public
+  return true;
+}
+
 // Helper function to convert Firestore Timestamp or Date to Date
 function toDate(date: { toDate: () => Date } | Date): Date {
   return date instanceof Date ? date : date.toDate();
@@ -79,7 +108,20 @@ function toDate(date: { toDate: () => Date } | Date): Date {
 
 export function CompactPost({ post, currentUserId, onPostDeleted, commentId, highlight, showAsGridItem = false, showAsGalleryOnly = false }: CompactPostProps) {
   const { user } = useAuth()
-  const [currentPost, setCurrentPost] = useState<PostWithAuthor>(post)
+  const { commentCount, loading: commentCountLoading } = useCommentCount(post.id)
+  const [currentPost, setCurrentPost] = useState<PostWithAuthor>(() => {
+    const correctedPost = {
+      ...post,
+      isPublic: determineCorrectIsPublic(post), // Use intelligent logic
+    }
+    console.log('[CompactPost] Initial post data:', {
+      postId: post.id,
+      originalIsPublic: post.isPublic,
+      correctedIsPublic: correctedPost.isPublic,
+      accessSettings: post.accessSettings
+    })
+    return correctedPost
+  })
   const [showDetailsDialog, setShowDetailsDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showComments, setShowComments] = useState(false)
@@ -103,6 +145,12 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   const [plansLoading, setPlansLoading] = useState(false)
   const [userSubscription, setUserSubscription] = useState<any>(null)
   const [userPlan, setUserPlan] = useState<any>(null)
+  const [canInteract, setCanInteract] = useState(true) // Added state for interaction permissions
+
+  // Debug logging for canInteract changes
+  useEffect(() => {
+    console.log('[CompactPost] canInteract changed to:', canInteract, 'for post:', currentPost.id);
+  }, [canInteract, currentPost.id]);
 
   // Listen for post updates including comment count and likes
   useEffect(() => {
@@ -112,9 +160,21 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       (docSnapshot) => {
         if (docSnapshot.exists()) {
           const data = docSnapshot.data();
+          const correctedData = {
+            ...data,
+            isPublic: determineCorrectIsPublic(data), // Use intelligent logic
+          }
+          console.log('[CompactPost] Real-time update received:', {
+            postId: post.id,
+            originalIsPublic: data.isPublic,
+            correctedIsPublic: correctedData.isPublic,
+            accessSettings: data.accessSettings,
+            comments: data.comments,
+            likes: data.likes
+          })
           setCurrentPost(prevPost => ({
             ...prevPost,
-            ...data,
+            ...correctedData,
             author: prevPost.author,
             comments: data.comments !== undefined ? data.comments : (prevPost.comments || 0),
             likes: data.likes !== undefined ? data.likes : (prevPost.likes || 0)
@@ -160,8 +220,33 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
 
   useEffect(() => {
     async function checkSubscriptionAndPlan() {
+      console.log('[CompactPost] Checking subscription for post:', {
+        postId: currentPost.id,
+        isPublic: currentPost.isPublic,
+        isPublicType: typeof currentPost.isPublic,
+        isPublicStrictCheck: currentPost.isPublic !== false,
+        authorId: currentPost.authorId,
+        userId: user?.uid,
+        accessSettings: currentPost.accessSettings
+      });
+      
       if (!user) {
+        // For public posts, allow interaction even without login
+        if (currentPost.isPublic !== false) {
+          console.log('[CompactPost] No user but post is public, allowing interaction');
+          console.log('[CompactPost] isPublic check result:', currentPost.isPublic !== false);
+          setIsSubscriber(false);
+          setCanInteract(true);
+          setUserSubscription(null);
+          setUserPlan(null);
+          setSubChecked(true);
+          return;
+        }
+        // For locked posts, block interaction without login
+        console.log('[CompactPost] No user and post is locked, blocking interaction');
+        console.log('[CompactPost] isPublic check result:', currentPost.isPublic !== false);
         setIsSubscriber(false);
+        setCanInteract(false);
         setUserSubscription(null);
         setUserPlan(null);
         setSubChecked(true);
@@ -169,39 +254,63 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       }
       
       // Always allow the creator to view their own content
-      if (user.uid === post.authorId) {
+      if (user.uid === currentPost.authorId) {
+        console.log('[CompactPost] User is creator, allowing interaction');
         setIsSubscriber(true);
+        setCanInteract(true);
         setUserSubscription(null);
         setUserPlan(null);
         setSubChecked(true);
         return;
       }
-      // Always allow public posts
-      if (post.isPublic) {
+      // Always allow public posts (treat undefined as public by default)
+      if (currentPost.isPublic !== false) {
+        console.log('[CompactPost] Post is public (or undefined), allowing interaction');
+        console.log('[CompactPost] isPublic value:', currentPost.isPublic);
+        console.log('[CompactPost] isPublic !== false result:', currentPost.isPublic !== false);
         setIsSubscriber(true);
+        setCanInteract(true);
         setUserSubscription(null);
         setUserPlan(null);
         setSubChecked(true);
         return;
       }
       // Query for any valid subscription (active or cancelled but not expired)
+      console.log('[CompactPost] Post is locked, checking subscription for:', {
+        subscriberId: user.uid,
+        creatorId: currentPost.authorId
+      });
       const q = query(
         collection(db, 'subscriptions'),
         where('subscriberId', '==', user.uid),
-        where('creatorId', '==', post.authorId),
+        where('creatorId', '==', currentPost.authorId),
         where('status', 'in', ['active', 'cancelled'])
       );
       const querySnapshot = await getDocs(q);
+      console.log('[CompactPost] Subscription query result:', {
+        docsCount: querySnapshot.docs.length,
+        docs: querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+      });
       if (!querySnapshot.empty) {
         const now = new Date();
+        console.log('[CompactPost] Processing subscriptions, current time:', now);
         // Find the most recent valid subscription
         const validSub = querySnapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() } as Subscription))
-          .find(sub => 
-            sub.status === 'active' ||
-            (sub.status === 'cancelled' && sub.endDate && toDate(sub.endDate) > now)
-          );
+          .find(sub => {
+            const isValid = sub.status === 'active' ||
+              (sub.status === 'cancelled' && sub.endDate && toDate(sub.endDate) > now);
+            console.log('[CompactPost] Subscription validation:', {
+              subId: sub.id,
+              status: sub.status,
+              endDate: sub.endDate,
+              isValid: isValid
+            });
+            return isValid;
+          });
+        console.log('[CompactPost] Valid subscription found:', validSub ? 'YES' : 'NO');
         if (validSub) {
+          console.log('[CompactPost] Setting user as subscriber with valid subscription');
           setUserSubscription(validSub);
           // Fetch the plan
           const planId = validSub.planId;
@@ -217,20 +326,25 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
             setUserPlan(null);
           }
           setIsSubscriber(true);
+          setCanInteract(true);
         } else {
+          console.log('[CompactPost] No valid subscription found, blocking interaction');
           setUserSubscription(null);
           setUserPlan(null);
           setIsSubscriber(false);
+          setCanInteract(false);
         }
       } else {
+        console.log('[CompactPost] No subscriptions found, blocking interaction');
         setUserSubscription(null);
         setUserPlan(null);
         setIsSubscriber(false);
+        setCanInteract(false);
       }
       setSubChecked(true);
     }
     checkSubscriptionAndPlan();
-  }, [user, post.authorId, post.isPublic, post.accessSettings]);
+  }, [user, currentPost.authorId, currentPost.isPublic, currentPost.accessSettings]);
 
   // Listen to likes count changes
   useEffect(() => {
@@ -244,6 +358,8 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
 
     return () => unsubscribe();
   }, [currentPost?.id]);
+
+  // Comment count is now updated via the main post listener to avoid multiple listeners
 
   // Fetch creator's active plans for the modal
   useEffect(() => {
@@ -1073,11 +1189,16 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
             <HeartButton
               isLiked={isLiked}
               onToggle={() => {
+                if (!canInteract) {
+                  toast.error('Subscribe to interact with this content');
+                  return;
+                }
                 console.log('HeartButton onToggle called!');
                 handleLike();
               }}
               likesCount={currentPost.likes || 0}
               className="scale-50"
+              disabled={!canInteract}
             />
             <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 min-w-[16px] text-center -mt-2">
               {currentPost.likes || 0}
@@ -1088,9 +1209,16 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
         {/* Comment button - Right side */}
         <div className="flex items-center gap-2">
           <CommentButton
-            onClick={handleComment}
-            comments={currentPost.comments || 0}
+            onClick={() => {
+              if (!canInteract) {
+                toast.error('Subscribe to comment on this content');
+                return;
+              }
+              handleComment();
+            }}
+            comments={commentCount}
             postId={currentPost.id}
+            disabled={!canInteract}
           />
         </div>
       </motion.div>
@@ -1115,6 +1243,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
                 onCommentAdded={handleCommentAdded}
                 sortBy={sortBy}
                 onSortChange={setSortBy}
+                post={currentPost}
               />
             </div>
           </motion.div>

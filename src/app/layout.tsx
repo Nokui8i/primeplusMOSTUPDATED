@@ -6,6 +6,8 @@ import { ChatProvider } from '@/contexts/ChatContext'
 import { RootLayoutContent } from '@/components/RootLayoutContent'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { NotificationList } from '@/components/common/NotificationList'
+import { Toaster } from '@/components/ui/toaster'
+import { SimpleToaster } from '@/components/ui/SimpleToast'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,6 +29,7 @@ export default function RootLayout({
             <NotificationProvider>
               <RootLayoutContent>{children}</RootLayoutContent>
               <NotificationList />
+              <SimpleToaster />
             </NotificationProvider>
           </ChatProvider>
         </AuthProvider>

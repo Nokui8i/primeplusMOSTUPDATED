@@ -37,7 +37,7 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
   const [currentPost, setCurrentPost] = useState<PostWithAuthor>(() => ({
     ...post,
     type: post.type || 'text',
-    isPublic: post.isPublic || false,
+    isPublic: post.isPublic !== false, // Default to true (public) unless explicitly false
     shares: post.shares || 0,
     taggedUsers: post.taggedUsers || [],
     comments: Array.isArray(post.comments) ? post.comments.length : (typeof post.comments === 'number' ? post.comments : 0),
@@ -422,6 +422,7 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
                   postId={currentPost.id || ''}
                   postAuthorId={currentPost.authorId || ''}
                   onCommentAdded={handleComment}
+                  post={currentPost}
                 />
                 <Comments
                   postId={currentPost.id || ''}

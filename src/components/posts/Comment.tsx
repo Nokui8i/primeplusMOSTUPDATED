@@ -357,7 +357,7 @@ export function Comment({
         onConfirm={async () => {
           setIsDeleting(true);
           try {
-            await deleteComment(id);
+            await deleteComment(postId, id);
             toast.success('Comment deleted');
             setShowDeleteDialog(false);
           } catch (error) {

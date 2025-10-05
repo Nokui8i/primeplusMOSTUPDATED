@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Bell, Heart, Users, Image, MessageSquare, FileText, Clock, BellRing, Trash2, Terminal, MessageCircle, UserPlus, AtSign } from 'lucide-react';
 import {
   DropdownMenu,
@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotifications, Notification, createTestNotification, markAllNotificationsAsRead } from '@/lib/notifications';
+import { useNotificationsInfiniteScroll, Notification, createTestNotification, markAllNotificationsAsRead } from '@/lib/notifications';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -28,6 +28,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/hooks/use-toast';
+import { useSimpleToast } from '@/components/ui/SimpleToast';
 import { doc, getDoc } from 'firebase/firestore';
 // import { toast } from 'react-hot-toast'; // TODO: Add toast functionality
 import { db } from '@/lib/firebase';
@@ -36,21 +38,44 @@ import { db } from '@/lib/firebase';
 
 export function NotificationsDropdown() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const { toast: simpleToast } = useSimpleToast();
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState('all');
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [notificationToDelete, setNotificationToDelete] = useState<string | null>(null);
-  const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const router = useRouter();
   
-  // Use real Firebase notifications
-  useNotifications(user?.uid || '', setNotifications);
+  // Use infinite scroll notifications
+  const { notifications, loading, hasMore, loadMore, setNotifications } = useNotificationsInfiniteScroll(user?.uid || '', 10);
   const displayNotifications = notifications;
-
-  // Loading state while user is being authenticated
-  const loading = !user;
   const unreadCount = displayNotifications.filter(n => !n.read).length;
+
+  // Focus scroll container when dropdown opens
+  useEffect(() => {
+    if (isOpen && scrollContainerRef.current) {
+      // Small delay to ensure dropdown is fully rendered
+      setTimeout(() => {
+        scrollContainerRef.current?.focus();
+      }, 100);
+    }
+  }, [isOpen]);
+
+  // Infinite scroll ref
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Load more when scrolling to bottom
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // Prevent event bubbling
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const threshold = 100; // Load more when 100px from bottom
+    
+    console.log('🔔 Scroll event:', { scrollTop, scrollHeight, clientHeight, hasMore, loading });
+    
+    if (scrollHeight - scrollTop <= clientHeight + threshold && hasMore && !loading) {
+      console.log('🔔 Triggering load more from scroll');
+      loadMore();
+    }
+  }, [hasMore, loading, loadMore]);
 
   // Mark all notifications as read when opening the dropdown
   useEffect(() => {
@@ -140,17 +165,89 @@ export function NotificationsDropdown() {
 
   const handleDeleteNotification = async (notificationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault(); // Prevent any default behavior
-    // TODO: Implement delete notification
-    console.log('Delete notification:', notificationId);
+    e.preventDefault();
+    
+    try {
+      console.log('🔔 Deleting notification:', notificationId);
+      // Import deleteDoc from firebase/firestore
+      const { deleteDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      await deleteDoc(doc(db, 'notifications', notificationId));
+      console.log('🔔 Notification deleted successfully');
+      
+      // Update local state immediately
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      
+      // Show toast notification
+      console.log('🔔 Showing toast notification');
+      simpleToast({
+        title: "Notification deleted",
+        description: "The notification has been removed",
+        action: (
+          <button
+            onClick={() => {
+              // TODO: Implement undo functionality
+              console.log('Undo delete notification');
+            }}
+            className="text-blue-600 hover:text-blue-700 font-medium text-xs"
+          >
+            Undo
+          </button>
+        ),
+        duration: 5000
+      });
+      console.log('🔔 Toast notification called');
+    } catch (error) {
+      console.error('🔔 Error deleting notification:', error);
+    }
   };
+
 
   const handleDeleteAllNotifications = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault(); // Prevent any default behavior
-    // TODO: Implement delete all notifications
-    console.log('Delete all notifications');
+    e.preventDefault();
+    
+    try {
+      console.log('🔔 Deleting all notifications for user:', user?.uid);
+      // Import necessary functions from firebase/firestore
+      const { collection, query, where, getDocs, writeBatch } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      if (!user?.uid) return;
+      
+      // Get all notifications for the user
+      const q = query(collection(db, 'notifications'), where('toUserId', '==', user.uid));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('🔔 No notifications to delete');
+        return;
+      }
+      
+      // Use batch delete for better performance
+      const batch = writeBatch(db);
+      snapshot.forEach((doc) => {
+        batch.delete(doc.ref);
+      });
+      
+      await batch.commit();
+      console.log('🔔 Deleted', snapshot.size, 'notifications');
+      
+      // Update local state immediately
+      setNotifications([]);
+      
+      // Show toast notification
+      simpleToast({
+        title: "All notifications deleted",
+        description: "All notifications have been removed",
+        duration: 5000
+      });
+    } catch (error) {
+      console.error('🔔 Error deleting all notifications:', error);
+    }
   };
+
 
   const handleCreateTestNotification = async () => {
     if (user?.uid) {
@@ -159,20 +256,6 @@ export function NotificationsDropdown() {
     }
   };
 
-  const confirmDeleteNotification = async () => {
-    if (notificationToDelete) {
-      // TODO: Implement delete notification
-      console.log('Confirm delete notification:', notificationToDelete);
-      setDeleteDialogOpen(false);
-      setNotificationToDelete(null);
-    }
-  };
-
-  const confirmDeleteAllNotifications = async () => {
-    // TODO: Implement delete all notifications
-    console.log('Confirm delete all notifications');
-    setDeleteAllDialogOpen(false);
-  };
 
   return (
     <>
@@ -201,7 +284,7 @@ export function NotificationsDropdown() {
         </DropdownMenuTrigger>
         <DropdownMenuContent 
           align="end" 
-          className="w-80 max-h-[400px] bg-white border-0 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200 rounded-2xl overflow-hidden"
+          className="w-72 max-h-[350px] bg-white border-0 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200 rounded-2xl overflow-hidden"
           style={{
             boxShadow: `
               0 20px 25px -5px rgba(0, 0, 0, 0.1),
@@ -213,6 +296,7 @@ export function NotificationsDropdown() {
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255, 255, 255, 0.2)'
           }}
+          onWheel={(e) => e.stopPropagation()}
         >
           <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center bg-white">
             <h3 className="text-xs font-medium text-gray-700">
@@ -283,7 +367,20 @@ export function NotificationsDropdown() {
               No notifications
             </div>
           ) : (
-            <div className="max-h-[400px] overflow-y-auto p-2">
+            <div 
+              ref={scrollContainerRef}
+              className="max-h-[300px] overflow-y-auto p-1 pb-4 invisible-scrollbar" 
+              onScroll={handleScroll}
+              onWheel={(e) => {
+                e.stopPropagation();
+                // Allow the scroll to work normally within this container
+              }}
+              style={{
+                scrollBehavior: 'smooth',
+                overscrollBehavior: 'contain'
+              }}
+              tabIndex={0}
+            >
               {filteredNotifications.map((notification) => (
                 <div
                   key={notification.id}
@@ -292,39 +389,33 @@ export function NotificationsDropdown() {
                   onClick={() => handleNotificationClick(notification)}
                   style={{
                     width: '100%',
-                    maxWidth: '18rem',
-                    padding: '0.75rem',
+                    maxWidth: '100%',
+                    padding: '0.1875rem 0.125rem 0.1875rem 0.1875rem',
                     color: '#111827',
                     backgroundColor: 'white',
-                    borderRadius: '0.5rem',
-                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-                    marginBottom: '0.5rem',
+                    borderRadius: '0.375rem',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    marginBottom: '0.25rem',
                     cursor: 'pointer',
-                    transition: 'all 0.3s ease'
+                    transition: 'all 0.2s ease'
                   }}
                 >
-                  <div className="notification-header" style={{ marginBottom: '0.5rem' }}>
-                    <span className="notification-title" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#111827' }}>
-                      New notification
-                    </span>
+                  <div className="notification-header" style={{ marginBottom: '0.0625rem', display: 'flex', justifyContent: 'flex-end' }}>
                     <button
                       type="button"
                       className="notification-close-btn"
                       onClick={(e) => handleDeleteNotification(notification.id, e)}
                       aria-label="Close"
                       style={{
-                        marginLeft: 'auto',
-                        marginRight: '-0.25rem',
-                        marginTop: '-0.25rem',
                         backgroundColor: 'white',
                         justifyContent: 'center',
                         alignItems: 'center',
                         flexShrink: 0,
                         color: '#9ca3af',
-                        borderRadius: '0.375rem',
-                        padding: '0.25rem',
-                        height: '1.5rem',
-                        width: '1.5rem',
+                        borderRadius: '0.25rem',
+                        padding: '0.125rem',
+                        height: '1.25rem',
+                        width: '1.25rem',
                         display: 'inline-flex',
                         transition: 'all 0.2s ease'
                       }}
@@ -348,7 +439,7 @@ export function NotificationsDropdown() {
                       </svg>
                     </button>
                   </div>
-                  <div className="notification-content">
+                  <div className="notification-content" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.25rem', paddingTop: '0.125rem' }}>
                     <div className="notification-avatar-container" style={{ position: 'relative', display: 'inline-block', flexShrink: 0 }}>
                       {notification.fromUser?.photoURL ? (
                         <img
@@ -356,8 +447,8 @@ export function NotificationsDropdown() {
                           alt={notification.fromUser.displayName || 'User'}
                           className="notification-avatar"
                           style={{
-                            width: '2.5rem',
-                            height: '2.5rem',
+                            width: '1.75rem',
+                            height: '1.75rem',
                             borderRadius: '50%',
                             objectFit: 'cover'
                           }}
@@ -366,8 +457,8 @@ export function NotificationsDropdown() {
                         <div 
                           className="notification-avatar"
                           style={{
-                            width: '2.5rem',
-                            height: '2.5rem',
+                            width: '1.75rem',
+                            height: '1.75rem',
                             borderRadius: '50%',
                             backgroundColor: '#16a34a',
                             display: 'flex',
@@ -375,7 +466,7 @@ export function NotificationsDropdown() {
                             justifyContent: 'center',
                             color: 'white',
                             fontWeight: 'bold',
-                            fontSize: '1rem'
+                            fontSize: '0.625rem'
                           }}
                         >
                           {notification.fromUser?.displayName?.[0]?.toUpperCase() || 'U'}
@@ -390,8 +481,8 @@ export function NotificationsDropdown() {
                           display: 'inline-flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          width: '1.25rem',
-                          height: '1.25rem',
+                          width: '0.875rem',
+                          height: '0.875rem',
                           backgroundColor: '#2563eb',
                           borderRadius: '50%'
                         }}
@@ -400,60 +491,56 @@ export function NotificationsDropdown() {
                         <span className="sr-only">Message icon</span>
                       </span>
                     </div>
-                    <div className="notification-text" style={{ marginLeft: '0.5rem', fontSize: '0.8rem', fontWeight: 400 }}>
-                      <div className="notification-user-name" style={{ fontSize: '0.8rem', fontWeight: 600, color: '#111827', marginBottom: '0.125rem' }}>
-                        {notification.fromUser?.displayName || 'Someone'}
+                    <div className="notification-text" style={{ flex: 1, minWidth: 0 }}>
+                      <div className="notification-user-name" style={{ fontSize: '0.75rem', fontWeight: 600, color: '#111827', marginBottom: '0.03125rem' }}>
+                        {notification.fromUser?.displayName || notification.fromUser?.username || 'Someone'}
                       </div>
-                      <div className="notification-message" style={{ fontSize: '0.8rem', fontWeight: 400, color: '#374151', marginBottom: '0.125rem' }}>
+                      <div className="notification-message" style={{ fontSize: '0.75rem', fontWeight: 400, color: '#374151', marginBottom: '0.03125rem' }}>
                         {getNotificationText(notification)}
                       </div>
-                      <span className="notification-time" style={{ fontSize: '0.7rem', fontWeight: 500, color: '#2563eb' }}>
+                      <span className="notification-time" style={{ fontSize: '0.625rem', fontWeight: 500, color: '#2563eb' }}>
                         {formatDistanceToNow(notification.createdAt, { addSuffix: true })}
                       </span>
                     </div>
                   </div>
                 </div>
               ))}
+              
+              {/* Loading indicator for infinite scroll */}
+              {loading && hasMore && (
+                <div className="flex justify-center py-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                </div>
+              )}
+              
+              {/* Load more button */}
+              {hasMore && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadMore}
+                    disabled={loading}
+                    className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Loading...' : 'Load More'}
+                  </Button>
+                </div>
+              )}
+
+              {/* End of notifications message */}
+              {!hasMore && notifications.length > 0 && (
+                <div className="flex justify-center py-2">
+                  <span className="text-xs text-gray-500">
+                    No more notifications to display
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Delete Single Notification Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Notification</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this notification? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteNotification} className="bg-red-500 hover:bg-red-600">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete All Notifications Dialog */}
-      <AlertDialog open={deleteAllDialogOpen} onOpenChange={setDeleteAllDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete All Notifications</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete all notifications? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteAllNotifications} className="bg-red-500 hover:bg-red-600">
-              Delete All
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 } 
