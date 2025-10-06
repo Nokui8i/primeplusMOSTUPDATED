@@ -58,7 +58,7 @@ export function Message({ message, currentUserId, onReactionSelect }: MessagePro
   };
 
   return (
-    <div className={`flex items-start gap-4 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex items-start gap-2 mb-1 ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
       <UserAvatar 
         userId={message.senderId}
         displayName={isOwnMessage ? 'You' : (senderProfile?.displayName || message.senderId)}
@@ -67,16 +67,16 @@ export function Message({ message, currentUserId, onReactionSelect }: MessagePro
         showOnlineStatus={!isOwnMessage}
       />
       
-      <div className={`flex flex-col max-w-[70%] ${isOwnMessage ? 'items-end' : 'items-start'}`}>
+      <div className={`flex flex-col chat-message-bubble ${isOwnMessage ? 'items-end' : 'items-start'}`} style={{ maxWidth: '55%' }}>
         {/* Show sender name above message for others */}
         {!isOwnMessage && (
           <span className="text-xs font-semibold text-gray-700 mb-1">
             {senderProfile?.displayName || senderProfile?.username || message.senderId}
           </span>
         )}
-        <div className={`rounded-lg p-3 ${
-          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-muted'
-        }`}>
+        <div className={`rounded-2xl p-3 ${
+          isOwnMessage ? 'text-white' : 'bg-gray-100 text-black'
+        }`} style={isOwnMessage ? { backgroundColor: '#0F77FF' } : {}}>
           {(message as any).isDeleted ? (
             <span className="italic text-gray-400">This message was deleted</span>
           ) : (

@@ -372,7 +372,7 @@ export default function SubscribersTab() {
                     <td className="px-2 py-1 whitespace-nowrap flex items-center gap-1">
                       <button
                         className="p-1 text-gray-500 hover:text-blue-600 transition"
-                        onClick={() => openChat({
+                        onClick={async () => await openChat({
                           id: subscriber.id,
                           uid: subscriber.id,
                           displayName: subscriber.username,

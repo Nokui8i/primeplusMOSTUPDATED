@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { UserProfile } from '@/lib/types/user';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, getDocs, writeBatch, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, getDocs, writeBatch, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -175,8 +175,46 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     };
   }, [user, chatWindows, closedChats]);
 
-  const openChat = (user: UserProfile) => {
+  const openChat = async (user: UserProfile) => {
     console.log('openChat called for', user.uid);
+    
+    // Validate user profile
+    if (!user || !user.uid) {
+      console.error('Invalid user profile:', user);
+      return;
+    }
+
+    // Ensure current user exists
+    if (!auth.currentUser) {
+      console.error('No authenticated user');
+      return;
+    }
+
+    // Create Firestore chat document immediately
+    try {
+      const chatId = [auth.currentUser.uid, user.uid].sort().join('_');
+      const chatRef = doc(db, 'chats', chatId);
+      
+      // Create or update chat document with all required fields
+      await setDoc(chatRef, {
+        participants: [auth.currentUser.uid, user.uid],
+        lastMessage: '',
+        lastMessageTime: serverTimestamp(),
+        unreadCounts: {
+          [auth.currentUser.uid]: 0,
+          [user.uid]: 0
+        },
+        typing: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      console.log('Chat document created/updated:', chatId);
+    } catch (error) {
+      console.error('Error creating chat document:', error);
+      return;
+    }
+
     setChatWindows(prev => {
       // If chat already exists, just un-minimize it and clear unread count
       if (prev.some(window => window.user.uid === user.uid)) {
@@ -187,11 +225,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         );
       }
 
-      // Calculate position for new chat window
+      // Calculate position for new chat window (attached to taskbar)
       const newPosition = {
-        x: Math.max(0, window.innerWidth - 320 - (prev.length * 20)),
-        y: Math.max(0, window.innerHeight - 400 - (prev.length * 20))
+        x: 20 + (prev.length * 20), // 20px from right edge + offset for multiple chats
+        y: 0  // Attached to bottom edge (taskbar level)
       };
+      
 
       // Ensure the window is not minimized when first opened
       const newWindows = [...prev, {
@@ -227,7 +266,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       const chatId = [user.uid, userId].sort().join('_');
       const chatRef = doc(db, 'chats', chatId);
       // Remove typing status
-      setDoc(chatRef, { typing: null }, { merge: true }).catch(console.error);
+      setDoc(chatRef, { typing: false }, { merge: true }).catch(console.error);
     }
   };
 
@@ -252,6 +291,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   };
 
   const markAsRead = async (userId: string) => {
+    if (!userId) {
+      console.error('markAsRead called with undefined userId');
+      return;
+    }
+
     // Update local state
     setChatWindows(prev => 
       prev.map(window => 

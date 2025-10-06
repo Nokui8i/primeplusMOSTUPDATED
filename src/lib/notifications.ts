@@ -112,6 +112,73 @@ export async function markAllNotificationsAsRead(userId: string) {
   }
 }
 
+// Hook for dropdown with limited notifications
+export function useNotificationsDropdown(userId: string | null, limitCount: number = 5) {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
+
+    console.log('🔔 useNotificationsDropdown: Setting up Firebase listener for userId:', userId);
+    setLoading(true);
+    
+    // Create Firebase query for limited notifications
+    const q = query(
+      collection(db, 'notifications'),
+      where('toUserId', '==', userId),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+
+    // Use real-time listener for immediate updates
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifications: Notification[] = [];
+      
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        try {
+          // Extract fromUserId from either direct field or nested fromUser.uid
+          const fromUserId = data.fromUserId || data.fromUser?.uid;
+          
+          // Validate notification data
+          if (fromUserId && data.toUserId && data.type) {
+            notifications.push({
+              id: doc.id,
+              type: data.type,
+              fromUserId: fromUserId,
+              toUserId: data.toUserId,
+              read: data.read || false,
+              data: data.data || {},
+              createdAt: data.createdAt?.toDate() || new Date(),
+              fromUser: data.fromUser // Include the full fromUser object if available
+            });
+          } else {
+            console.warn('🔔 Skipping malformed notification:', doc.id, data);
+          }
+        } catch (error) {
+          console.error('🔔 Error processing notification:', doc.id, error);
+        }
+      });
+
+      console.log('🔔 useNotificationsDropdown: Real-time update - Fetched', notifications.length, 'notifications');
+      setNotifications(notifications);
+      setLoading(false);
+    }, (error) => {
+      console.error('🔔 useNotificationsDropdown: Firebase error:', error);
+      setNotifications([]);
+      setLoading(false);
+    });
+
+    return unsubscribe;
+  }, [userId, limitCount]);
+
+  return { notifications, loading };
+}
+
 // Infinite scroll hook for notifications
 export function useNotificationsInfiniteScroll(userId: string, pageSize: number = 20) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
