@@ -240,6 +240,9 @@ export default function LiveChat({ streamId, hideControls = false }: LiveChatPro
         </div>
       </div>
 
+      {/* Separator Line */}
+      <div className="border-b border-gray-200"></div>
+      
       {/* Messages Container */}
       {isModerator && settingsOpen ? (
         // If the streamer/moderator is changing chat settings, hide messages
@@ -247,7 +250,7 @@ export default function LiveChat({ streamId, hideControls = false }: LiveChatPro
           {/* No messages shown while settings are open */}
         </div>
       ) : chatVisibility === 'public' || isModerator ? (
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <div className="flex-1 overflow-y-auto px-2 py-4 space-y-1 bg-white border-r border-gray-200" style={{ border: '2px solid green', backgroundColor: 'rgba(0, 255, 0, 0.1)' }}>
           {messages.map((message) => {
             // Skip commands if showCommands is false
             if (!showCommands && message.isCommand) {
@@ -257,14 +260,18 @@ export default function LiveChat({ streamId, hideControls = false }: LiveChatPro
             return (
               <div
                 key={message.id}
-                className={`flex w-full ${isOwn ? 'justify-end' : 'justify-start'}`}
+                className={`flex w-full mb-1 ${isOwn ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`relative group max-w-[80%] rounded-lg px-3 py-1.5 border shadow transition-all duration-200
+                  className={`relative group rounded-2xl px-3 py-1.5 border shadow transition-all duration-200 chat-message-bubble
                     ${isOwn
-                      ? 'bg-white/80 text-[#23235b] border-[#a259e6] shadow-blue-100'
-                      : 'bg-white/60 text-[#23235b] border-blue-200 shadow-blue-100'}
+                      ? 'text-white shadow-sm'
+                      : 'bg-gray-100 text-black border-gray-100 shadow-sm'}
                   `}
+                  style={{
+                    ...(isOwn ? { backgroundColor: '#0F77FF', borderColor: '#0F77FF' } : {}),
+                    maxWidth: '65%'
+                  }}
                 >
                   <div className="text-xs font-medium mb-0.5">
                     {message.username}

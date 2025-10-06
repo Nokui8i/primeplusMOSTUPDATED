@@ -88,7 +88,7 @@ export function LiveStreamFeedCard({
         <div className="flex items-center gap-3 mb-2">
           <Avatar className="h-8 w-8">
             <AvatarImage src={author.photoURL || '/default-avatar.png'} alt={author.displayName} />
-            <AvatarFallback>{author.displayName[0]}</AvatarFallback>
+            <AvatarFallback>{author.displayName?.[0]?.toUpperCase() || '?'}</AvatarFallback>
           </Avatar>
           <span className="font-semibold text-gray-900 dark:text-gray-100">{author.displayName}</span>
           <span className="text-xs text-gray-500 dark:text-gray-400">• {formatDistanceToNow(createdAt, { addSuffix: true })}</span>

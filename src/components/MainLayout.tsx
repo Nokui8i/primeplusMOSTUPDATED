@@ -15,19 +15,20 @@ import { motion } from 'framer-motion';
 import { UserProfile } from '@/lib/types/user';
 import { RoutePrefetcher } from './common/RoutePrefetcher';
 import { DataPreloader } from './common/DataPreloader';
+import { ChatWindows } from './chat/ChatWindows';
 
 interface Creator {
-  id: string;
-  displayName: string;
-  nickname: string;
-  photoURL: string;
-  isVerified?: boolean;
+  id: string
+  displayName: string
+  nickname: string
+  photoURL: string
+  isVerified?: boolean
 }
 
 interface TrendingTopic {
-  id: string;
-  name: string;
-  postCount: number;
+  id: string
+  name: string
+  postCount: number
 }
 
 interface MainLayoutProps {
@@ -35,7 +36,7 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [suggestedCreators, setSuggestedCreators] = useState<UserProfile[]>([]);
+  const [suggestedCreators, setSuggestedCreators] = useState<Creator[]>([]);
   const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showLoader, setShowLoader] = useState(true);
@@ -45,8 +46,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const mainContentRef = useRef<HTMLElement>(null);
   
-  // Hide right sidebar on messages page
-  const isMessagesPage = pathname === '/messages';
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -83,32 +82,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           postCount: doc.data().postCount || 0
         }));
 
-        setSuggestedCreators(creators.map(creator => ({
-          uid: creator.id,
-          id: creator.id,
-          email: '',
-          username: creator.nickname || '',
-          displayName: creator.displayName || '',
-          photoURL: creator.photoURL || '',
-          isAgeVerified: false,
-          isVerified: creator.isVerified || false,
-          role: 'creator' as const,
-          status: 'active' as const,
-          bio: '',
-          location: '',
-          website: '',
-          defaultSubscriptionPlanId: null,
-          defaultSubscriptionType: null,
-          socialLinks: {},
-          stats: {
-            followers: 0,
-            following: 0,
-            posts: 0,
-            engagement: 0
-          },
-          createdAt: new Date() as any,
-          updatedAt: new Date() as any
-        })));
+        setSuggestedCreators(creators);
         setTrendingTopics(topics);
       } catch (error) {
         console.error('Error fetching sidebar data:', error);
@@ -249,18 +223,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
             </main>
           </div>
 
-          {/* Right Sidebar - Hidden on messages page */}
-          {!isMessagesPage && (
-            <aside className="hidden md:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
-              <div className="h-full overflow-y-auto invisible-scrollbar">
-                <RightSidebar
-                  suggestedCreators={suggestedCreators}
-                  trendingTopics={trendingTopics}
-                  isLoading={isLoading}
-                />
-              </div>
-            </aside>
-          )}
+          {/* Right Sidebar */}
+          <aside className="hidden md:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
+            <div className="h-full overflow-y-auto invisible-scrollbar">
+              <RightSidebar
+                suggestedCreators={suggestedCreators}
+                trendingTopics={trendingTopics}
+                isLoading={isLoading}
+              />
+            </div>
+          </aside>
         </div>
       </div>
 
@@ -273,10 +245,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <FiMenu className="w-6 h-6 text-gray-700" />
       </button>
       
-      {/* Mobile Notification Button */}
-      <div className="fixed top-2 right-12 z-40 md:hidden">
-        <NotificationsDropdown />
-      </div>
       
       <button
         className="fixed top-2 right-2 z-40 md:hidden bg-white/80 rounded-full p-1.5 shadow-lg backdrop-blur-lg"
@@ -353,6 +321,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
       
       {/* Data Preloader for common data */}
       <DataPreloader />
+      
+      {/* Chat Windows for mini chat functionality */}
+      <ChatWindows />
     </div>
   );
 } 

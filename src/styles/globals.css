@@ -479,6 +479,27 @@ button[class*="profile-btn"]:hover {
   background: transparent;
 }
 
+/* Hide scrollbar for mini chat popup */
+.scrollbar-hide {
+  scrollbar-width: none;      /* Firefox - completely hide */
+  scrollbar-color: transparent transparent; /* Firefox */
+  -ms-overflow-style: none;   /* IE and Edge - completely hide */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;              /* Chrome/Safari/Webkit - completely hide */
+  width: 0px;
+  height: 0px;
+  background: transparent;
+}
+.scrollbar-hide::-webkit-scrollbar-thumb {
+  display: none;
+  background: transparent;
+}
+.scrollbar-hide::-webkit-scrollbar-track {
+  display: none;
+  background: transparent;
+}
+
 video::-webkit-media-controls-fullscreen-button {
   display: none !important;
 }
@@ -1745,6 +1766,17 @@ aside[role="navigation"] button:active {
 .input::placeholder {
   color: #999 !important;
   font-size: 14px !important;
+}
+
+/* Chat Message Width Overrides */
+.chat-message-bubble {
+  max-width: 80% !important;
+}
+
+@media (min-width: 768px) {
+  .chat-message-bubble {
+    max-width: 70% !important;
+  }
 }
 
 /* Force Notification Dropdown Styles - Override any conflicting styles */

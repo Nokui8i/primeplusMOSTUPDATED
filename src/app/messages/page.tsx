@@ -181,7 +181,7 @@ export default function MessagesPage() {
       </div>
 
       {/* Right Column - Chat Area */}
-      <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-gray-50`}>
+      <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-white`}>
         {selectedChat ? (
           <Chat 
             recipientId={selectedChat.recipientId} 

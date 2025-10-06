@@ -26,6 +26,7 @@ interface ChatPopupProps {
 export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopupProps) {
   const { closeChat, minimizeChat, updatePosition, markAsRead } = useChat();
   const router = useRouter();
+  
   const [isDraggable, setIsDraggable] = useState(false);
   const [isRecipientTyping, setIsRecipientTyping] = useState(false);
   const [newMessage, setNewMessage] = useState('');
@@ -44,7 +45,7 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
     return () => {
       unsubscribe();
       // Clear typing status when component unmounts
-      setDoc(chatRef, { typing: null }, { merge: true }).catch(console.error);
+      setDoc(chatRef, { typing: false }, { merge: true }).catch(console.error);
     };
   }, [user, currentUser]);
 
@@ -53,7 +54,7 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
     if (!user || !user.uid || !currentUser?.uid) return;
     const chatId = [user.uid, currentUser.uid].sort().join('_');
     const chatRef = doc(db, 'chats', chatId);
-    setDoc(chatRef, { typing: isTyping ? currentUser.uid : null }, { merge: true });
+    setDoc(chatRef, { typing: isTyping ? currentUser.uid : false }, { merge: true });
   }, 300);
 
   useEffect(() => {
@@ -76,7 +77,7 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
   // When un-minimizing, keep at bottom right, then allow dragging after first move
   const handleHeaderClick = () => {
     if (isMinimized) {
-      minimizeChat(user.uid); // Only open (un-minimize) if minimized
+      minimizeChat(user.uid); // Toggle to un-minimize
       markAsRead(user.uid);
       setIsDraggable(false);
     }
@@ -92,69 +93,58 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
   if (isMinimized) {
     return (
       <div
-        className="fixed z-50 w-80 h-12 bg-blue-600 rounded-lg shadow-lg overflow-hidden bottom-0 right-0 flex items-center"
-        style={{ pointerEvents: 'auto' }}
+        className="fixed z-50 w-64 rounded-t-lg bg-white shadow-2xl"
+        style={{ 
+          position: 'fixed',
+          right: `${position.x}px`,
+          bottom: `${position.y}px`,
+          pointerEvents: 'auto',
+          zIndex: 50
+        }}
       >
-        {/* Header */}
         <div 
-          className="chat-header bg-gradient-to-r from-[#6B3BFF] to-[#2B55FF] text-white p-2 cursor-pointer flex items-center justify-between w-full"
+          className="relative flex w-full items-center justify-between px-3 py-2 cursor-pointer"
           onClick={handleHeaderClick}
         >
           <div className="flex items-center gap-2">
-            <div
-              className="flex items-center gap-2 cursor-pointer hover:underline"
-              onClick={e => {
-                e.stopPropagation();
-                router.push(`/${user.username}`);
-              }}
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              className="size-6"
             >
-              <UserAvatar
-                userId={user.uid}
-                photoURL={user.photoURL}
-                displayName={user.displayName || user.username}
-                size="sm"
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"
               />
-              <div className="flex flex-col">
-                <div className="flex items-center">
-                  <span className="font-medium">{user.displayName || user.username}</span>
-                  {isRecipientTyping && (
-                    <span
-                      className="ml-2 text-xs font-medium text-black select-none"
-                    >
-                      typing…
-                    </span>
-                  )}
-                </div>
-                {unreadCount > 0 && (
-                  <span className="text-xs text-white/80">
-                    {unreadCount} new message{unreadCount !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
+            </svg>
+            <div className="font-semibold text-gray-800">
+              {user.displayName || user.username}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!isMinimized) minimizeChat(user.uid); // Only minimize if not already minimized
-              }}
-              className="p-1 hover:bg-white/10 rounded"
-            >
-              <FiMinus className="h-4 w-4" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                closeChat(user.uid);
-              }}
-              className="p-1 hover:bg-white/10 rounded"
-            >
-              <FiX className="h-4 w-4" />
-            </button>
+          <button
+            className="group peer cursor-pointer rounded-full p-2 hover:bg-gray-100 focus:bg-gray-200"
+            onClick={(e) => {
+              e.stopPropagation();
+              minimizeChat(user.uid);
+            }}
+          >
+            <FiMinus className="size-5" />
+          </button>
+          <div className="invisible absolute right-3 bottom-2 translate-y-full rounded-lg bg-gray-800 p-2 text-white opacity-0 transition-all peer-focus:visible peer-focus:opacity-100">
+            <div className="text-xs">Version 1.0.0</div>
           </div>
         </div>
+        {unreadCount > 0 && (
+          <div className="px-3 pb-2">
+            <div className="text-xs text-gray-500">
+              {unreadCount} new message{unreadCount !== 1 ? 's' : ''}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -162,70 +152,77 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
   // Not minimized: always at bottom right
   return (
     <div
-      className="fixed z-50 w-80 h-96 bg-white rounded-lg shadow-lg overflow-hidden bottom-0 right-0"
-      style={{ pointerEvents: 'auto' }}
+      className="fixed z-50 w-80 h-96 bg-white rounded-t-lg shadow-2xl overflow-hidden"
+      style={{
+        position: 'fixed',
+        right: `${position.x}px`,
+        bottom: `${position.y}px`,
+        pointerEvents: 'auto',
+        zIndex: 50,
+      }}
     >
-      {/* Header */}
-      <div
-        className="chat-header bg-gradient-to-r from-[#6B3BFF] to-[#2B55FF] text-white p-2 cursor-pointer flex items-center justify-between w-full"
-        onClick={() => {}}
-      >
-        <div className="flex items-center gap-2">
-          <div
-            className="flex items-center gap-2 cursor-pointer hover:underline"
-            onClick={e => {
-              e.stopPropagation();
-              router.push(`/${user.username}`);
-            }}
-          >
-            <UserAvatar
-              userId={user.uid}
-              photoURL={user.photoURL}
-              displayName={user.displayName || user.username}
-              size="sm"
-            />
-            <div className="flex flex-col">
-              <div className="flex items-center">
-                <span className="font-medium">{user.displayName || user.username}</span>
-                {isRecipientTyping && (
-                  <span
-                    className="ml-2 text-xs font-medium text-black select-none"
-                  >
-                    typing…
-                  </span>
-                )}
+      <div className="flex flex-col h-full">
+        {/* Header */}
+        <div className="relative flex w-full items-center justify-between px-3 py-2 border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth="1.5"
+              stroke="currentColor"
+              className="size-6"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8.625 9.75a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 0 1 .778-.332 48.294 48.294 0 0 0 5.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0 0 12 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018Z"
+              />
+            </svg>
+            <div className="font-semibold text-gray-800">
+              {user.displayName || user.username}
+            </div>
+            {isRecipientTyping && (
+              <div className="flex items-center gap-1">
+                <div className="size-2 rounded-full bg-gray-300 animate-pulse"></div>
+                <div className="size-2 rounded-full bg-gray-400 animate-pulse"></div>
+                <div className="size-2 rounded-full bg-gray-300 animate-pulse"></div>
               </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              className="group peer cursor-pointer rounded-full p-2 hover:bg-gray-100 focus:bg-gray-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                minimizeChat(user.uid);
+              }}
+            >
+              <FiMinus className="size-5" />
+            </button>
+            <button
+              className="cursor-pointer rounded-full p-2 hover:bg-gray-100 focus:bg-gray-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                closeChat(user.uid);
+              }}
+            >
+              <FiX className="h-4 w-4" />
+            </button>
+            <div className="invisible absolute right-3 bottom-2 translate-y-full rounded-lg bg-gray-800 p-2 text-white opacity-0 transition-all peer-focus:visible peer-focus:opacity-100">
+              <div className="text-xs">Version 1.0.0</div>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              minimizeChat(user.uid);
-            }}
-            className="p-1 hover:bg-white/10 rounded"
-          >
-            <FiMinus className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              closeChat(user.uid);
-            }}
-            className="p-1 hover:bg-white/10 rounded"
-          >
-            <FiX className="h-4 w-4" />
-          </button>
+        <div className="flex-1 overflow-hidden">
+          <Chat 
+            recipientId={user.uid} 
+            recipientName={user.displayName || user.username} 
+            hideHeader={true}
+            customWidth={100}
+          />
         </div>
-      </div>
-      <div className="h-[calc(100%-3rem)]">
-        <Chat 
-          recipientId={user.uid} 
-          recipientName={user.displayName || user.username} 
-          hideHeader={true}
-        />
       </div>
     </div>
   );

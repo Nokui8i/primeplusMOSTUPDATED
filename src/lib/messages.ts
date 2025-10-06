@@ -59,8 +59,8 @@ export async function createChat(participants: string[]) {
     const chatRef = await addDoc(collection(db, 'chats'), {
       participants: realUIDs,
       createdAt: serverTimestamp(),
-      typing: {},
-      unreadCount: realUIDs.reduce((acc, id) => ({ ...acc, [id]: 0 }), {}),
+      typing: false,
+      unreadCounts: realUIDs.reduce((acc, id) => ({ ...acc, [id]: 0 }), {}),
     });
     return chatRef.id;
   } catch (error) {
@@ -125,7 +125,7 @@ export async function updateTypingStatus(chatId: string, userId: string, isTypin
   try {
     const chatRef = doc(db, 'chats', chatId);
     await updateDoc(chatRef, {
-      [`typing.${userId}`]: isTyping,
+      typing: isTyping ? userId : false,
     });
   } catch (error) {
     console.error('Error updating typing status:', error);
@@ -194,7 +194,7 @@ export async function markMessagesAsRead(chatId: string, userId: string) {
     // Reset unread count for the user
     const chatRef = doc(db, 'chats', chatId);
     await updateDoc(chatRef, {
-      [`unreadCount.${userId}`]: 0,
+      [`unreadCounts.${userId}`]: 0,
     });
   } catch (error) {
     console.error('Error marking messages as read:', error);
