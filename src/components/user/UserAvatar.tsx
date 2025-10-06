@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 interface UserAvatarProps {
   userId: string;
   photoURL?: string;
-  displayName?: string;
+  displayName: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showOnlineStatus?: boolean;
 }
@@ -40,15 +40,11 @@ export function UserAvatar({ userId, photoURL, displayName, size = 'md', showOnl
     }
   }, [userId, showOnlineStatus]);
 
-  // Safe fallback for displayName
-  const safeDisplayName = displayName || 'User';
-  const fallbackText = safeDisplayName[0]?.toUpperCase() || '?';
-
   return (
     <div className="relative flex flex-col items-center">
       <Avatar className={sizeClasses[size]}>
-        <AvatarImage src={photoURL} alt={safeDisplayName} />
-        <AvatarFallback>{fallbackText}</AvatarFallback>
+        <AvatarImage src={photoURL} alt={displayName} />
+        <AvatarFallback>{displayName[0]}</AvatarFallback>
       </Avatar>
       {showOnlineStatus && presence && (
         <span 

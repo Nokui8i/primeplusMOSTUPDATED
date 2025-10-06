@@ -96,7 +96,7 @@ export function LikesList({ postId, commentId, open, onOpenChange }: LikesListPr
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={like.photoURL} alt={like.displayName} />
                     <AvatarFallback>
-                      {like.displayName?.[0]?.toUpperCase() || 'U'}
+                      {like.displayName[0] || 'U'}
                     </AvatarFallback>
                   </Avatar>
                 </Link>

@@ -105,7 +105,7 @@ export function GroupChatDialog({ isOpen, onClose, currentUserId, onGroupCreated
                   key={userId}
                   className="flex items-center gap-2 bg-secondary p-2 rounded-md"
                 >
-                  <UserAvatar userId={userId} size="sm" />
+                  <UserAvatar userId={userId} size="sm" displayName="" />
                   <button
                     onClick={() => setSelectedUsers(users => users.filter(id => id !== userId))}
                     className="text-muted-foreground hover:text-destructive"

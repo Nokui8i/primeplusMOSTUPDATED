@@ -234,15 +234,11 @@ export function MessagesList({ threadId, filter, sortBy }: MessagesListProps) {
         </div>
       )}
 
-      {/* Separator Line */}
-      <div className="border-b border-gray-200"></div>
-      
       {/* Messages */}
-      <div className="bg-white border-r border-gray-200 px-2 py-4" style={{ border: '2px solid blue', backgroundColor: 'rgba(0, 0, 255, 0.1)' }}>
       {filteredMessages.map((message) => (
         <div
           key={message.id}
-          className={`flex items-start gap-2 mb-1 ${
+          className={`flex items-start gap-4 ${
             message.senderId === user?.uid ? 'flex-row-reverse' : ''
           }`}
         >
@@ -279,21 +275,24 @@ export function MessagesList({ threadId, filter, sortBy }: MessagesListProps) {
             }`}>
               {/* Display real name above message */}
               {message.senderId !== user?.uid && (
-                <span className="text-sm font-semibold text-black">
+                <span className="text-sm font-semibold text-gray-700">
                   {userProfiles[message.senderId]?.displayName || userProfiles[message.senderId]?.username || message.senderId}
                 </span>
+              )}
+              <span className="text-sm text-gray-500">
+                {formatDistanceToNow(message.timestamp.toDate(), { addSuffix: true })}
+              </span>
+              {message.editedAt && (
+                <span className="text-xs text-gray-400">(edited)</span>
               )}
             </div>
 
             {/* Message Bubble */}
-            <div className={`rounded-2xl p-3 chat-message-bubble ${
+            <div className={`rounded-lg p-3 max-w-[80%] ${
               message.senderId === user?.uid
-                ? 'text-white ml-auto'
-                : 'bg-gray-100 text-black'
-            }`} style={{
-              ...(message.senderId === user?.uid ? { backgroundColor: '#0F77FF' } : {}),
-              maxWidth: '65%'
-            }}>
+                ? 'bg-pink-50 ml-auto'
+                : 'bg-gray-100'
+            }`}>
               {editingMessageId === message.id ? (
                 <div className="space-y-2">
                   <textarea
@@ -385,7 +384,6 @@ export function MessagesList({ threadId, filter, sortBy }: MessagesListProps) {
           </div>
         </div>
       ))}
-      </div>
 
       {/* Scroll to bottom marker */}
       <div ref={messagesEndRef} />

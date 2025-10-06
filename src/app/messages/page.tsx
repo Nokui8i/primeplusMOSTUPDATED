@@ -54,70 +54,63 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="flex bg-white rounded-lg shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
+    <div className="flex h-full bg-white rounded-lg shadow-sm overflow-hidden">
       {/* Left Column - Chat List */}
       <div className={`${isMobileView ? (!selectedChat ? 'flex' : 'hidden') : 'flex'} w-80 flex-col bg-white border-r border-gray-200`}>
         {/* Header */}
-        <div className="px-4 py-1.5 overflow-hidden border-b border-gray-200">
+        <div className="px-2 py-0.5 border-b border-gray-200">
           {/* Search Bar and Filter Dropdown */}
-          <div className="flex gap-3 justify-between">
+          <div className="flex gap-3">
             {/* Animated Search Bar */}
-            <div className="relative flex-1 ml-2">
+            <div className="relative flex-1">
               <style jsx>{`
                 .search-container {
-                  position: relative !important;
+                  position: relative;
                   --size-button: 32px;
                   color: white;
-                  top: -2px !important;
                 }
                 
                 .search-input {
-                  padding-left: var(--size-button) !important;
-                  height: var(--size-button) !important;
-                  font-size: 13px !important;
-                  border: none !important;
-                  color: #000 !important;
-                  outline: none !important;
-                  width: var(--size-button) !important;
-                  transition: all ease 0.3s !important;
-                  background-color: #fff !important;
-                  box-shadow: 1.5px 1.5px 3px #e5e7eb, -1.5px -1.5px 3px rgba(156, 163, 175, 0.25), inset 0px 0px 0px #e5e7eb, inset 0px -0px 0px rgba(156, 163, 175, 0.25) !important;
-                  border-radius: 50px !important;
-                  cursor: pointer !important;
-                  margin: 0 !important;
-                  padding-top: 0 !important;
-                  padding-bottom: 0 !important;
-                  padding-right: 0 !important;
+                  padding-left: var(--size-button);
+                  height: var(--size-button);
+                  font-size: 13px;
+                  border: none;
+                  color: #000;
+                  outline: none;
+                  width: var(--size-button);
+                  transition: all ease 0.3s;
+                  background-color: #fff;
+                  box-shadow: 1.5px 1.5px 3px #e5e7eb, -1.5px -1.5px 3px rgba(156, 163, 175, 0.25), inset 0px 0px 0px #e5e7eb, inset 0px -0px 0px rgba(156, 163, 175, 0.25);
+                  border-radius: 50px;
+                  cursor: pointer;
                 }
                 
                 .search-input:focus,
                 .search-input:not(:invalid) {
-                  width: 150px !important;
-                  cursor: text !important;
-                  border: none !important;
-                  outline: none !important;
-                  box-shadow: 0px 0px 0px #e5e7eb, 0px 0px 0px rgba(156, 163, 175, 0.25), inset 1.5px 1.5px 3px #e5e7eb, inset -1.5px -1.5px 3px rgba(156, 163, 175, 0.25) !important;
+                  width: 150px;
+                  cursor: text;
+                  box-shadow: 0px 0px 0px #e5e7eb, 0px 0px 0px rgba(156, 163, 175, 0.25), inset 1.5px 1.5px 3px #e5e7eb, inset -1.5px -1.5px 3px rgba(156, 163, 175, 0.25);
                 }
                 
                 .search-input:focus + .search-icon,
                 .search-input:not(:invalid) + .search-icon {
-                  pointer-events: all !important;
-                  cursor: pointer !important;
+                  pointer-events: all;
+                  cursor: pointer;
                 }
                 
                 .search-icon {
-                  position: absolute !important;
-                  width: var(--size-button) !important;
-                  height: var(--size-button) !important;
-                  top: -2px !important;
-                  left: 1px !important;
-                  padding: 6px !important;
-                  pointer-events: none !important;
+                  position: absolute;
+                  width: var(--size-button);
+                  height: var(--size-button);
+                  top: -1px;
+                  left: 1px;
+                  padding: 6px;
+                  pointer-events: none;
                 }
                 
                 .search-icon svg {
-                  width: 100% !important;
-                  height: 100% !important;
+                  width: 100%;
+                  height: 100%;
                 }
               `}</style>
               <div className="search-container">
@@ -137,7 +130,6 @@ export default function MessagesPage() {
             </div>
 
             {/* Filter Dropdown */}
-            <div className="mr-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-black hover:text-black hover:bg-transparent">
@@ -166,7 +158,6 @@ export default function MessagesPage() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            </div>
           </div>
         </div>
 
@@ -181,12 +172,12 @@ export default function MessagesPage() {
       </div>
 
       {/* Right Column - Chat Area */}
-      <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-white`}>
+      <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-gray-50`}>
         {selectedChat ? (
           <Chat 
             recipientId={selectedChat.recipientId} 
             recipientName={selectedChat.recipientName} 
-            hideHeader={false} 
+            hideHeader={true} 
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">

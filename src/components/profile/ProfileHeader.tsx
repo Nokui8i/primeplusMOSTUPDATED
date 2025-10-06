@@ -194,12 +194,8 @@ export function ProfileHeader({
     checkSubscriptionStatus();
   }, [profile?.id, isOwnProfile]);
 
-  const handleMessageClick = async () => {
-    if (profile?.uid) {
-      await openChat(profile);
-    } else {
-      console.error('Profile missing uid:', profile);
-    }
+  const handleMessageClick = () => {
+    openChat(profile);
   };
 
   const handleEndStream = async () => {

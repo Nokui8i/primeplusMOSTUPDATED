@@ -45,7 +45,7 @@ export function ChatComposer({ onSend, disabled, uploading, recording }: ChatCom
             <Smile className="h-5 w-5" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="bg-white">
+        <DropdownMenuContent align="start">
           <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2">
             <ImageIcon className="h-4 w-4 text-blue-400" /> Image
           </DropdownMenuItem>
@@ -71,7 +71,7 @@ export function ChatComposer({ onSend, disabled, uploading, recording }: ChatCom
         disabled={uploading || recording}
       />
       {/* Send button */}
-      <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-8 w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200" disabled={uploading || (!message.trim() && selectedFiles.length === 0)}>
+      <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-8 w-8 shadow hover:bg-[#6B3BFF]/10 focus:ring-2 focus:ring-[#6B3BFF] border border-blue-200" disabled={uploading || (!message.trim() && selectedFiles.length === 0)}>
         <Send className="h-4 w-4" />
       </Button>
       {/* Emoji Picker Modal */}

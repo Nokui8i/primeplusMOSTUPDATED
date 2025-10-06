@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, getDocs, doc, setDoc, updateDoc, getDoc, DocumentData, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,7 +44,6 @@ interface ChatProps {
   recipientId: string;
   recipientName: string;
   hideHeader?: boolean;
-  customWidth?: number;
 }
 
 // Add this function before the Chat component
@@ -58,10 +57,6 @@ const ensureChatDocument = async (user: any, recipientId: string) => {
       participants: [user.uid, recipientId],
       lastMessage: '',
       lastMessageTime: serverTimestamp(),
-      unreadCounts: {
-        [user.uid]: 0,
-        [recipientId]: 0
-      },
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -85,7 +80,7 @@ if (typeof window !== 'undefined') {
   document.head.appendChild(style);
 }
 
-export function Chat({ recipientId, recipientName, hideHeader = false, customWidth }: ChatProps) {
+export function Chat({ recipientId, recipientName, hideHeader = false }: ChatProps) {
   const { user } = useAuth();
   const router = useRouter();
   const { openChat } = useChat();
@@ -118,63 +113,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const LOCK_THRESHOLD = 150;
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartX, setDragStartX] = useState(0);
-  const [dragStartWidth, setDragStartWidth] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(customWidth || 57.9);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [shouldCancel, setShouldCancel] = useState(false);
   const [slidePosition, setSlidePosition] = useState(0);
   const [recipientProfile, setRecipientProfile] = useState<{ displayName: string; username: string; photoURL?: string } | null>(null);
-
-  // Drag handlers for resizing
-  const handleMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-    setDragStartX(e.clientX);
-    setDragStartWidth(containerWidth);
-  };
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    const deltaX = e.clientX - dragStartX;
-    const newWidth = Math.max(30, Math.min(100, dragStartWidth + (deltaX / window.innerWidth) * 100));
-    setContainerWidth(newWidth);
-    
-    // Save to localStorage
-    localStorage.setItem('chat-container-width', newWidth.toString());
-  }, [isDragging, dragStartX, dragStartWidth]);
-
-  const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
-  }, []);
-
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, handleMouseMove, handleMouseUp]);
-
-  // Load saved width from localStorage on mount (only for main chat, not popup)
-  useEffect(() => {
-    if (customWidth) return; // Don't load from localStorage if custom width is provided
-    
-    const savedWidth = localStorage.getItem('chat-container-width');
-    if (savedWidth) {
-      setContainerWidth(parseFloat(savedWidth));
-    } else {
-      // Set default to 57.9% if no saved width
-      setContainerWidth(57.9);
-    }
-  }, [customWidth]);
   const [isRecipientTyping, setIsRecipientTyping] = useState(false);
   const TYPING_TIMEOUT = 3000; // 3 seconds
   const [recipientStatus, setRecipientStatus] = useState<{ online?: boolean; lastSeen?: any }>({});
@@ -186,30 +129,16 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     // Create a unique chat ID based on user IDs (sorted to ensure consistency)
     const chatId = [user.uid, recipientId].sort().join('_');
     
-    // Ensure chat document exists (it should already be created by openChat)
-    const ensureChatDocument = async () => {
-      const chatRef = doc(db, 'chats', chatId);
-      const chatDoc = await getDoc(chatRef);
-      
-      if (!chatDoc.exists()) {
-        await setDoc(chatRef, {
-          participants: [user.uid, recipientId],
-          lastMessage: '',
-          lastMessageTime: serverTimestamp(),
-          unreadCounts: {
-            [user.uid]: 0,
-            [recipientId]: 0
-          },
-          typing: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        console.log('Chat document created in Chat component:', chatId);
-      }
-    };
-    
-    ensureChatDocument().catch(error => {
-      console.error('Error ensuring chat document:', error);
+    // Create or update chat document
+    const chatRef = doc(db, 'chats', chatId);
+    setDoc(chatRef, {
+      participants: [user.uid, recipientId],
+      lastMessage: '',
+      lastMessageTime: serverTimestamp(),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    }, { merge: true }).catch(error => {
+      console.error('Error creating chat:', error);
     });
 
     // Mark all unread messages from the recipient as read
@@ -585,12 +514,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const startRecording = async () => {
-    console.log('startRecording called');
     try {
-      console.log('Requesting microphone access...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('Microphone access granted');
-      
       const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
@@ -606,7 +531,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
       setRecordingDuration(0);
-      console.log('Recording started');
       
       // Start timer
       recordingTimerRef.current = setInterval(() => {
@@ -703,7 +627,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     if (!user || !recipientId) return;
     const chatId = [user.uid, recipientId].sort().join('_');
     const chatRef = doc(db, 'chats', chatId);
-    setDoc(chatRef, { typing: isTyping ? user.uid : false }, { merge: true });
+    setDoc(chatRef, { typing: isTyping ? user.uid : null }, { merge: true });
   }, 300);
 
   useEffect(() => {
@@ -730,26 +654,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   })();
 
   return (
-    <div className="flex flex-col h-full w-full relative" style={{ width: `${containerWidth}%` }}>
+    <div className="flex flex-col h-full">
       {/* Chat Title Bar */}
-      {!hideHeader && (
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 sticky top-0 z-10 bg-white/80 backdrop-blur-lg"
+      {!hideHeader && recipientProfile && (
+        <div className="flex items-center gap-3 px-4 py-2 border-b sticky top-0 z-10 bg-white/80 backdrop-blur-lg" /* PADDING: gap-3 px-4 py-2 */
              style={{ borderColor: themeColors.brand.blue.deep }}>
           <div
-            className="flex items-center gap-3 cursor-pointer hover:underline"
-            onClick={() => router.push(`/${recipientProfile?.username || recipientId}`)}
+            className="flex items-center gap-3 cursor-pointer hover:underline" /* PADDING: gap-3 - increased spacing */
+            onClick={() => router.push(`/${recipientProfile.username}`)}
           >
-            <div className="relative flex-shrink-0 w-12 h-12">
+            <div className="relative flex-shrink-0 w-12 h-12"> {/* PADDING: w-12 h-12 (48px) - exact avatar size */}
               <MessagesAvatar 
-                src={recipientProfile?.photoURL || '/default-avatar.png'}
-                alt={recipientProfile?.displayName || recipientName}
-                fallback={(recipientProfile?.displayName || recipientName)?.[0] || '?'}
+                src={recipientProfile.photoURL || '/default-avatar.png'}
+                alt={recipientProfile.displayName}
+                fallback={recipientProfile.displayName?.[0] || '?'}
                 size="md"
               />
             </div>
-            <span className="font-semibold text-base" style={{ color: themeColors.brand.blue.deep }}>
-              {recipientProfile?.displayName || recipientName}
-            </span>
+            <span className="font-semibold text-base" style={{ color: themeColors.brand.blue.deep }}>{recipientProfile.displayName}</span>
             {isRecipientTyping && (
               <span
                 className="ml-2 text-xs font-medium bg-gradient-to-r from-[#6B3BFF] to-[#2B55FF] bg-clip-text text-transparent select-none"
@@ -768,62 +690,63 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             {recipientStatus.online ? (
               <span className="text-xs text-green-500 font-semibold">Online</span>
             ) : (
-              <span className="text-xs text-black">Last seen: {recipientStatus.lastSeen ? formatDistanceToNow(recipientStatus.lastSeen.toDate(), { addSuffix: true }) : 'Unknown'}</span>
+              <span className="text-xs text-gray-400">Last seen: {recipientStatus.lastSeen ? formatDistanceToNow(recipientStatus.lastSeen.toDate(), { addSuffix: true }) : 'Unknown'}</span>
             )}
           </div>
           {/* Open in Popup Icon Button */}
-            <button
-              className="ml-auto p-1.5 rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{
-                backgroundColor: '#0F77FF',
-                color: 'white',
-                focusRingColor: '#0F77FF'
-              }}
-            onClick={async (e) => {
-              e.stopPropagation();
-              // Create a minimal user profile for openChat
-              const userProfile = {
-                uid: recipientId,
-                displayName: recipientProfile?.displayName || recipientName,
-                username: recipientProfile?.username || recipientName,
-                photoURL: recipientProfile?.photoURL || '',
-                email: '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
-                isAgeVerified: false,
-                isVerified: false,
-                role: 'user' as const,
-                status: 'active' as const
-              };
-              await openChat(userProfile);
+          <button
+            className="ml-auto p-1.5 rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+            style={{
+              background: 'linear-gradient(135deg, #2B1B5A 0%, #6B3BFF 60%, #FF8DC7 100%)',
+              color: themeColors.text.primary,
+              boxShadow: '0 4px 24px 0 rgba(107,59,255,0.25), 0 0 0 4px rgba(107,59,255,0.10)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              border: 'none',
+              position: 'relative',
+              overflow: 'hidden',
+              zIndex: 1,
+              backgroundImage: 'linear-gradient(135deg, #2B1B5A 0%, #6B3BFF 60%, #FF8DC7 100%), radial-gradient(circle at 30% 20%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 80%, transparent 100%)',
             }}
-            title="Open in popup"
+            onMouseOver={e => {
+              e.currentTarget.style.filter = 'brightness(1.08) scale(1.08)';
+            }}
+            onMouseOut={e => {
+              e.currentTarget.style.filter = '';
+            }}
+            onClick={() => openChat({
+              id: recipientId,
+              uid: recipientId,
+              displayName: recipientProfile.displayName,
+              username: recipientProfile.username,
+              photoURL: recipientProfile.photoURL || '',
+              email: '',
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+              isAgeVerified: false,
+              isVerified: false,
+              role: 'user',
+              status: 'active'
+            })}
+            title="Open in chat popup"
+            aria-label="Open in chat popup"
+            type="button"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
+            <FiMessageSquare className="w-4 h-4 drop-shadow-[0_2px_8px_rgba(43,85,255,0.5)]" />
           </button>
         </div>
       )}
-      
-      {/* Separator Line */}
-      <div className="border-b border-gray-200"></div>
-      
-      {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-2 py-4 space-y-1 bg-white border-r border-gray-200 scrollbar-hide" style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="flex-1 overflow-y-auto p-1 md:p-2 space-y-1 md:space-y-2">
         {messages.map((message, idx) => (
           <div
             key={message.id}
-            className={`flex w-full ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
+            className={`flex w-full ${message.senderId === user?.uid ? 'justify-start' : 'justify-end'}`}
           >
-            <div className={`relative group rounded-2xl p-3 border shadow chat-message-bubble ${
+            <div className={`relative group max-w-[95%] md:max-w-[85%] rounded-xl p-1.5 md:p-2 border shadow ${
               message.senderId === user?.uid 
-                ? 'text-white shadow-sm'
-                : 'bg-gray-100 text-black border-gray-100 shadow-sm'
-            }`} style={{
-              ...(message.senderId === user?.uid ? { backgroundColor: '#0F77FF', borderColor: '#0F77FF' } : {}),
-              maxWidth: '80%'
-            }}>
+                ? 'bg-gradient-to-br from-white via-[#6B3BFF]/20 to-[#2B55FF]/20 text-[#1A1A1A] border-[#6B3BFF] shadow-blue-100'
+                : 'bg-white/70 border-blue-200 text-[#1A1A1A] shadow-blue-100'
+            }`}>
               {/* Always show text */}
               <p className="text-xs md:text-sm break-words">{message.text}</p>
               {/* Render attachments with per-media lock logic */}
@@ -953,8 +876,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   </Button>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
-                      <Mic className="h-3 w-3 text-white" />
-                      <span className="text-sm text-white">Voice message</span>
+                      <Mic className="h-3 w-3 text-gray-500" />
+                      <span className="text-sm text-gray-500">Voice message</span>
                     </div>
                     {playingAudio === message.id && (
                       <div className="h-1 w-16 bg-gray-200 rounded-full overflow-hidden">
@@ -969,6 +892,28 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   })}
                 </div>
               )}
+              <div className="flex items-center justify-between mt-0.5">
+                <p className="text-[8px] md:text-[10px] opacity-70 text-pink-400">
+                  {message.timestamp?.toDate().toLocaleTimeString([], { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </p>
+                {/* Message status indicators */}
+                {message.senderId === user?.uid && (
+                  <div className="flex items-center gap-1">
+                    {message.status === 'sent' && (
+                      <span className="text-[10px] text-gray-400">✓</span>
+                    )}
+                    {message.status === 'delivered' && (
+                      <span className="text-[10px] text-gray-400">✓✓</span>
+                    )}
+                    {message.status === 'read' && (
+                      <span className="text-[10px] text-blue-500">✓✓</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -1101,7 +1046,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 <Plus className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-white">
+            <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={handleImageClick} className="flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-blue-400" /> Image
               </DropdownMenuItem>
@@ -1134,7 +1079,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             disabled={uploading || isRecording}
           />
           {newMessage.trim() ? (
-            <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200" disabled={uploading}>
+            <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:ring-2 focus:ring-[#6B3BFF] border border-blue-200" disabled={uploading}>
               <Send className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           ) : (
@@ -1143,7 +1088,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 <Button
                   type="button"
                   size="icon"
-                  className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200"
+                  className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:ring-2 focus:ring-[#6B3BFF] border border-blue-200"
                   onClick={startRecording}
                   disabled={uploading}
                 >
@@ -1176,7 +1121,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           )}
         </div>
       </form>
-      
     </div>
   );
 }

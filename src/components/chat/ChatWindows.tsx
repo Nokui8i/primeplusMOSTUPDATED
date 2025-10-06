@@ -15,16 +15,17 @@ export function ChatWindows() {
   }
 
   return (
-    <>
+    <div className="fixed bottom-0 right-0 pointer-events-none z-50">
       {chatWindows.map((window) => (
-        <ChatPopup
-          key={window.id}
-          user={window.user}
-          position={window.position}
-          isMinimized={window.isMinimized}
-          unreadCount={window.unreadCount}
-        />
+        <div key={window.id} className="pointer-events-auto">
+          <ChatPopup
+            user={window.user}
+            position={window.position}
+            isMinimized={window.isMinimized}
+            unreadCount={window.unreadCount}
+          />
+        </div>
       ))}
-    </>
+    </div>
   );
 } 

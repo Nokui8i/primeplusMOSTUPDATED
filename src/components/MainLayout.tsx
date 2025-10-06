@@ -7,7 +7,7 @@ import { NotificationsDropdown } from './NotificationsDropdown';
 import { Search } from './Search';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import AppLoader from './common/AppLoader';
 import { AnimatePresence } from 'framer-motion';
 import { FiMenu, FiFilter, FiX, FiBell } from 'react-icons/fi';
@@ -15,20 +15,19 @@ import { motion } from 'framer-motion';
 import { UserProfile } from '@/lib/types/user';
 import { RoutePrefetcher } from './common/RoutePrefetcher';
 import { DataPreloader } from './common/DataPreloader';
-import { ChatWindows } from './chat/ChatWindows';
 
 interface Creator {
-  id: string
-  displayName: string
-  nickname: string
-  photoURL: string
-  isVerified?: boolean
+  id: string;
+  displayName: string;
+  nickname: string;
+  photoURL: string;
+  isVerified?: boolean;
 }
 
 interface TrendingTopic {
-  id: string
-  name: string
-  postCount: number
+  id: string;
+  name: string;
+  postCount: number;
 }
 
 interface MainLayoutProps {
@@ -36,16 +35,14 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [suggestedCreators, setSuggestedCreators] = useState<Creator[]>([]);
+  const [suggestedCreators, setSuggestedCreators] = useState<UserProfile[]>([]);
   const [trendingTopics, setTrendingTopics] = useState<TrendingTopic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showLoader, setShowLoader] = useState(true);
   const [showMobileLeft, setShowMobileLeft] = useState(false);
   const [showMobileRight, setShowMobileRight] = useState(false);
   const router = useRouter();
-  const pathname = usePathname();
   const mainContentRef = useRef<HTMLElement>(null);
-  
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -82,7 +79,32 @@ export default function MainLayout({ children }: MainLayoutProps) {
           postCount: doc.data().postCount || 0
         }));
 
-        setSuggestedCreators(creators);
+        setSuggestedCreators(creators.map(creator => ({
+          uid: creator.id,
+          id: creator.id,
+          email: '',
+          username: creator.nickname || '',
+          displayName: creator.displayName || '',
+          photoURL: creator.photoURL || '',
+          isAgeVerified: false,
+          isVerified: creator.isVerified || false,
+          role: 'creator' as const,
+          status: 'active' as const,
+          bio: '',
+          location: '',
+          website: '',
+          defaultSubscriptionPlanId: null,
+          defaultSubscriptionType: null,
+          socialLinks: {},
+          stats: {
+            followers: 0,
+            following: 0,
+            posts: 0,
+            engagement: 0
+          },
+          createdAt: new Date() as any,
+          updatedAt: new Date() as any
+        })));
         setTrendingTopics(topics);
       } catch (error) {
         console.error('Error fetching sidebar data:', error);
@@ -192,7 +214,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </aside>
 
           {/* Center Area with Header and Main Content */}
-          <div className="flex-1 flex flex-col border-l border-gray-200" style={{ height: '100vh' }}>
+          <div className="flex-1 flex flex-col border-l border-gray-200 h-screen">
             {/* Center Header */}
             <div className="hidden md:block flex-shrink-0 z-10">
               <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-b border-gray-200">
@@ -217,7 +239,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 minHeight: '0' // Ensure flex item can shrink
               }}
             >
-              <div className="w-full min-h-full">
+              <div className="w-full pt-2 min-h-full">
                 {children}
               </div>
             </main>
@@ -245,6 +267,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <FiMenu className="w-6 h-6 text-gray-700" />
       </button>
       
+      {/* Mobile Notification Button */}
+      <div className="fixed top-2 right-12 z-40 md:hidden">
+        <NotificationsDropdown />
+      </div>
       
       <button
         className="fixed top-2 right-2 z-40 md:hidden bg-white/80 rounded-full p-1.5 shadow-lg backdrop-blur-lg"
@@ -321,9 +347,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
       
       {/* Data Preloader for common data */}
       <DataPreloader />
-      
-      {/* Chat Windows for mini chat functionality */}
-      <ChatWindows />
     </div>
   );
 } 

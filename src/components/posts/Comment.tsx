@@ -202,7 +202,7 @@ export function Comment({
             <Link href={`/profile/${author.username || author.id}`}>
               <Avatar className="h-10 w-10">
                 <AvatarImage src={author.photoURL} alt={author.displayName} />
-                <AvatarFallback className="text-xs">{author.displayName?.[0]?.toUpperCase() || '?'}</AvatarFallback>
+                <AvatarFallback className="text-xs">{author.displayName[0]}</AvatarFallback>
               </Avatar>
             </Link>
           </div>

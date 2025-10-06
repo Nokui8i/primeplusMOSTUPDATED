@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
-import { useNotificationsDropdown, Notification, markAllNotificationsAsRead } from '@/lib/notifications';
+import { useNotificationsInfiniteScroll, Notification, markAllNotificationsAsRead } from '@/lib/notifications';
 import { deleteNotification, restoreNotification } from '@/lib/firebase/db';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
@@ -47,7 +47,7 @@ export function NotificationsDropdown() {
   const router = useRouter();
   
   // Use infinite scroll notifications
-  const { notifications, loading } = useNotificationsDropdown(user?.uid || null, 10);
+  const { notifications, loading, hasMore, loadMore, setNotifications } = useNotificationsInfiniteScroll(user?.uid || '', 10);
   const displayNotifications = notifications;
   const unreadCount = displayNotifications.filter(n => !n.read).length;
 
@@ -61,7 +61,23 @@ export function NotificationsDropdown() {
     }
   }, [isOpen]);
 
+  // Infinite scroll ref
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Load more when scrolling to bottom
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // Prevent event bubbling
+    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
+    const threshold = 100; // Load more when 100px from bottom
+    
+    console.log('🔔 Scroll event:', { scrollTop, scrollHeight, clientHeight, hasMore, loading });
+    
+    if (scrollHeight - scrollTop <= clientHeight + threshold && hasMore && !loading) {
+      console.log('🔔 Triggering load more from scroll');
+      loadMore();
+    }
+  }, [hasMore, loading, loadMore]);
 
   // Mark all notifications as read when opening the dropdown
   useEffect(() => {
@@ -214,7 +230,7 @@ export function NotificationsDropdown() {
       console.log('🔔 Notification deleted successfully');
       
       // Update local state immediately
-      // Notification will be removed by the real-time listener
+      setNotifications(prev => prev.filter(n => n.id !== notificationId));
       
       // Show undo message within the dropdown
       console.log('🔔 Showing undo message in dropdown');
@@ -261,7 +277,7 @@ export function NotificationsDropdown() {
       console.log('🔔 Deleted', snapshot.size, 'notifications');
       
       // Update local state immediately
-      // Notifications will be cleared by the real-time listener
+      setNotifications([]);
       
       // Show toast notification
       simpleToast({
@@ -411,6 +427,7 @@ export function NotificationsDropdown() {
             <div 
               ref={scrollContainerRef}
               className="max-h-[300px] overflow-y-auto p-1 pb-4 invisible-scrollbar" 
+              onScroll={handleScroll}
               onWheel={(e) => {
                 e.stopPropagation();
                 // Allow the scroll to work normally within this container
@@ -546,10 +563,34 @@ export function NotificationsDropdown() {
                 </div>
               ))}
               
-              {/* Loading indicator */}
-              {loading && (
+              {/* Loading indicator for infinite scroll */}
+              {loading && hasMore && (
                 <div className="flex justify-center py-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+                </div>
+              )}
+              
+              {/* Load more button */}
+              {hasMore && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={loadMore}
+                    disabled={loading}
+                    className="text-xs text-blue-600 hover:text-blue-700 disabled:opacity-50"
+                  >
+                    {loading ? 'Loading...' : 'Load More'}
+                  </Button>
+                </div>
+              )}
+
+              {/* End of notifications message */}
+              {!hasMore && notifications.length > 0 && (
+                <div className="flex justify-center py-2">
+                  <span className="text-xs text-gray-500">
+                    No more notifications to display
+                  </span>
                 </div>
               )}
             </div>
