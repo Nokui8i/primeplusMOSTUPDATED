@@ -9,7 +9,6 @@ import { db } from '@/lib/firebase/config';
 import { Search, MessageCircle, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -20,6 +19,7 @@ export default function MessagesPage() {
   const [isMobileView, setIsMobileView] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -116,55 +116,66 @@ export default function MessagesPage() {
               <div className="search-container">
                 <input
                   type="text"
-                  name="search"
                   className="search-input"
-                  required
-                  placeholder="Type to search..."
+                  placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
                 <div className="search-icon">
-                  <Search className="w-full h-full text-gray-500" />
+                  <Search className="w-4 h-4 text-gray-400" />
                 </div>
               </div>
             </div>
 
             {/* Filter Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-black hover:text-black hover:bg-transparent">
-                  <span className="text-sm">
-                    {filterType === 'all' ? 'All' : 'Unread'}
-                  </span>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-20 bg-white border border-gray-200 shadow-lg">
-                <DropdownMenuItem 
-                  onClick={() => setFilterType('all')}
-                  className={`text-xs py-0.5 bg-white hover:bg-gray-50 cursor-pointer ${
-                    filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
-                  }`}
-                >
-                  All
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setFilterType('unread')}
-                  className={`text-xs py-0.5 bg-white hover:bg-gray-50 cursor-pointer ${
-                    filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
-                  }`}
-                >
-                  Unread
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="h-8 px-2 text-gray-600 hover:text-gray-900 hover:bg-transparent"
+              >
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+              
+              {isFilterOpen && (
+                <div className="absolute right-0 top-9 z-50 w-32 bg-white rounded-xl shadow-lg border border-gray-200 py-1 transform transition-all duration-200 ease-out"
+                     style={{
+                       boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+                       filter: 'drop-shadow(0 10px 8px rgba(0, 0, 0, 0.04)) drop-shadow(0 4px 3px rgba(0, 0, 0, 0.1))'
+                     }}>
+                  <button
+                    onClick={() => {
+                      setFilterType('all');
+                      setIsFilterOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${
+                      filterType === 'all' ? 'text-gray-900 font-medium' : 'text-gray-600'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => {
+                      setFilterType('unread');
+                      setIsFilterOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${
+                      filterType === 'unread' ? 'text-gray-900 font-medium' : 'text-gray-600'
+                    }`}
+                  >
+                    Unread
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-y-auto">
           <ChatList 
-            onSelectChat={handleSelectChat} 
+            onSelectChat={handleSelectChat}
             searchQuery={searchQuery}
             filterType={filterType}
           />
@@ -172,21 +183,20 @@ export default function MessagesPage() {
       </div>
 
       {/* Right Column - Chat Area */}
-      <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-gray-50`}>
+      <div className={`${isMobileView ? (selectedChat ? 'flex' : 'hidden') : 'flex'} flex-1 flex-col`}>
         {selectedChat ? (
-          <Chat 
-            recipientId={selectedChat.recipientId} 
-            recipientName={selectedChat.recipientName} 
-            hideHeader={true} 
+          <Chat
+            recipientId={selectedChat.recipientId}
+            recipientName={selectedChat.recipientName}
+            onBack={() => setSelectedChat(null)}
+            isMobileView={isMobileView}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
-              <p className="text-sm text-gray-500">Choose a chat from the sidebar to start messaging</p>
+              <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No chat selected</h3>
+              <p className="text-gray-500">Choose a conversation from the list to start messaging</p>
             </div>
           </div>
         )}
