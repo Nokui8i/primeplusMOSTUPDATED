@@ -344,48 +344,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false }: ChatPro
   };
 
   const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    const videoElement = e.target as HTMLVideoElement;
-    
-    // Log error details for debugging
-    console.error('Video error details:', {
-      error: videoElement.error ? {
-        code: videoElement.error.code,
-        message: videoElement.error.message
-      } : 'No error object',
-      networkState: videoElement.networkState,
-      readyState: videoElement.readyState,
-      src: videoElement.currentSrc || videoElement.src,
-      duration: videoElement.duration || 0,
-      paused: videoElement.paused,
-      ended: videoElement.ended,
-      muted: videoElement.muted,
-      volume: videoElement.volume
-    });
-
-    // Try to reload the video with the correct Firebase Storage URL format
-    if (videoElement && videoElement.currentSrc) {
-      const currentSrc = videoElement.currentSrc;
-      // Ensure we have the correct Firebase Storage URL format
-      const baseUrl = currentSrc.split('?')[0]; // Remove query parameters
-      const token = currentSrc.match(/token=([^&]+)/)?.[1] || '';
-      
-      // Create new source elements with proper Firebase Storage URL format
-      const source = document.createElement('source');
-      source.src = `${baseUrl}?alt=media&token=${token}`;
-      source.type = 'video/mp4';
-
-      // Clear existing sources
-      while (videoElement.firstChild) {
-        videoElement.removeChild(videoElement.firstChild);
-      }
-
-      // Add new source
-      videoElement.appendChild(source);
-
-      // Reload the video
-      videoElement.load();
-    }
-
+    // Handle video error silently
     toast.error('Error loading video. Please try again.');
   };
 
@@ -546,7 +505,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false }: ChatPro
         duration: recordingDuration // Add the duration to the message
       });
 
-      console.log('Voice message uploaded successfully:', url);
     } catch (error) {
       console.error('Error uploading voice message:', error);
       toast.error('Failed to upload voice message');
@@ -606,7 +564,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false }: ChatPro
 
         // Create blob and upload
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
-        console.log('Recording stopped, blob size:', audioBlob.size);
         await handleVoiceUpload(audioBlob);
       } catch (error) {
         console.error('Error stopping recording:', error);
@@ -699,22 +656,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false }: ChatPro
   return (
     <div className="flex flex-col h-full">
       {/* Chat Title Bar */}
-      {!hideHeader && recipientProfile && (
+      {!hideHeader && (
         <div className="flex items-center gap-3 px-4 py-2 border-b sticky top-0 z-10 bg-white/80 backdrop-blur-lg" /* PADDING: gap-3 px-4 py-2 */
              style={{ borderColor: themeColors.brand.blue.deep }}>
           <div
             className="flex items-center gap-3 cursor-pointer hover:underline" /* PADDING: gap-3 - increased spacing */
-            onClick={() => router.push(`/${recipientProfile.username}`)}
+            onClick={() => router.push(`/${recipientProfile?.username || recipientId}`)}
           >
             <div className="relative flex-shrink-0 w-12 h-12"> {/* PADDING: w-12 h-12 (48px) - exact avatar size */}
               <MessagesAvatar 
-                src={recipientProfile.photoURL || '/default-avatar.png'}
-                alt={recipientProfile.displayName}
-                fallback={recipientProfile.displayName?.[0] || '?'}
+                src={recipientProfile?.photoURL || '/default-avatar.png'}
+                alt={recipientProfile?.displayName || recipientName}
+                fallback={(recipientProfile?.displayName || recipientName)?.[0] || '?'}
                 size="md"
               />
             </div>
-            <span className="font-semibold text-base" style={{ color: themeColors.brand.blue.deep }}>{recipientProfile.displayName}</span>
+            <span className="font-semibold text-base" style={{ color: themeColors.brand.blue.deep }}>
+              {recipientProfile?.displayName || recipientName}
+            </span>
             {isRecipientTyping && (
               <span
                 className="ml-2 text-xs font-medium bg-gradient-to-r from-[#6B3BFF] to-[#2B55FF] bg-clip-text text-transparent select-none"
@@ -740,46 +699,25 @@ export function Chat({ recipientId, recipientName, hideHeader = false }: ChatPro
           <button
             className="ml-auto p-1.5 rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
             style={{
-              background: 'linear-gradient(135deg, #2B1B5A 0%, #6B3BFF 60%, #FF8DC7 100%)',
-              color: themeColors.text.primary,
-              boxShadow: '0 4px 24px 0 rgba(107,59,255,0.25), 0 0 0 4px rgba(107,59,255,0.10)',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              border: 'none',
-              position: 'relative',
-              overflow: 'hidden',
-              zIndex: 1,
-              backgroundImage: 'linear-gradient(135deg, #2B1B5A 0%, #6B3BFF 60%, #FF8DC7 100%), radial-gradient(circle at 30% 20%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 80%, transparent 100%)',
+              backgroundColor: themeColors.brand.blue.deep,
+              color: 'white',
+              focusRingColor: themeColors.brand.blue.deep
             }}
-            onMouseOver={e => {
-              e.currentTarget.style.filter = 'brightness(1.08) scale(1.08)';
+            onClick={(e) => {
+              e.stopPropagation();
+              openChat(recipientId, recipientProfile?.displayName || recipientName);
             }}
-            onMouseOut={e => {
-              e.currentTarget.style.filter = '';
-            }}
-            onClick={() => openChat({
-              id: recipientId,
-              uid: recipientId,
-              displayName: recipientProfile.displayName,
-              username: recipientProfile.username,
-              photoURL: recipientProfile.photoURL || '',
-              email: '',
-              createdAt: Timestamp.now(),
-              updatedAt: Timestamp.now(),
-              isAgeVerified: false,
-              isVerified: false,
-              role: 'user',
-              status: 'active'
-            })}
-            title="Open in chat popup"
-            aria-label="Open in chat popup"
-            type="button"
+            title="Open in popup"
           >
-            <FiMessageSquare className="w-4 h-4 drop-shadow-[0_2px_8px_rgba(43,85,255,0.5)]" />
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
           </button>
         </div>
       )}
-      <div className="flex-1 overflow-y-auto p-1 md:p-2 space-y-1 md:space-y-2">
+      
+      {/* Messages Container */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ scrollBehavior: 'smooth' }}>
         {messages.map((message, idx) => (
           <div
             key={message.id}

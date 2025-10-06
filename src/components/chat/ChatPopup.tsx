@@ -117,7 +117,6 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
               <div className="flex flex-col">
                 <div className="flex items-center">
                   <span className="font-medium">{user.displayName || user.username}</span>
-                  {(() => { console.log('isRecipientTyping', isRecipientTyping); return null; })()}
                   {isRecipientTyping && (
                     <span
                       className="ml-2 text-xs font-medium text-black select-none"
@@ -148,7 +147,6 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                console.log('Close button clicked for user:', user.uid);
                 closeChat(user.uid);
               }}
               className="p-1 hover:bg-white/10 rounded"
@@ -189,7 +187,6 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
             <div className="flex flex-col">
               <div className="flex items-center">
                 <span className="font-medium">{user.displayName || user.username}</span>
-                {(() => { console.log('isRecipientTyping', isRecipientTyping); return null; })()}
                 {isRecipientTyping && (
                   <span
                     className="ml-2 text-xs font-medium text-black select-none"
@@ -215,7 +212,6 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
             onClick={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              console.log('Close button clicked for user:', user.uid);
               closeChat(user.uid);
             }}
             className="p-1 hover:bg-white/10 rounded"

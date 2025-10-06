@@ -7,7 +7,7 @@ import { NotificationsDropdown } from './NotificationsDropdown';
 import { Search } from './Search';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import AppLoader from './common/AppLoader';
 import { AnimatePresence } from 'framer-motion';
 import { FiMenu, FiFilter, FiX, FiBell } from 'react-icons/fi';
@@ -42,7 +42,11 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const [showMobileLeft, setShowMobileLeft] = useState(false);
   const [showMobileRight, setShowMobileRight] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const mainContentRef = useRef<HTMLElement>(null);
+  
+  // Hide right sidebar on messages page
+  const isMessagesPage = pathname === '/messages';
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -214,7 +218,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </aside>
 
           {/* Center Area with Header and Main Content */}
-          <div className="flex-1 flex flex-col border-l border-gray-200 h-screen">
+          <div className="flex-1 flex flex-col border-l border-gray-200" style={{ height: '100vh' }}>
             {/* Center Header */}
             <div className="hidden md:block flex-shrink-0 z-10">
               <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-b border-gray-200">
@@ -239,22 +243,24 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 minHeight: '0' // Ensure flex item can shrink
               }}
             >
-              <div className="w-full pt-2 min-h-full">
+              <div className="w-full min-h-full">
                 {children}
               </div>
             </main>
           </div>
 
-          {/* Right Sidebar */}
-          <aside className="hidden md:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
-            <div className="h-full overflow-y-auto invisible-scrollbar">
-              <RightSidebar
-                suggestedCreators={suggestedCreators}
-                trendingTopics={trendingTopics}
-                isLoading={isLoading}
-              />
-            </div>
-          </aside>
+          {/* Right Sidebar - Hidden on messages page */}
+          {!isMessagesPage && (
+            <aside className="hidden md:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
+              <div className="h-full overflow-y-auto invisible-scrollbar">
+                <RightSidebar
+                  suggestedCreators={suggestedCreators}
+                  trendingTopics={trendingTopics}
+                  isLoading={isLoading}
+                />
+              </div>
+            </aside>
+          )}
         </div>
       </div>
 

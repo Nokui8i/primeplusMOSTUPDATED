@@ -6,6 +6,10 @@ import { ChatList } from '@/components/chat/ChatList';
 import { Chat } from '@/components/chat/Chat';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { Search, MessageCircle, ChevronDown } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -14,6 +18,8 @@ export default function MessagesPage() {
     recipientName: string;
   } | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
 
   useEffect(() => {
     const checkMobile = () => {
@@ -48,26 +54,148 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="flex h-full bg-white rounded-lg shadow-sm overflow-hidden">
-      {/* Chat List Sidebar */}
-      <div className={`${isMobileView ? (!selectedChat ? 'flex' : 'hidden') : 'flex'} w-72 flex-col bg-white border-r border-gray-200`}>
-        <ChatList onSelectChat={handleSelectChat} />
+    <div className="flex bg-white rounded-lg shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
+      {/* Left Column - Chat List */}
+      <div className={`${isMobileView ? (!selectedChat ? 'flex' : 'hidden') : 'flex'} w-80 flex-col bg-white border-r border-gray-200`}>
+        {/* Header */}
+        <div className="px-4 py-1.5 overflow-hidden border-b border-gray-200">
+          {/* Search Bar and Filter Dropdown */}
+          <div className="flex gap-3 justify-between">
+            {/* Animated Search Bar */}
+            <div className="relative flex-1 ml-2">
+              <style jsx>{`
+                .search-container {
+                  position: relative !important;
+                  --size-button: 32px;
+                  color: white;
+                  top: -2px !important;
+                }
+                
+                .search-input {
+                  padding-left: var(--size-button) !important;
+                  height: var(--size-button) !important;
+                  font-size: 13px !important;
+                  border: none !important;
+                  color: #000 !important;
+                  outline: none !important;
+                  width: var(--size-button) !important;
+                  transition: all ease 0.3s !important;
+                  background-color: #fff !important;
+                  box-shadow: 1.5px 1.5px 3px #e5e7eb, -1.5px -1.5px 3px rgba(156, 163, 175, 0.25), inset 0px 0px 0px #e5e7eb, inset 0px -0px 0px rgba(156, 163, 175, 0.25) !important;
+                  border-radius: 50px !important;
+                  cursor: pointer !important;
+                  margin: 0 !important;
+                  padding-top: 0 !important;
+                  padding-bottom: 0 !important;
+                  padding-right: 0 !important;
+                }
+                
+                .search-input:focus,
+                .search-input:not(:invalid) {
+                  width: 150px !important;
+                  cursor: text !important;
+                  border: none !important;
+                  outline: none !important;
+                  box-shadow: 0px 0px 0px #e5e7eb, 0px 0px 0px rgba(156, 163, 175, 0.25), inset 1.5px 1.5px 3px #e5e7eb, inset -1.5px -1.5px 3px rgba(156, 163, 175, 0.25) !important;
+                }
+                
+                .search-input:focus + .search-icon,
+                .search-input:not(:invalid) + .search-icon {
+                  pointer-events: all !important;
+                  cursor: pointer !important;
+                }
+                
+                .search-icon {
+                  position: absolute !important;
+                  width: var(--size-button) !important;
+                  height: var(--size-button) !important;
+                  top: -2px !important;
+                  left: 1px !important;
+                  padding: 6px !important;
+                  pointer-events: none !important;
+                }
+                
+                .search-icon svg {
+                  width: 100% !important;
+                  height: 100% !important;
+                }
+              `}</style>
+              <div className="search-container">
+                <input
+                  type="text"
+                  name="search"
+                  className="search-input"
+                  required
+                  placeholder="Type to search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <div className="search-icon">
+                  <Search className="w-full h-full text-gray-500" />
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Dropdown */}
+            <div className="mr-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-black hover:text-black hover:bg-transparent">
+                  <span className="text-sm">
+                    {filterType === 'all' ? 'All' : 'Unread'}
+                  </span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-20 bg-white border border-gray-200 shadow-lg">
+                <DropdownMenuItem 
+                  onClick={() => setFilterType('all')}
+                  className={`text-xs py-0.5 bg-white hover:bg-gray-50 cursor-pointer ${
+                    filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
+                  }`}
+                >
+                  All
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setFilterType('unread')}
+                  className={`text-xs py-0.5 bg-white hover:bg-gray-50 cursor-pointer ${
+                    filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
+                  }`}
+                >
+                  Unread
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            </div>
+          </div>
+        </div>
+
+        {/* Chat List */}
+        <div className="flex-1 overflow-hidden">
+          <ChatList 
+            onSelectChat={handleSelectChat} 
+            searchQuery={searchQuery}
+            filterType={filterType}
+          />
+        </div>
       </div>
 
-      {/* Chat Area */}
+      {/* Right Column - Chat Area */}
       <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-gray-50`}>
         {selectedChat ? (
-          <Chat recipientId={selectedChat.recipientId} recipientName={selectedChat.recipientName} hideHeader={true} />
+          <Chat 
+            recipientId={selectedChat.recipientId} 
+            recipientName={selectedChat.recipientName} 
+            hideHeader={false} 
+          />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-3 bg-gray-200 rounded-full flex items-center justify-center">
-                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <MessageCircle className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-base font-semibold text-gray-900 mb-1">Select a conversation</h3>
-              <p className="text-sm text-gray-500">Choose a chat to start messaging</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
+              <p className="text-sm text-gray-500">Choose a chat from the sidebar to start messaging</p>
             </div>
           </div>
         )}
