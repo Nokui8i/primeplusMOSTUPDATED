@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2 } from 'lucide-react';
+import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 // Firebase Storage imports removed - now using AWS S3
 import { ImageUploadPreview } from './ImageUploadPreview';
@@ -94,6 +94,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [uploading, setUploading] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<{ id: string; type: string } | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
+  const [editText, setEditText] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -117,11 +119,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const GESTURE_THRESHOLD = 120; // Increased threshold for more intentional cancellation
   const LOCK_THRESHOLD = 150;
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
+  const [audioProgress, setAudioProgress] = useState<{ [key: string]: number }>({});
   const audioRefs = useRef<{ [key: string]: HTMLAudioElement }>({});
+  const lastUpdateTime = useRef<{ [key: string]: number }>({});
   const [isDragging, setIsDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartWidth, setDragStartWidth] = useState(0);
-  const [containerWidth, setContainerWidth] = useState(customWidth || 57.9);
+  const [containerWidth, setContainerWidth] = useState(100);
   const [isMouseDown, setIsMouseDown] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [shouldCancel, setShouldCancel] = useState(false);
@@ -171,8 +175,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     if (savedWidth) {
       setContainerWidth(parseFloat(savedWidth));
     } else {
-      // Set default to 57.9% if no saved width
-      setContainerWidth(57.9);
+      // Set default to 100% if no saved width
+      setContainerWidth(100);
     }
   }, [customWidth]);
   const [isRecipientTyping, setIsRecipientTyping] = useState(false);
@@ -236,14 +240,15 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
     // Listen to messages with real-time updates
     const messagesRef = collection(db, 'chats', chatId, 'messages');
-    const q = query(messagesRef, orderBy('timestamp', 'asc'));
+    const q = query(messagesRef, orderBy('timestamp', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const newMessages = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Message[];
-      setMessages(newMessages);
+      // Reverse to show oldest first (chronological order)
+      setMessages(newMessages.reverse());
 
       // Update message status to 'delivered' for new messages
       snapshot.docChanges().forEach((change) => {
@@ -331,12 +336,46 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   }, []);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      // Force immediate scroll to bottom like WhatsApp
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'auto', // Changed from 'smooth' to 'auto' for immediate scroll
+        block: 'end',
+        inline: 'nearest'
+      });
+      
+      // Also try scrolling the container directly
+      const container = messagesEndRef.current.parentElement;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    // Multiple attempts to scroll to bottom like WhatsApp
+    setTimeout(() => scrollToBottom(), 50);
+    setTimeout(() => scrollToBottom(), 100);
+    setTimeout(() => scrollToBottom(), 200);
+    setTimeout(() => scrollToBottom(), 500);
   }, [messages]);
+
+  // Scroll to bottom when chat first loads and refresh metadata
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => scrollToBottom(), 100);
+      setTimeout(() => scrollToBottom(), 300);
+      setTimeout(() => scrollToBottom(), 600);
+    }
+    
+    // Refresh chat metadata when chat loads to ensure accuracy
+    if (user && recipientId) {
+      const chatId = [user.uid, recipientId].sort().join('_');
+      setTimeout(() => {
+        updateChatMetadataFromActualLastMessage(chatId);
+      }, 1000);
+    }
+  }, [recipientId, user]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -356,7 +395,32 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     };
 
     await addDoc(messagesRef, messageData);
+    
+    // Update chat metadata with last message
+    const chatRef = doc(db, 'chats', chatId);
+    await updateDoc(chatRef, {
+      lastMessage: newMessage.trim(),
+      lastMessageTime: serverTimestamp(),
+      unreadCounts: {
+        [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
+      }
+    });
+    
+    
+    // Force refresh chat metadata by querying the actual last message
+    setTimeout(async () => {
+      try {
+        await updateChatMetadataFromActualLastMessage(chatId);
+      } catch (error) {
+        console.error('Error refreshing chat metadata:', error);
+      }
+    }, 500);
+    
     setNewMessage('');
+    
+    // Scroll to bottom after sending message
+    setTimeout(() => scrollToBottom(), 100);
+    setTimeout(() => scrollToBottom(), 300);
   };
 
   const handleImageClick = () => {
@@ -396,6 +460,21 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             type: 'image',
             locked: !!locked,
           });
+          
+          // Update chat metadata
+          const chatRef = doc(db, 'chats', chatId);
+          await updateDoc(chatRef, {
+            lastMessage: '📷 Image',
+            lastMessageTime: serverTimestamp(),
+            unreadCounts: {
+              [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
+            }
+          });
+          
+          // Force refresh to ensure accuracy
+          setTimeout(() => {
+            updateChatMetadataFromActualLastMessage(chatId);
+          }, 500);
         } catch (error) {
           console.error('Error uploading image:', error);
           toast.error(`Failed to upload ${file.name}`);
@@ -453,6 +532,21 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             type: 'video',
             locked: !!locked,
           });
+          
+          // Update chat metadata
+          const chatRef = doc(db, 'chats', chatId);
+          await updateDoc(chatRef, {
+            lastMessage: '🎥 Video',
+            lastMessageTime: serverTimestamp(),
+            unreadCounts: {
+              [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
+            }
+          });
+          
+          // Force refresh to ensure accuracy
+          setTimeout(() => {
+            updateChatMetadataFromActualLastMessage(chatId);
+          }, 500);
         } catch (error) {
           console.error('Error uploading video:', error);
           toast.error(`Failed to upload ${file.name}`);
@@ -506,9 +600,25 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         
         audio.onended = () => {
           setPlayingAudio(null);
+          setAudioProgress(prev => ({ ...prev, [messageId]: 0 }));
         };
         
         audio.onerror = handleAudioError;
+        
+        audio.ontimeupdate = () => {
+          if (audio.duration) {
+            const now = Date.now();
+            const lastUpdate = lastUpdateTime.current[messageId] || 0;
+            
+            // Throttle updates to every 50ms for smoother animation
+            if (now - lastUpdate > 50) {
+              const progress = (audio.currentTime / audio.duration) * 100;
+              lastUpdateTime.current[messageId] = now;
+              
+              setAudioProgress(prev => ({ ...prev, [messageId]: progress }));
+            }
+          }
+        };
       }
 
       if (playingAudio === messageId) {
@@ -516,6 +626,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         audio.pause();
         audio.currentTime = 0;
         setPlayingAudio(null);
+        setAudioProgress(prev => ({ ...prev, [messageId]: 0 }));
       } else {
         // Set the source and play
         audio.src = audioUrl;
@@ -575,6 +686,21 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         type: 'audio',
         duration: recordingDuration // Add the duration to the message
       });
+
+      // Update chat metadata with last message
+      const chatRef = doc(db, 'chats', chatId);
+      await updateDoc(chatRef, {
+        lastMessage: '🎵 Voice message',
+        lastMessageTime: serverTimestamp(),
+        unreadCounts: {
+          [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
+        }
+      });
+      
+      // Force refresh to ensure accuracy
+      setTimeout(() => {
+        updateChatMetadataFromActualLastMessage(chatId);
+      }, 500);
 
     } catch (error) {
       console.error('Error uploading voice message:', error);
@@ -669,13 +795,66 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Function to update chat metadata by querying the actual last message
+  const updateChatMetadataFromActualLastMessage = async (chatId: string) => {
+    try {
+      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      const messagesQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(1));
+      const lastMessageSnapshot = await getDocs(messagesQuery);
+      
+      const chatRef = doc(db, 'chats', chatId);
+      
+      if (lastMessageSnapshot.empty) {
+        // No messages left, clear last message
+        await updateDoc(chatRef, {
+          lastMessage: '',
+          lastMessageTime: null
+        });
+      } else {
+        // Update with the actual last message
+        const lastMsg = lastMessageSnapshot.docs[0].data();
+        const lastMessageText = lastMsg.text || (lastMsg.imageUrl ? '📷 Image' : lastMsg.videoUrl ? '🎥 Video' : lastMsg.audioUrl ? '🎵 Voice message' : '');
+        
+        await updateDoc(chatRef, {
+          lastMessage: lastMessageText,
+          lastMessageTime: lastMsg.timestamp
+        });
+        
+      }
+    } catch (error) {
+      console.error('Error updating chat metadata from actual last message:', error);
+    }
+  };
+
   const handleDeleteMessage = async (messageId: string) => {
     if (!user) return;
 
     try {
       const chatId = [user.uid, recipientId].sort().join('_');
       const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+      
+      // Get message data to check if it's been read
+      const messageDoc = await getDoc(messageRef);
+      const messageData = messageDoc.data();
+      
+      if (!messageData) {
+        toast.error('Message not found');
+        return;
+      }
+      
+      // Check if message has been read by recipient
+      if (messageData.read && messageData.senderId === user.uid) {
+        toast.error('Cannot delete message that has been seen');
+        return;
+      }
+      
       await deleteDoc(messageRef);
+      
+      // Wait a moment for the deletion to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Update chat metadata by querying the actual last message
+      await updateChatMetadataFromActualLastMessage(chatId);
       
       toast.success("Message deleted successfully");
     } catch (error) {
@@ -684,6 +863,60 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     } finally {
       setMessageToDelete(null);
     }
+  };
+
+  const handleEditMessage = async () => {
+    if (!editingMessage || !editText.trim() || !user) return;
+
+    try {
+      const chatId = [user.uid, recipientId].sort().join('_');
+      const messageRef = doc(db, 'chats', chatId, 'messages', editingMessage.id);
+      
+      // Get message data to check if it's been read
+      const messageDoc = await getDoc(messageRef);
+      const messageData = messageDoc.data();
+      
+      if (!messageData) {
+        toast.error('Message not found');
+        return;
+      }
+      
+      // Check if message has been read by recipient
+      if (messageData.read && messageData.senderId === user.uid) {
+        toast.error('Cannot edit message that has been seen');
+        return;
+      }
+      
+      await updateDoc(messageRef, {
+        text: editText.trim(),
+        edited: true,
+        editedAt: serverTimestamp()
+      });
+      
+      // Update chat metadata if this is the last message
+      const chatRef = doc(db, 'chats', chatId);
+      await updateDoc(chatRef, {
+        lastMessage: editText.trim(),
+        lastMessageTime: serverTimestamp()
+      });
+      
+      setEditingMessage(null);
+      setEditText('');
+      toast.success('Message edited');
+    } catch (error) {
+      console.error('Error editing message:', error);
+      toast.error('Failed to edit message');
+    }
+  };
+
+  const startEditMessage = (messageId: string, currentText: string) => {
+    setEditingMessage({ id: messageId, text: currentText });
+    setEditText(currentText);
+  };
+
+  const cancelEdit = () => {
+    setEditingMessage(null);
+    setEditText('');
   };
 
   // Typing indicator Firestore logic
@@ -730,7 +963,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   })();
 
   return (
-    <div className="flex flex-col h-full w-full relative" style={{ width: `${containerWidth}%` }}>
+    <div className="flex flex-col h-full w-full relative chat-container" style={{ width: '100%' }}>
       {/* Chat Title Bar */}
       {!hideHeader && (
         <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 sticky top-0 z-10 bg-white/80 backdrop-blur-lg"
@@ -765,10 +998,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           </div>
           {/* Online/Offline and Last Seen */}
           <div className="ml-2 flex flex-col">
-            {recipientStatus.online ? (
+            {recipientStatus.online && (
               <span className="text-xs text-green-500 font-semibold">Online</span>
-            ) : (
-              <span className="text-xs text-black">Last seen: {recipientStatus.lastSeen ? formatDistanceToNow(recipientStatus.lastSeen.toDate(), { addSuffix: true }) : 'Unknown'}</span>
             )}
           </div>
           {/* Open in Popup Icon Button */}
@@ -810,22 +1041,260 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       <div className="border-b border-gray-200"></div>
       
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto px-2 py-4 space-y-1 bg-white border-r border-gray-200 scrollbar-hide" style={{ scrollBehavior: 'smooth', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div 
+            className="flex-1 overflow-y-auto px-2 py-4 bg-white border-r border-gray-200 scrollbar-hide flex flex-col justify-start chat-messages-container" 
+            style={{ 
+              scrollBehavior: 'smooth', 
+              scrollbarWidth: 'none', 
+              msOverflowStyle: 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'flex-start',
+              alignItems: 'stretch',
+              height: '100%',
+              minHeight: '0',
+              overflowY: 'auto',
+              width: '100%'
+            }}
+          >
+        {messages.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+            <div className="text-center">
+              <div className="text-4xl mb-2">💬</div>
+              <p>Start a conversation!</p>
+            </div>
+          </div>
+        ) : (
+              <div 
+                className="flex flex-col space-y-1 chat-messages-wrapper"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'flex-start',
+                  alignItems: 'stretch',
+                  width: '100%',
+                  gap: '0.1rem'
+                }}
+              >
         {messages.map((message, idx) => (
           <div
             key={message.id}
-            className={`flex w-full ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`relative group rounded-2xl p-3 border shadow chat-message-bubble ${
-              message.senderId === user?.uid 
-                ? 'text-white shadow-sm'
-                : 'bg-gray-100 text-black border-gray-100 shadow-sm'
-            }`} style={{
-              ...(message.senderId === user?.uid ? { backgroundColor: '#0F77FF', borderColor: '#0F77FF' } : {}),
-              maxWidth: '80%'
-            }}>
-              {/* Always show text */}
-              <p className="text-xs md:text-sm break-words">{message.text}</p>
+              className={`flex w-full chat-message-item ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
+            >
+            {/* Render image message without frame */}
+            {message.type === 'image' && message.imageUrl ? (
+              <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
+                {/* Message actions for image - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMessageToDelete({ id: message.id, type: message.type });
+                      }}
+                      className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
+                      title="Delete message"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <img
+                    src={message.imageUrl}
+                    alt="Sent image"
+                    className="rounded-lg max-w-full max-h-[400px] cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setSelectedImage(message.imageUrl!)}
+                  />
+                </div>
+              </div>
+            ) : message.type === 'video' && message.videoUrl ? (
+              <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
+                {/* Message actions for video - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMessageToDelete({ id: message.id, type: message.type });
+                      }}
+                      className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
+                      title="Delete message"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <video
+                    className="rounded-lg max-w-full max-h-[400px] cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => setSelectedVideo(message.videoUrl!)}
+                    playsInline
+                    preload="metadata"
+                  >
+                    <source src={message.videoUrl} type="video/mp4" />
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              </div>
+            ) : message.type === 'audio' && message.audioUrl ? (
+              <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
+                {/* Message actions for voice - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMessageToDelete({ id: message.id, type: message.type });
+                      }}
+                      className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
+                      title="Delete message"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
+                <div className={`relative rounded-2xl p-3 border shadow chat-message-bubble ${
+                  message.senderId === user?.uid 
+                    ? 'text-white shadow-sm'
+                    : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                }`} style={{
+                  ...(message.senderId === user?.uid ? { backgroundColor: '#0F77FF', borderColor: '#0F77FF' } : {}),
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  minWidth: 'fit-content'
+                }}>
+                  <div className="flex items-center gap-2">
+                    {/* Play/Pause Button */}
+                    <button
+                      className={`flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 flex-shrink-0 ${
+                        playingAudio === message.id 
+                          ? 'bg-white text-blue-500' 
+                          : 'bg-white/20 text-white hover:bg-white/30'
+                      }`}
+                      onClick={() => handleAudioPlay(message.id, message.audioUrl!)}
+                    >
+                      {playingAudio === message.id ? (
+                        <Pause className="w-3 h-3" />
+                      ) : (
+                        <Play className="w-3 h-3 ml-0.5" />
+                      )}
+                    </button>
+                    
+                    {/* Progress Bar */}
+                    <div 
+                      className="flex-1 min-w-0 rounded-full overflow-hidden bg-white/30"
+                      style={{
+                        height: '6px',
+                        minWidth: '60px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                        position: 'relative'
+                      }}
+                    >
+                      <div 
+                        className="rounded-full bg-white"
+                        style={{
+                          height: '100%',
+                          width: `${audioProgress[message.id] || 0}%`,
+                          minWidth: playingAudio === message.id ? '2px' : '0px',
+                          transition: 'width 0.1s linear'
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Duration */}
+                    <span className="text-xs text-white/80 font-mono flex-shrink-0">
+                      {message.duration ? formatDuration(message.duration) : '0:00'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
+                {/* Message actions for text - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && !editingMessage && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        startEditMessage(message.id, message.text);
+                      }}
+                      className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
+                      title="Edit message"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMessageToDelete({ id: message.id, type: message.type });
+                      }}
+                      className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
+                      title="Delete message"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                
+                <div className={`relative rounded-2xl p-3 border shadow chat-message-bubble ${
+                  message.senderId === user?.uid 
+                    ? 'text-white shadow-sm'
+                    : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                }`} style={{
+                  ...(message.senderId === user?.uid ? { backgroundColor: '#0F77FF', borderColor: '#0F77FF' } : {}),
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  minWidth: 'fit-content'
+                }}>
+                  {/* Text content - editable if not read */}
+                  {editingMessage?.id === message.id ? (
+                    <div className="flex flex-col gap-2">
+                      <textarea
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        className="w-full p-2 text-xs md:text-sm bg-white text-black rounded border resize-none"
+                        rows={3}
+                        autoFocus
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={cancelEdit}
+                          className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={handleEditMessage}
+                          className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-left">
+                      <p className="text-xs md:text-sm break-words whitespace-normal">
+                        {message.text}
+                        {message.edited && (
+                          <span className="text-xs text-gray-400 ml-1">(edited)</span>
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+              
               {/* Render attachments with per-media lock logic */}
               {Array.isArray(message.attachments) && message.attachments.length > 0 && (
                 <div className="flex flex-col gap-2 mt-1">
@@ -969,9 +1438,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   })}
                 </div>
               )}
-            </div>
           </div>
         ))}
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -1071,7 +1541,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-gray-500">
-              Are you sure you want to delete this {messageToDelete?.type === 'audio' ? 'voice message' : 'message'}? This action cannot be undone.
+                  Are you sure you want to delete this {messageToDelete?.type === 'audio' ? 'voice message' : messageToDelete?.type === 'image' ? 'image' : messageToDelete?.type === 'video' ? 'video' : 'message'}? This action cannot be undone.
+                </p>
+                <p className="text-xs text-red-500 mt-2">
+                  Note: You can only delete messages that haven't been seen by the recipient.
             </p>
           </div>
           <div className="flex justify-end gap-3">
@@ -1092,7 +1565,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         </DialogContent>
       </Dialog>
 
-      <form onSubmit={handleSendMessage} className="p-1 md:p-2 border-t bg-white/80 backdrop-blur-lg" style={{ borderColor: themeColors.brand.blue.deep }}>
+      <form onSubmit={handleSendMessage} className="p-1 md:p-2 border-t bg-white/80" style={{ 
+        borderColor: themeColors.brand.blue.deep,
+        backdropFilter: 'none !important',
+        filter: 'none !important',
+        boxShadow: 'none !important'
+      }}>
         <div className="flex gap-1 md:gap-2 items-center">
           {/* Dropdown for Media & Emoji Buttons */}
           <DropdownMenu>
@@ -1138,23 +1616,64 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               <Send className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           ) : (
-            <div className="relative">
+            <div className="relative" style={{
+              boxShadow: 'none !important',
+              filter: 'none !important',
+              backdropFilter: 'none !important',
+              animation: 'none !important'
+            }}>
               {!isRecording ? (
+                <div style={{
+                  boxShadow: 'none !important',
+                  filter: 'none !important',
+                  backdropFilter: 'none !important',
+                  animation: 'none !important',
+                  isolation: 'isolate'
+                }}>
                 <Button
                   type="button"
                   size="icon"
-                  className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200"
+                    className="microphone-button bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 hover:bg-[#6B3BFF]/10 focus:outline-none"
+                    style={{ 
+                      boxShadow: 'none !important',
+                      animation: 'none !important',
+                      WebkitAnimation: 'none !important',
+                      MozAnimation: 'none !important',
+                      OAnimation: 'none !important',
+                      msAnimation: 'none !important',
+                      filter: 'none !important',
+                      backdropFilter: 'none !important',
+                      outline: 'none !important',
+                      textShadow: 'none !important',
+                      isolation: 'isolate'
+                    }}
                   onClick={startRecording}
                   disabled={uploading}
                 >
                   <Mic className="h-3 w-3 md:h-4 md:w-4" />
                 </Button>
+                </div>
               ) : (
                 <div className="flex gap-2">
                   <Button
                     type="button"
                     size="icon"
-                    className="bg-red-500 hover:bg-red-600 text-white h-7 w-7 md:h-8 md:w-8 shadow"
+                    className="microphone-button rounded-full bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 hover:bg-[#6B3BFF]/10 focus:outline-none"
+                    style={{ 
+                      backgroundColor: '#ffffff !important',
+                      color: '#3b82f6 !important',
+                      boxShadow: 'none !important',
+                      animation: 'none !important',
+                      WebkitAnimation: 'none !important',
+                      MozAnimation: 'none !important',
+                      OAnimation: 'none !important',
+                      msAnimation: 'none !important',
+                      filter: 'none !important',
+                      backdropFilter: 'none !important',
+                      outline: 'none !important',
+                      textShadow: 'none !important',
+                      border: 'none !important'
+                    }}
                     onClick={cancelRecording}
                   >
                     <X className="h-3 w-3 md:h-4 md:w-4" />
@@ -1162,12 +1681,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   <Button
                     type="button"
                     size="icon"
-                    className="bg-green-500 hover:bg-green-600 text-white h-7 w-7 md:h-8 md:w-8 shadow"
+                    className="microphone-button rounded-full bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 hover:bg-[#6B3BFF]/10 focus:outline-none"
+                    style={{ 
+                      backgroundColor: '#ffffff !important',
+                      color: '#3b82f6 !important',
+                      boxShadow: 'none !important',
+                      animation: 'none !important',
+                      WebkitAnimation: 'none !important',
+                      MozAnimation: 'none !important',
+                      OAnimation: 'none !important',
+                      msAnimation: 'none !important',
+                      filter: 'none !important',
+                      backdropFilter: 'none !important',
+                      outline: 'none !important',
+                      textShadow: 'none !important',
+                      border: 'none !important'
+                    }}
                     onClick={stopRecording}
                   >
                     <Send className="h-3 w-3 md:h-4 md:w-4" />
                   </Button>
-                  <div className="flex items-center px-2 bg-white/90 rounded-lg border border-blue-200">
+                  <div className="flex items-center px-2 bg-white/90 rounded-lg">
                     <span className="text-sm text-gray-700">{formatDuration(recordingDuration)}</span>
                   </div>
                 </div>

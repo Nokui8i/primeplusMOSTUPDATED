@@ -24,24 +24,6 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
   const [lastDoc, setLastDoc] = useState<any>(null)
- 
-1 of 1 unhandled error
-Next.js (14.0.4) is outdated (learn more)
-
-Unhandled Runtime Error
-ReferenceError: useCallback is not defined
-
-Source
-src\components\chat\Chat.tsx (138:26) @ useCallback
-
-  136 | };
-  137 |
-> 138 | const handleMouseMove = useCallback((e: MouseEvent) => {
-      |                        ^
-  139 |   if (!isDragging) return;
-  140 |   
-  141 |   const deltaX = e.clientX - dragStartX;
-Show collapsed frames
   const router = useRouter()
   const { user } = useAuth()
   const { ref: loadMoreRef, inView } = useInView()

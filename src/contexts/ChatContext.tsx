@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { UserProfile } from '@/lib/types/user';
-import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, getDocs, writeBatch, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, getDocs, writeBatch, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
@@ -291,12 +291,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   };
 
   const markAsRead = async (userId: string) => {
+    console.log('🔍 markAsRead called with userId:', userId);
     if (!userId) {
       console.error('markAsRead called with undefined userId');
       return;
     }
 
     // Update local state
+    console.log('🔍 Updating local state for userId:', userId);
     setChatWindows(prev => 
       prev.map(window => 
         window.user.uid === userId 
@@ -329,7 +331,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       });
       
       if (!snapshot.empty) {
+        console.log('🔍 Found', snapshot.size, 'unread messages, committing batch');
         await batch.commit();
+        
+        // Update chat metadata unread count
+        const chatRef = doc(db, 'chats', chatId);
+        console.log('🔍 Updating chat metadata unread count for chatId:', chatId);
+        await updateDoc(chatRef, {
+          [`unreadCounts.${currentUser.uid}`]: 0
+        });
+        console.log('🔍 Successfully updated chat metadata');
+      } else {
+        console.log('🔍 No unread messages found, still updating chat metadata');
+        // Update chat metadata unread count even if no messages to mark as read
+        const chatRef = doc(db, 'chats', chatId);
+        await updateDoc(chatRef, {
+          [`unreadCounts.${currentUser.uid}`]: 0
+        });
       }
     } catch (error) {
       console.error('Error marking messages as read:', error);

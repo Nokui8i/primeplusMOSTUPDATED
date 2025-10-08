@@ -41,7 +41,7 @@ interface AuthContextType {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 async function registerFcmToken(user: User) {
-  if (typeof window === 'undefined' || !messaging) return;
+  if (typeof window === 'undefined' || !messaging || !('serviceWorker' in navigator)) return;
   try {
     // Register the service worker
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');

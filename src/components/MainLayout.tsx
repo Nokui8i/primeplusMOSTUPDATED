@@ -48,6 +48,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
   
   // Hide right sidebar on messages page
   const isMessagesPage = pathname === '/messages';
+  const isSubscriptionsPage = pathname === '/subscriptions';
+
 
   useEffect(() => {
     let timeout: NodeJS.Timeout;
@@ -219,10 +221,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </aside>
 
           {/* Center Area with Header and Main Content */}
-          <div className="flex-1 flex flex-col border-l border-gray-200" style={{ height: '100vh' }}>
+          <div className="flex-1 flex flex-col border-l border-gray-200 bg-white" style={{ height: '100vh' }}>
             {/* Center Header */}
-            <div className="hidden md:block flex-shrink-0 z-10">
-              <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-b border-gray-200">
+                <div className="hidden md:block flex-shrink-0 z-10">
+                  <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-b border-gray-200">
                 <div className="w-1/2 max-w-md">
                   <Search />
                 </div>
@@ -232,22 +234,23 @@ export default function MainLayout({ children }: MainLayoutProps) {
               </div>
             </div>
 
-            {/* Main Content - Responsive */}
-            <main 
-              ref={mainContentRef} 
-              className="flex-1 overflow-y-auto w-full invisible-scrollbar"
-              style={{ 
-                scrollBehavior: 'smooth',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-                WebkitOverflowScrolling: 'touch',
-                minHeight: '0' // Ensure flex item can shrink
-              }}
-            >
-              <div className="w-full min-h-full">
-                {children}
-              </div>
-            </main>
+                {/* Main Content - Responsive */}
+                <main 
+                  ref={mainContentRef} 
+                  className={`flex-1 w-full invisible-scrollbar relative ${isSubscriptionsPage ? 'overflow-hidden subscriptions-page-main' : 'overflow-y-auto'}`}
+                  style={{ 
+                    scrollBehavior: 'smooth',
+                    scrollbarWidth: 'none',
+                    msOverflowStyle: 'none',
+                    WebkitOverflowScrolling: 'touch',
+                    minHeight: '0',
+                    height: isSubscriptionsPage ? '100%' : 'auto'
+                  }}
+                >
+                  <div className={`w-full ${isSubscriptionsPage ? 'h-full' : 'min-h-full'}`}>
+                    {children}
+                  </div>
+                </main>
           </div>
 
           {/* Right Sidebar - Desktop Only */}

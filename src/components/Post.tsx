@@ -61,6 +61,11 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
 
   // Handle post updates with cleanup
   useEffect(() => {
+    // Skip Firestore listener for demo posts
+    if (post.id.startsWith('post') || post.authorId?.startsWith('demo')) {
+      return;
+    }
+    
     let unsubscribe: (() => void) | undefined
 
     const setupPostListener = async () => {
@@ -103,7 +108,7 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
         unsubscribe()
       }
     }
-  }, [post.id, onDelete])
+  }, [post.id, post.authorId, onDelete])
 
   // Handle like action with debounce
   const handleLike = useCallback(async () => {
@@ -255,6 +260,12 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
   useEffect(() => {
     // Increment views only once per session per post
     if (!post.id) return;
+    
+    // Skip incrementing views for demo posts
+    if (post.id.startsWith('post') || post.authorId?.startsWith('demo')) {
+      return;
+    }
+    
     const viewedKey = `viewed_post_${post.id}`;
     if (!sessionStorage.getItem(viewedKey)) {
       const today = new Date();
@@ -270,7 +281,7 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
         .then(() => sessionStorage.setItem(viewedKey, '1'))
         .catch((err) => console.error('[Post] Failed to increment views:', err));
     }
-  }, [post.id]);
+  }, [post.id, post.authorId]);
 
   if (error) {
     return (

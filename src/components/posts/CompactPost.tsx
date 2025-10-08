@@ -404,6 +404,12 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   useEffect(() => {
     // Increment views only once per session per post
     if (!post.id) return;
+    
+    // Skip incrementing views for demo posts
+    if (post.id.startsWith('post') || post.authorId?.startsWith('demo')) {
+      return;
+    }
+    
     const viewedKey = `viewed_post_${post.id}`;
     if (!sessionStorage.getItem(viewedKey)) {
       const today = new Date();
@@ -419,7 +425,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
         .then(() => sessionStorage.setItem(viewedKey, '1'))
         .catch((err) => console.error('[CompactPost] Failed to increment views:', err));
     }
-  }, [post.id]);
+  }, [post.id, post.authorId]);
 
   const handleLike = async () => {
     console.log('handleLike called!', { currentPostId: currentPost.id, isLiked, user: user?.uid });

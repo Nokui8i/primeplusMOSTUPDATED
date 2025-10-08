@@ -21,6 +21,16 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
-const messaging = typeof window !== 'undefined' ? getMessaging(app) : null;
+
+// Initialize messaging with proper checks
+let messaging = null;
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+  try {
+    messaging = getMessaging(app);
+  } catch (error) {
+    console.warn('Firebase messaging not available:', error);
+    messaging = null;
+  }
+}
 
 export { app, auth, db, storage, analytics, messaging }; 

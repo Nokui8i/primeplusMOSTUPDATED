@@ -152,7 +152,16 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     aria-current={pathname === item.path ? 'page' : undefined}
                     style={{ pointerEvents: 'auto' }}
                   >
-                    {item.label}
+                    <div className="flex items-center justify-between">
+                      <span>{item.label}</span>
+                      {item.label === 'Messages' && unreadCount > 0 && (
+                        <div className="w-3 h-3 rounded-full shadow-lg" style={{
+                          background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)',
+                          boxShadow: '0 2px 8px rgba(96, 165, 250, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                          border: '1px solid rgba(255, 255, 255, 0.2)'
+                        }} />
+                      )}
+                    </div>
                   </button>
                 </li>
               ))}

@@ -6,6 +6,8 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface CreatorCardProps {
   userId: string;
@@ -27,6 +29,7 @@ export function CreatorCard({
   const [plans, setPlans] = useState<any[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const router = useRouter();
 
 
   const SUBSCRIPTIONS_API_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_API_URL || '';
@@ -74,6 +77,13 @@ export function CreatorCard({
           setIsSubscribed(false);
           return;
         }
+        
+        // Skip API call for demo users
+        if (userId.startsWith('demo')) {
+          setIsSubscribed(true);
+          return;
+        }
+        
         const idToken = await user.getIdToken();
         const response = await axios.get(
           `${SUBSCRIPTIONS_API_URL}/to/${userId}/latest`,
@@ -142,25 +152,57 @@ export function CreatorCard({
               style={{ marginTop: '-20px' }} /* PADDING: marginTop: -20px */
             />
             <div className="flex-1 min-w-0 ml-2"> {/* PADDING: ml-2 (8px) */}
-              <Link href={`/${username || userId}`} className="block hover:opacity-80 transition-opacity">
-                <div style={{ 
-                  color: '#ffffff', 
-                  fontWeight: '700',
-                  fontSize: '16px',
-                  lineHeight: '1.2',
-                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
-                }}>
-                  {displayName || username || 'User'}
-                </div>
-                <div style={{ 
-                  color: '#d1d5db',
-                  fontSize: '12px',
-                  lineHeight: '1.2',
-                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
-                }}>
-                  @{username || 'username'}
-                </div>
-              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div 
+                    onClick={(e) => e.stopPropagation()}
+                    className="block hover:opacity-80 transition-opacity cursor-pointer"
+                  >
+                    <div style={{ 
+                      color: '#ffffff', 
+                      fontWeight: '700',
+                      fontSize: '16px',
+                      lineHeight: '1.2',
+                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                    }}>
+                      {displayName || username || 'User'}
+                    </div>
+                    <div style={{ 
+                      color: '#d1d5db',
+                      fontSize: '12px',
+                      lineHeight: '1.2',
+                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                    }}>
+                      @{username || 'username'}
+                    </div>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent 
+                  align="start" 
+                  className="w-28 bg-white border-0 overflow-hidden p-0"
+                  style={{
+                    borderRadius: '12px',
+                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                  }}
+                >
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/profile/${userId}`);
+                    }}
+                    className="cursor-pointer text-xs py-1.5 px-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                    style={{
+                      fontWeight: '500',
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Visit Profile
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </div>

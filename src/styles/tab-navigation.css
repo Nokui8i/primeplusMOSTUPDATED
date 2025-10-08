@@ -11,9 +11,9 @@ html {
   position: relative;
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   padding: 2px;
-  background-color: #dadadb;
+  background-color: #ffffff;
   border-radius: 9px;
   width: fit-content;
   margin: 0 auto;
@@ -24,11 +24,12 @@ html {
   isolation: isolate;
   height: 32px;
   min-height: 32px;
+  border: 1px solid #e5e7eb;
 }
 
 .indicator {
   content: "";
-  width: 80px;
+  width: 120px;
   height: 28px;
   background: #ffffff;
   position: absolute;
@@ -45,7 +46,7 @@ html {
 }
 
 .tab {
-  width: 80px;
+  width: 120px;
   height: 28px;
   position: absolute;
   z-index: 99;
@@ -60,7 +61,7 @@ html {
 }
 
 .tab_label {
-  width: 80px;
+  width: 120px;
   height: 28px;
   position: relative;
   z-index: 999;
@@ -103,19 +104,19 @@ html {
 }
 
 .tab--2:checked ~ .indicator {
-  transform: translateX(80px);
+  transform: translateX(120px);
 }
 
 .tab--3:checked ~ .indicator {
-  transform: translateX(160px);
-}
-
-.tab--4:checked ~ .indicator {
   transform: translateX(240px);
 }
 
+.tab--4:checked ~ .indicator {
+  transform: translateX(360px);
+}
+
 .tab--5:checked ~ .indicator {
-  transform: translateX(320px);
+  transform: translateX(480px);
 }
 
 /* Responsive adjustments */
@@ -125,17 +126,17 @@ html {
   }
   
   .indicator {
-    width: 60px;
+    width: 100px;
     height: 24px;
   }
   
   .tab {
-    width: 60px;
+    width: 100px;
     height: 24px;
   }
   
   .tab_label {
-    width: 60px;
+    width: 100px;
     height: 24px;
     font-size: 0.6rem;
   }
@@ -145,35 +146,35 @@ html {
   }
   
   .tab--2:checked ~ .indicator {
-    transform: translateX(60px);
+    transform: translateX(100px);
   }
   
   .tab--3:checked ~ .indicator {
-    transform: translateX(120px);
+    transform: translateX(200px);
   }
   
   .tab--4:checked ~ .indicator {
-    transform: translateX(180px);
+    transform: translateX(300px);
   }
   
   .tab--5:checked ~ .indicator {
-    transform: translateX(240px);
+    transform: translateX(400px);
   }
 }
 
 @media (max-width: 480px) {
   .indicator {
-    width: 50px;
+    width: 80px;
     height: 22px;
   }
   
   .tab {
-    width: 50px;
+    width: 80px;
     height: 22px;
   }
   
   .tab_label {
-    width: 50px;
+    width: 80px;
     height: 22px;
     font-size: 0.55rem;
   }
@@ -183,18 +184,18 @@ html {
   }
   
   .tab--2:checked ~ .indicator {
-    transform: translateX(50px);
+    transform: translateX(80px);
   }
   
   .tab--3:checked ~ .indicator {
-    transform: translateX(100px);
+    transform: translateX(160px);
   }
   
   .tab--4:checked ~ .indicator {
-    transform: translateX(150px);
+    transform: translateX(240px);
   }
   
   .tab--5:checked ~ .indicator {
-    transform: translateX(200px);
+    transform: translateX(320px);
   }
 }

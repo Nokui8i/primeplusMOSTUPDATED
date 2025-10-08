@@ -147,98 +147,29 @@ export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewPro
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl p-4 w-full max-w-2xl mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Upload Videos</h3>
-          <Button variant="ghost" size="icon" onClick={onCancel}>
-            <X className="h-5 w-5" />
-          </Button>
+      <div className="bg-white rounded-xl p-6 w-full max-w-lg mx-4">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold text-gray-900">Upload Videos</h3>
+          <button 
+            onClick={onCancel}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
         </div>
 
-        {/* Video Grid */}
-        <div 
-          className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 ${
-            previewVideos.length === 0 ? 'min-h-[200px]' : ''
-          }`}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-        >
-          {previewVideos.map((preview, index) => (
-            <div key={index} className="relative aspect-video group">
-              <div 
-                className="w-full h-full cursor-pointer"
-                onClick={() => setSelectedVideo(preview)}
-              >
-                <video
-                  src={preview.preview}
-                  className="w-full h-full object-cover rounded-lg"
-                />
-                {/* Lock toggle */}
-                <div className="absolute bottom-2 left-2 bg-white/80 rounded px-2 py-1 flex items-center gap-2 shadow">
-                  <label className="text-xs font-medium">
-                    <input
-                      type="radio"
-                      checked={!preview.locked}
-                      onChange={() => handleLockToggle(index, false)}
-                      className="accent-blue-500 mr-1"
-                    />
-                    Free
-                  </label>
-                  <label className="text-xs font-medium">
-                    <input
-                      type="radio"
-                      checked={preview.locked}
-                      onChange={() => handleLockToggle(index, true)}
-                      className="accent-fuchsia-500 mr-1"
-                    />
-                    Paid
-                  </label>
-                </div>
-              </div>
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                <div className="flex gap-2">
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeVideo(index);
-                    }}
-                    className="h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedVideo(preview);
-                    }}
-                    className="h-8 w-8"
-                  >
-                    <Play className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              {preview.progress > 0 && preview.progress < 100 && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200 rounded-b-lg">
-                  <div
-                    className="h-full bg-blue-500 rounded-b-lg transition-all duration-300"
-                    style={{ width: `${preview.progress}%` }}
-                  />
-                </div>
-              )}
-            </div>
-          ))}
-          {previewVideos.length < 5 && (
+        {/* Upload Area - Only show when no videos selected */}
+        {previewVideos.length === 0 && (
+          <div className="mb-6">
             <label 
-              className={`aspect-video border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer transition-colors ${
+              className={`block border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
                 isDragging 
                   ? 'border-blue-500 bg-blue-50' 
-                  : 'border-gray-300 hover:border-blue-500'
+                  : 'border-gray-300 hover:border-gray-400'
               }`}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
             >
               <input
                 type="file"
@@ -249,7 +180,7 @@ export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewPro
               />
               <div className="text-center">
                 <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                <div className="text-sm text-gray-500">
+                <div className="text-sm text-gray-600 font-medium">
                   {isDragging ? 'Drop videos here' : 'Click or drag videos here'}
                 </div>
                 <div className="text-xs text-gray-400 mt-1">
@@ -257,27 +188,220 @@ export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewPro
                 </div>
               </div>
             </label>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Video Previews - Only show when videos are selected */}
+        {previewVideos.length > 0 && (
+          <div className="mb-6">
+            <div className="flex flex-col items-center gap-4">
+              {previewVideos.map((preview, index) => (
+                <div key={index} className="w-80">
+                  {/* Video Container */}
+                  <div className="relative w-80 h-48 mb-3">
+                    <div 
+                      className="w-full h-full cursor-pointer"
+                      onClick={() => setSelectedVideo(preview)}
+                    >
+                      <video
+                        src={preview.preview}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons - Outside and below video */}
+                  <div className="flex justify-center gap-3 mb-3">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeVideo(index)}
+                      className="h-8 px-3"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSelectedVideo(preview)}
+                      className="h-8 px-3"
+                    >
+                      <Play className="h-4 w-4 mr-1" />
+                      Play
+                    </Button>
+                  </div>
+                  
+                  {/* Progress Bar - outside video */}
+                  {preview.progress > 0 && preview.progress < 100 && (
+                    <div className="w-full h-2 bg-gray-200 rounded-lg mb-3">
+                      <div
+                        className="h-full bg-blue-500 rounded-lg transition-all duration-300"
+                        style={{ width: `${preview.progress}%` }}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Lock toggle - completely outside and below video */}
+                  <div className="setting-row">
+                    <div className="setting-info">
+                      <div className="setting-label">Free / Paid</div>
+                      <div className="setting-description">
+                        {!preview.locked ? 'Free message' : 'Paid message'}
+                      </div>
+                    </div>
+                    <div className="setting-control flex items-center gap-3">
+                      <label className="flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={preview.locked}
+                          onChange={() => handleLockToggle(index, !preview.locked)}
+                          className="checkbox"
+                        />
+                        <span className="slider"></span>
+                      </label>
+                      
+                      {/* Price input - only show when paid is selected */}
+                      {preview.locked && (
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-xs font-medium text-gray-600">
+                            Price ($)
+                          </label>
+                          <input
+                            type="number"
+                            min="0.99"
+                            step="0.01"
+                            value={preview.price || '0.99'}
+                            onChange={(e) => {
+                              const newPrice = parseFloat(e.target.value) || 0.99;
+                              const updatedPreviews = [...previewVideos];
+                              updatedPreviews[index] = { ...preview, price: newPrice };
+                              setPreviewVideos(updatedPreviews);
+                            }}
+                            className="w-16 px-1.5 py-0.5 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-transparent"
+                            placeholder="0.99"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onCancel} disabled={isUploading}>
+        <div className="flex justify-center space-x-8">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isUploading}
+            className="profile-btn"
+            style={{
+              border: 'none',
+              color: '#fff',
+              backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+              backgroundColor: 'transparent',
+              borderRadius: '20px',
+              backgroundSize: '100% auto',
+              fontFamily: 'inherit',
+              fontSize: '14px',
+              padding: '0.7em 1.5em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'all 0.3s ease-in-out',
+              boxShadow: 'none',
+              margin: '0',
+              width: 'auto',
+              height: 'auto',
+              minWidth: 'auto',
+              minHeight: 'auto',
+              maxWidth: 'none',
+              maxHeight: 'none',
+              flexShrink: '0',
+              textDecoration: 'none',
+              fontWeight: 'normal',
+              textTransform: 'none',
+              letterSpacing: 'normal',
+              whiteSpace: 'nowrap',
+              verticalAlign: 'middle',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              WebkitAppearance: 'none',
+              MozAppearance: 'none',
+              appearance: 'none',
+              backgroundOrigin: 'padding-box',
+              backgroundClip: 'padding-box',
+              position: 'relative'
+            }}
+          >
             Cancel
-          </Button>
-          <Button
+          </button>
+          <button
+            type="button"
             onClick={handleUpload}
             disabled={previewVideos.length === 0 || isUploading}
+            className="profile-btn"
+            style={{
+              border: 'none',
+              color: '#fff',
+              backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+              backgroundColor: 'transparent',
+              borderRadius: '20px',
+              backgroundSize: '100% auto',
+              fontFamily: 'inherit',
+              fontSize: '14px',
+              padding: '0.7em 1.5em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              outline: 'none',
+              transition: 'all 0.3s ease-in-out',
+              boxShadow: 'none',
+              margin: '0',
+              width: 'auto',
+              height: 'auto',
+              minWidth: 'auto',
+              minHeight: 'auto',
+              maxWidth: 'none',
+              maxHeight: 'none',
+              flexShrink: '0',
+              textDecoration: 'none',
+              fontWeight: 'normal',
+              textTransform: 'none',
+              letterSpacing: 'normal',
+              whiteSpace: 'nowrap',
+              verticalAlign: 'middle',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              WebkitAppearance: 'none',
+              MozAppearance: 'none',
+              appearance: 'none',
+              backgroundOrigin: 'padding-box',
+              backgroundClip: 'padding-box',
+              position: 'relative'
+            }}
           >
             {isUploading ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                 Uploading...
               </>
             ) : (
-              `Upload ${previewVideos.length} Video${previewVideos.length === 1 ? '' : 's'}`
+              'Send'
             )}
-          </Button>
+          </button>
         </div>
       </div>
 

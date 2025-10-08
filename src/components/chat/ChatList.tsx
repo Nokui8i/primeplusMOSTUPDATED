@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, getDocs, where, doc, setDoc, getDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, getDocs, where, doc, setDoc, getDoc, deleteDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
 import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
@@ -45,7 +45,6 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
       );
 
       const unsubscribe = onSnapshot(q, async (snapshot) => {
-        console.log('Chats snapshot received:', snapshot.docs.length, 'chats');
         const chatPromises = snapshot.docs.map(async (chatDoc) => {
           const data = chatDoc.data();
           const participants = data.participants || [];
@@ -57,20 +56,47 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
           const userDoc = await getDoc(doc(db, 'users', otherUserId));
           const userData = userDoc.exists() ? userDoc.data() : {};
           
+          // If no lastMessage in metadata, get it from the actual messages
+          let lastMessage = data.lastMessage || '';
+          let lastMessageTime = data.lastMessageTime;
+          
+          if (!lastMessage) {
+            try {
+              const messagesRef = collection(db, 'chats', chatDoc.id, 'messages');
+              const messagesQuery = query(messagesRef, orderBy('timestamp', 'desc'), where('timestamp', '!=', null));
+              const messagesSnapshot = await getDocs(messagesQuery);
+              
+              if (!messagesSnapshot.empty) {
+                const lastMsg = messagesSnapshot.docs[0].data();
+                lastMessage = lastMsg.text || (lastMsg.imageUrl ? '📷 Image' : lastMsg.videoUrl ? '🎥 Video' : lastMsg.audioUrl ? '🎵 Voice message' : '');
+                lastMessageTime = lastMsg.timestamp;
+                
+                // Update the chat metadata with the found last message
+                await updateDoc(chatDoc.ref, {
+                  lastMessage: lastMessage,
+                  lastMessageTime: lastMessageTime
+                });
+              }
+            } catch (error) {
+              console.error('Error fetching last message:', error);
+            }
+          }
+          
+          const unreadCount = data.unreadCounts?.[user.uid] || 0;
+          
           return {
             id: chatDoc.id,
             recipientId: otherUserId,
             recipientName: userData.displayName || userData.username || 'Unknown User',
             recipientPhotoURL: userData.photoURL,
-            lastMessage: data.lastMessage || '',
-            lastMessageTime: data.lastMessageTime,
-            unreadCount: data.unreadCounts?.[user.uid] || 0
+            lastMessage: lastMessage,
+            lastMessageTime: lastMessageTime,
+            unreadCount: unreadCount
           };
         });
 
         const chatResults = await Promise.all(chatPromises);
         const validChats = chatResults.filter(chat => chat !== null) as ChatMetadata[];
-        console.log('Valid chats found:', validChats.length, validChats);
         setChats(validChats);
       });
 
@@ -168,25 +194,17 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
                 {/* Chat Info */}
                 <div className="flex-1 min-w-0">
                   {/* Name Row */}
-                  <div className="flex items-center justify-between mb-1">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate">
                       {chat.recipientName || chat.recipientId || 'Unknown User'}
                     </h3>
-                    <div className="flex items-center gap-1 ml-2">
-                      {chat.lastMessageTime && (
-                        <span className="text-xs text-gray-500">
-                          {new Date(chat.lastMessageTime.toDate?.() || chat.lastMessageTime).toLocaleTimeString([], { 
-                            hour: '2-digit', 
-                            minute: '2-digit' 
-                          })}
-                        </span>
-                      )}
-                      {chat.unreadCount > 0 && (
-                        <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-0.5 min-w-[18px] text-center">
-                          {chat.unreadCount}
-                        </span>
-                      )}
-                    </div>
+                    {chat.unreadCount > 0 && (
+                      <div className="w-3 h-3 rounded-full shadow-lg flex-shrink-0" style={{
+                        background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)',
+                        boxShadow: '0 2px 8px rgba(96, 165, 250, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)'
+                      }} />
+                    )}
                   </div>
                   
                   {/* Message Row */}
@@ -202,7 +220,7 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
                       className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
                       disabled={deletingChatId === chat.id}
                     >
-                      <Trash2 className="h-3 w-3 text-red-500" />
+                      <Trash2 className="h-3 w-3" style={{ color: '#3b82f6' }} />
                     </button>
                   </div>
                 </div>

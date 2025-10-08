@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CreatorCard } from '@/components/user/CreatorCard';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/useAuth';
 import { UserSubscription } from '../../types/subscription';
 import { CreatorProfile } from '@/types/user';
-import { Post } from '@/components/Post';
+import { CompactPost } from '@/components/posts/CompactPost';
 import { Post as PostType } from '@/lib/types/post';
 import { Badge } from '@/components/ui/badge';
 import { UserCard } from '@/components/user/UserCard';
@@ -20,6 +20,7 @@ interface UserList {
 
 export default function SubscriptionsPage() {
   const { user } = useAuth();
+  
   const [userLists, setUserLists] = useState<UserList[]>([
     { name: 'Subscribed', count: 0, users: [] },
     { name: 'Expired', count: 0, users: [] },
@@ -30,11 +31,41 @@ export default function SubscriptionsPage() {
   const [selectedUser, setSelectedUser] = useState<CreatorProfile | null>(null);
   const [posts, setPosts] = useState<PostType[]>([]);
   const [postTypeFilter, setPostTypeFilter] = useState('all');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
+  // Handle deleting expired creator from list
+  const handleDeleteExpiredCreator = (creatorUid: string) => {
+    // Remove from the Expired list
+    setUserLists(prevLists => {
+      return prevLists.map(list => {
+        if (list.name === 'Expired') {
+          const updatedUsers = list.users.filter(u => u.uid !== creatorUid);
+          return {
+            ...list,
+            users: updatedUsers,
+            count: updatedUsers.length
+          };
+        }
+        return list;
+      });
+    });
+
+    // If the deleted creator was selected, clear selection
+    if (selectedUser?.uid === creatorUid) {
+      setSelectedUser(null);
+      setPosts([]);
+    }
+    
+    // Close confirmation dropdown
+    setShowDeleteConfirm(null);
+  };
+
+  // Backend logic - keep all existing useEffect hooks and functions
   useEffect(() => {
     async function fetchUserLists() {
       if (!user) return;
-      // Only fetch subscriptions
+      
+      // Fetch subscriptions
       const subscriptionsQuery = query(
         collection(db, 'subscriptions'),
         where('subscriberId', '==', user.uid),
@@ -80,6 +111,11 @@ export default function SubscriptionsPage() {
         setPosts([]);
         return;
       }
+      
+      // Check if user has active subscription (is in Subscribed list)
+      const hasActiveSubscription = selectedList === 'Subscribed';
+      
+      // Real data fetching
       try {
         const postsQuery = query(
           collection(db, 'posts'),
@@ -182,28 +218,40 @@ export default function SubscriptionsPage() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-60px)] w-full bg-gray-50">
-      {/* Left Panel: User Lists */}
-      <div className="w-56 border-r bg-white flex flex-col pt-6 px-4">
-        <h2 className="text-lg font-bold mb-4 text-gray-800">Your Subscriptions</h2>
-        <div className="flex-1 overflow-y-auto">
-          {userLists.map(list => (
-            <div
-              key={list.name}
-              className={`flex items-center justify-between px-2 py-2 cursor-pointer hover:bg-gray-100 ${selectedList === list.name ? 'bg-gray-100 font-bold' : ''}`}
-              onClick={() => setSelectedList(list.name)}
-            >
-              <span className="text-black">{list.name}</span>
-              <Badge>{list.count}</Badge>
-            </div>
+    <div className="flex flex-col bg-white rounded-lg shadow-sm overflow-hidden" style={{height: '74vh', marginTop: '-30px', position: 'relative', zIndex: 20}}>
+      {/* Top Header - Radio Buttons spanning both columns */}
+      <div className="px-4 py-1.5 border-b border-gray-200 flex items-center justify-center" style={{minHeight: '48px'}}>
+        <div className="tab-container">
+          {userLists.map((list, index) => (
+            <React.Fragment key={list.name}>
+              <input 
+                type="radio" 
+                name="subscriptionStatus" 
+                id={`tab-${index + 1}`}
+                className={`tab tab--${index + 1}`}
+                checked={selectedList === list.name}
+                onChange={() => setSelectedList(list.name)}
+              />
+              <label className="tab_label" htmlFor={`tab-${index + 1}`}>
+                {list.name}
+              </label>
+            </React.Fragment>
           ))}
+          <div className="indicator"></div>
         </div>
       </div>
 
-      {/* Middle Panel: Creator Card */}
-      <div className="w-96 border-r bg-gray-50 flex flex-col pt-6 px-4">
-        <h2 className="text-lg font-bold mb-4 text-gray-800">Creator</h2>
-        <div className="flex-1 overflow-y-auto space-y-2">
+          {/* Two Columns with their titles */}
+          <div className="flex flex-1 overflow-hidden">
+            {/* Left Column - Creator List */}
+            <div className="w-80 flex flex-col bg-white border-r border-gray-200">
+              {/* Column Title */}
+              <div className="px-4 py-2 border-b border-gray-200 flex-shrink-0">
+                <h2 className="text-base font-bold text-gray-800">Creators</h2>
+              </div>
+              
+              {/* Creators List */}
+              <div className="flex-1 overflow-y-auto space-y-2 pt-6 px-4" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e0 #f7fafc' }}>
           {(() => {
             const users = userLists.find(list => list.name === selectedList)?.users || [];
             const seen = new Set();
@@ -222,7 +270,7 @@ export default function SubscriptionsPage() {
             return uniqueUsers.map((creator) => (
               <div
                 key={creator.uid}
-                className={`cursor-pointer ${selectedUser?.uid === creator.uid ? 'ring-2 ring-blue-500' : ''}`}
+                className={`relative cursor-pointer transition-opacity duration-200 group ${selectedUser?.uid === creator.uid ? 'opacity-100' : 'opacity-70 hover:opacity-85'}`}
                 onClick={() => setSelectedUser(creator)}
               >
                 <CreatorCard
@@ -232,21 +280,70 @@ export default function SubscriptionsPage() {
                   photoURL={creator.photoURL}
                   coverPhotoUrl={creator.coverPhotoUrl}
                 />
+                {selectedList === 'Expired' && (
+                  <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-all">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowDeleteConfirm(showDeleteConfirm === creator.uid ? null : creator.uid);
+                      }}
+                      className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-lg transition-colors"
+                      title="Remove from list"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                    {showDeleteConfirm === creator.uid && (
+                      <div 
+                        className="absolute top-12 right-0 w-32 bg-white border-0 overflow-hidden p-0 shadow-lg"
+                        style={{
+                          borderRadius: '12px',
+                          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteExpiredCreator(creator.uid);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100 transition-all duration-200 border-b border-gray-100"
+                        >
+                          Yes, Remove
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowDeleteConfirm(null);
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs font-medium hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 transition-all duration-200"
+                        >
+                          No, Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ));
           })()}
         </div>
-      </div>
+        </div>
 
-      {/* Right Panel: Posts for Selected User */}
-      <div className="flex-1 flex flex-col bg-gray-50 pt-6 px-4">
-        <h2 className="text-lg font-bold mb-4 text-gray-800">
-          {selectedUser ? `Posts by ${selectedUser.displayName || selectedUser.username}` : 'Posts'}
-        </h2>
-        <div className="flex-1 overflow-y-auto">
+            {/* Right Column - Posts */}
+            <div className="flex-1 flex flex-col bg-white">
+              {/* Column Title */}
+              <div className="px-4 py-2 border-b border-gray-200 flex-shrink-0">
+                <h2 className="text-base font-bold text-gray-800">Posts</h2>
+              </div>
+
+              {/* Posts Content */}
+              <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e0 #f7fafc' }}>
           {selectedUser ? (
             posts.length === 0 ? (
-              <div className="text-gray-500 text-xs">No posts found for this account.</div>
+              <div className="text-gray-500 text-sm">No posts found for this account.</div>
             ) : (
               <div className="space-y-3">
                 {posts.map((post, idx) => {
@@ -254,18 +351,24 @@ export default function SubscriptionsPage() {
                     console.warn('[DEBUG] Post missing id:', post);
                   }
                   return (
-                    <Post key={post.id || `post-idx-${idx}`}
+                    <CompactPost 
+                      key={post.id || `post-idx-${idx}`}
                       post={post as any}
+                      currentUserId={user?.uid}
+                      onPostDeleted={(postId) => {
+                        setPosts(prev => prev.filter(p => p.id !== postId));
+                      }}
                     />
                   );
                 })}
               </div>
             )
           ) : (
-            <div className="text-gray-500 text-xs">Select a subscription to view their posts.</div>
+            <div className="text-gray-500 text-sm">Select a subscription to view their posts.</div>
           )}
+        </div>
         </div>
       </div>
     </div>
   );
-} 
+}

@@ -10,9 +10,11 @@ import { Search, MessageCircle, ChevronDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useChat } from '@/contexts/ChatContext';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
+  const { markAsRead } = useChat();
   const [selectedChat, setSelectedChat] = useState<{
     recipientId: string;
     recipientName: string;
@@ -50,7 +52,10 @@ export default function MessagesPage() {
   }, [searchParams]);
 
   const handleSelectChat = (recipientId: string, recipientName: string) => {
+    console.log('🔍 Selecting chat:', recipientId, recipientName);
     setSelectedChat({ recipientId, recipientName });
+    console.log('🔍 Calling markAsRead for:', recipientId);
+    markAsRead(recipientId);
   };
 
   return (
