@@ -85,9 +85,12 @@ export default function CreatorDashboard() {
         console.log('[Dashboard] Post', docSnap.id, 'likes:', likeCount);
         totalLikes += likeCount;
         
-        // Count real comments in subcollection
-        const commentsCol = collection(db, 'posts', docSnap.id, 'comments');
-        const commentsSnap = await getCountFromServer(commentsCol);
+        // Count real comments from main 'comments' collection filtered by postId
+        const commentsQuery = query(
+          collection(db, 'comments'),
+          where('postId', '==', docSnap.id)
+        );
+        const commentsSnap = await getCountFromServer(commentsQuery);
         const commentCount = commentsSnap.data().count || 0;
         console.log('[Dashboard] Post', docSnap.id, 'comments:', commentCount);
         totalComments += commentCount;
