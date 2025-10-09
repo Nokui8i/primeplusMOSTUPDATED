@@ -528,35 +528,35 @@ export default function SubscriptionsTab() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent 
                       align="end" 
-                      className="w-48 bg-white border-0 overflow-hidden p-0"
+                      className="w-36 bg-white border-0 overflow-hidden p-0"
                       style={{
-                        borderRadius: '12px',
-                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '10px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
                         background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
                       }}
                     >
                       <DropdownMenuItem 
                         onClick={() => handleEdit(plan)}
-                        className="cursor-pointer py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
-                        style={{ fontWeight: '500', fontSize: '14px' }}
+                        className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '12px' }}
                       >
-                        <FiEdit className="mr-2 h-4 w-4" />
+                        <FiEdit className="mr-2 h-3.5 w-3.5" />
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleToggleActive(plan.id, plan.isActive)}
-                        className="cursor-pointer py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
-                        style={{ fontWeight: '500', fontSize: '14px' }}
+                        className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '12px' }}
                       >
-                        {plan.isActive ? <FiToggleRight className="mr-2 h-4 w-4" /> : <FiToggleLeft className="mr-2 h-4 w-4" />}
+                        <div className={`mr-2 h-2 w-2 rounded-full ${plan.isActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
                         {plan.isActive ? 'Set Inactive' : 'Set Active'}
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDelete(plan.id)}
-                        className="cursor-pointer py-2 px-3 text-red-500 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200"
-                        style={{ fontWeight: '500', fontSize: '14px' }}
+                        className="cursor-pointer py-1.5 px-2.5 text-red-500 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '12px' }}
                       >
-                        <FiTrash2 className="mr-2 h-4 w-4" />
+                        <FiTrash2 className="mr-2 h-3.5 w-3.5" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
