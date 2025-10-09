@@ -381,25 +381,13 @@ export default function SubscriptionsTab() {
               <DialogTrigger asChild>
                 <button
                   onClick={() => { setForm({}); setEditingId(null); }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-full transition-all duration-300 hover:shadow-lg"
                   style={{
                     border: 'none',
-                    color: '#fff',
-                    backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                    backgroundColor: 'transparent',
-                    borderRadius: '20px',
+                    background: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
                     backgroundSize: '100% auto',
-                    fontFamily: 'inherit',
-                    fontSize: '11px',
-                    padding: '0.3em 0.6em',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
                     cursor: 'pointer',
                     outline: 'none',
-                    transition: 'all 0.3s ease-in-out',
-                    boxShadow: 'none',
-                    margin: '0',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundSize = '200% auto';
@@ -410,7 +398,7 @@ export default function SubscriptionsTab() {
                     e.currentTarget.style.boxShadow = 'none';
                   }}
                 >
-                  <FiPlus className="mr-1" style={{ fontSize: '14px' }} /> CREATE PLAN
+                  <FiPlus size={14} /> CREATE PLAN
                 </button>
               </DialogTrigger>
               <DialogContent>
@@ -578,25 +566,13 @@ export default function SubscriptionsTab() {
           }}>
             <DialogTrigger asChild>
               <button
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-full transition-all duration-300 hover:shadow-lg"
                 style={{
                   border: 'none',
-                  color: '#fff',
-                  backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                  backgroundColor: 'transparent',
-                  borderRadius: '20px',
+                  background: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
                   backgroundSize: '100% auto',
-                  fontFamily: 'inherit',
-                  fontSize: '11px',
-                  padding: '0.3em 0.6em',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
                   cursor: 'pointer',
                   outline: 'none',
-                  transition: 'all 0.3s ease-in-out',
-                  boxShadow: 'none',
-                  margin: '0',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundSize = '200% auto';
@@ -607,7 +583,7 @@ export default function SubscriptionsTab() {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <FiPlus className="mr-1" style={{ fontSize: '14px' }} /> CREATE PROMO CODE
+                <FiPlus size={14} /> CREATE PROMO CODE
               </button>
             </DialogTrigger>
             <DialogContent>
