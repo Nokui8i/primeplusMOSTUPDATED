@@ -199,6 +199,7 @@ export default function MessagesPage() {
       <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-white`}>
         {selectedChat ? (
           <Chat 
+            key={`${selectedChat.recipientId}-${selectedChat.recipientName}`}
             recipientId={selectedChat.recipientId} 
             recipientName={selectedChat.recipientName} 
             hideHeader={false} 

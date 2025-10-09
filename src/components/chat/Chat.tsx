@@ -86,6 +86,32 @@ if (typeof window !== 'undefined') {
 }
 
 export function Chat({ recipientId, recipientName, hideHeader = false, customWidth }: ChatProps) {
+  // Inject critical CSS immediately to prevent layout shift
+  useEffect(() => {
+    const styleId = 'chat-critical-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        .chat-message-input,
+        .chat-message-input input {
+          height: 40px !important;
+          min-height: 40px !important;
+          max-height: 40px !important;
+          font-size: 14px !important;
+          line-height: 1.5 !important;
+        }
+        .chat-recipient-name {
+          font-size: 16px !important;
+          line-height: 1.5 !important;
+          display: inline-block !important;
+          min-width: 50px !important;
+        }
+      `;
+      document.head.insertBefore(style, document.head.firstChild);
+    }
+  }, []);
+
   const { user } = useAuth();
   const router = useRouter();
   const { openChat } = useChat();
@@ -131,6 +157,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [shouldCancel, setShouldCancel] = useState(false);
   const [slidePosition, setSlidePosition] = useState(0);
   const [recipientProfile, setRecipientProfile] = useState<{ displayName: string; username: string; photoURL?: string } | null>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
+  const recipientNameRef = useRef<HTMLSpanElement>(null);
 
   // Drag handlers for resizing
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -980,7 +1008,17 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 size="md"
               />
             </div>
-            <span className="font-semibold text-base" style={{ color: themeColors.brand.blue.deep }}>
+            <span 
+              ref={recipientNameRef}
+              className="font-semibold chat-recipient-name" 
+              style={{ 
+                color: themeColors.brand.blue.deep, 
+                fontSize: '16px',
+                lineHeight: '1.5',
+                display: 'inline-block',
+                minWidth: '50px',
+              }}
+            >
               {recipientProfile?.displayName || recipientName}
             </span>
             {isRecipientTyping && (
@@ -1612,13 +1650,23 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             disabled={uploading}
           />
           {/* Message Input */}
-          <Input
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 h-10 text-[#1A1A1A] placeholder:text-blue-400 bg-white/90 border border-blue-200 focus:ring-2 focus:ring-[#6B3BFF] focus:border-[#2B55FF] rounded-xl text-sm md:text-base px-4"
-            disabled={uploading || isRecording}
-          />
+          <div style={{ flex: 1, display: 'flex' }}>
+            <Input
+              ref={messageInputRef}
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type a message..."
+              className="w-full chat-message-input text-[#1A1A1A] placeholder:text-blue-400 bg-white/90 border border-blue-200 focus:ring-2 focus:ring-[#6B3BFF] focus:border-[#2B55FF] rounded-xl px-4"
+              style={{
+                height: '40px',
+                minHeight: '40px',
+                maxHeight: '40px',
+                fontSize: '14px',
+                lineHeight: '1.5',
+              }}
+              disabled={uploading || isRecording}
+            />
+          </div>
           {newMessage.trim() ? (
             <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200" disabled={uploading}>
               <Send className="h-3 w-3 md:h-4 md:w-4" />

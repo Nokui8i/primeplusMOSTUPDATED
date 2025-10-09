@@ -381,104 +381,179 @@ export default function SubscriptionsTab() {
               <DialogTrigger asChild>
                 <button
                   onClick={() => { setForm({}); setEditingId(null); }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-full transition-all duration-300 hover:shadow-lg"
+                  className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-gray-200 text-black font-semibold rounded-full transition-all duration-300 hover:bg-gray-300 hover:shadow-md"
                   style={{
                     border: 'none',
-                    background: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                    backgroundSize: '100% auto',
                     cursor: 'pointer',
                     outline: 'none',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundSize = '200% auto';
-                    e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundSize = '100% auto';
-                    e.currentTarget.style.boxShadow = 'none';
+                    fontSize: '10px',
                   }}
                 >
-                  <FiPlus size={14} /> CREATE PLAN
+                  <FiPlus size={12} /> CREATE PLAN
                 </button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogTitle>{editingId ? 'Edit Plan' : 'Create New Plan'}</DialogTitle>
-                <DialogDescription>
-                  Configure your subscription plan details below.
-                </DialogDescription>
-                <div className="space-y-4 mt-2">
-                  {/* Plan Info Card */}
-                  <div className="bg-white rounded-xl shadow p-3 mb-3">
-                    <div className="mb-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Plan Name</label>
-                      <Input name="name" value={form.name || ''} onChange={handleInput} placeholder="e.g., Basic Plan" className="w-full text-xs py-1 px-2 bg-gray-50 rounded" />
-                    </div>
-                    <div className="mb-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-0.5">Price (USD)</label>
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="radio"
-                            id="plan-type-free"
-                            name="planType"
-                            checked={form.price === 0}
-                            onChange={() => setForm(prev => ({ ...prev, price: 0 }))}
-                            className="accent-fuchsia-500"
-                          />
-                          <label htmlFor="plan-type-free" className="text-xs">Free</label>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="radio"
-                            id="plan-type-paid"
-                            name="planType"
-                            checked={typeof form.price === 'number' && form.price > 0}
-                            onChange={() => setForm(prev => ({ ...prev, price: undefined }))}
-                            className="accent-fuchsia-500"
-                          />
-                          <label htmlFor="plan-type-paid" className="text-xs">Paid</label>
-                        </div>
-                        <Input
-                          name="price"
-                          type="number"
-                          value={typeof form.price === 'number' && form.price > 0 ? form.price : ''}
-                          onChange={e => {
-                            const value = e.target.value;
-                            setForm(prev => ({ ...prev, price: value === '' ? undefined : Number(value) }));
-                          }}
-                          placeholder="0.00"
-                          min="0"
-                          step="0.01"
-                          className="w-24 text-xs py-1 px-2 bg-gray-50 rounded"
-                          disabled={form.price === 0}
+              <DialogContent 
+                className="upload-container"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  borderRadius: '24px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                  maxWidth: '500px',
+                }}
+              >
+                <DialogTitle className="text-lg font-bold text-gray-800">{editingId ? 'Edit Plan' : 'Create New Plan'}</DialogTitle>
+                <div className="space-y-2 mt-4">
+                  {/* Plan Name */}
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 mb-1">Plan Name</label>
+                    <Input 
+                      name="name" 
+                      value={form.name || ''} 
+                      onChange={handleInput} 
+                      placeholder="e.g., Basic Plan" 
+                      className="w-full"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.9)',
+                        border: '1px solid rgba(0, 0, 0, 0.1)',
+                        borderRadius: '10px',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                        fontSize: '11px',
+                        padding: '6px 10px',
+                        height: '28px',
+                      }}
+                    />
+                  </div>
+
+                  {/* Price */}
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 mb-1">Price (USD)</label>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="radio"
+                          id="plan-type-free"
+                          name="planType"
+                          checked={form.price === 0}
+                          onChange={() => setForm(prev => ({ ...prev, price: 0 }))}
+                          className="accent-blue-500 w-3 h-3"
                         />
+                        <label htmlFor="plan-type-free" className="text-[10px]">Free</label>
                       </div>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="radio"
+                          id="plan-type-paid"
+                          name="planType"
+                          checked={typeof form.price === 'number' && form.price > 0}
+                          onChange={() => setForm(prev => ({ ...prev, price: undefined }))}
+                          className="accent-blue-500 w-3 h-3"
+                        />
+                        <label htmlFor="plan-type-paid" className="text-[10px]">Paid</label>
+                      </div>
+                      <Input
+                        name="price"
+                        type="number"
+                        value={typeof form.price === 'number' && form.price > 0 ? form.price : ''}
+                        onChange={e => {
+                          const value = e.target.value;
+                          setForm(prev => ({ ...prev, price: value === '' ? undefined : Number(value) }));
+                        }}
+                        placeholder="0.00"
+                        min="0"
+                        step="0.01"
+                        className="w-20"
+                        disabled={form.price === 0}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
+                          borderRadius: '10px',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                          fontSize: '11px',
+                          padding: '6px 10px',
+                          height: '28px',
+                        }}
+                      />
                     </div>
-                    <div className="flex gap-2 items-end mb-2">
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Duration</label>
-                        <Input name="intervalCount" type="number" value={form.intervalCount || ''} onChange={handleInput} placeholder="30" min="1" className="w-full text-xs py-1 px-2 bg-gray-50 rounded" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-0.5">Unit</label>
-                        <select
-                          name="billingInterval"
-                          value={form.billingInterval || 'day'}
-                          onChange={e => setForm(prev => ({ ...prev, billingInterval: e.target.value as 'day' | 'week' | 'month' | 'year' }))}
-                          className="border rounded-full px-2 py-1 text-xs bg-gray-50"
-                        >
-                          <option value="day">Days</option>
-                          <option value="week">Weeks</option>
-                          <option value="month">Months</option>
-                          <option value="year">Years</option>
-                        </select>
-                      </div>
+                  </div>
+
+                  {/* Duration */}
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-700 mb-1">Duration</label>
+                    <div className="flex gap-1.5">
+                      <Input 
+                        name="intervalCount" 
+                        type="number" 
+                        value={form.intervalCount || ''} 
+                        onChange={handleInput} 
+                        placeholder="30" 
+                        min="1" 
+                        className="flex-1"
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
+                          borderRadius: '10px',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                          fontSize: '11px',
+                          padding: '6px 10px',
+                          height: '28px',
+                        }}
+                      />
+                      <select
+                        name="billingInterval"
+                        value={form.billingInterval || 'day'}
+                        onChange={e => setForm(prev => ({ ...prev, billingInterval: e.target.value as 'day' | 'week' | 'month' | 'year' }))}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.9)',
+                          border: '1px solid rgba(0, 0, 0, 0.1)',
+                          borderRadius: '10px',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                          fontSize: '11px',
+                          padding: '6px 10px',
+                          height: '28px',
+                        }}
+                      >
+                        <option value="day">Days</option>
+                        <option value="week">Weeks</option>
+                        <option value="month">Months</option>
+                        <option value="year">Years</option>
+                      </select>
                     </div>
                   </div>
                   <div className="flex justify-end mt-4">
-                    <Button onClick={editingId ? handleUpdate : handleCreate} disabled={saving}>
-                      {saving ? 'Saving...' : editingId ? 'Update Plan' : 'Create Plan'}
-                    </Button>
+                    <button 
+                      onClick={editingId ? handleUpdate : handleCreate} 
+                      disabled={saving}
+                      className="profile-btn"
+                      style={{
+                        border: 'none',
+                        color: '#fff',
+                        backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+                        backgroundColor: 'transparent',
+                        borderRadius: '20px',
+                        backgroundSize: '100% auto',
+                        fontFamily: 'inherit',
+                        fontWeight: '700',
+                        fontSize: '14px',
+                        padding: '12px 32px',
+                        cursor: saving ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.3s ease',
+                        opacity: saving ? 0.6 : 1,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!saving) {
+                          e.currentTarget.style.backgroundSize = '200% auto';
+                          e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundSize = '100% auto';
+                        e.currentTarget.style.boxShadow = 'none';
+                      }}
+                    >
+                      {saving ? 'Saving...' : editingId ? 'UPDATE PLAN' : 'CREATE PLAN'}
+                    </button>
                   </div>
                 </div>
               </DialogContent>
@@ -499,7 +574,7 @@ export default function SubscriptionsTab() {
               <div
                 key={`plan-${plan.id}-${idx}`}
                 className="relative flex items-center justify-between px-5 text-white shadow-md hover:shadow-lg transition-all w-full"
-                style={{ borderRadius: '20px', height: '32px', backgroundColor: '#22d3ee' }}
+                style={{ borderRadius: '20px', height: '32px', backgroundColor: '#3b82f6' }}
               >
                 <div className="flex items-center gap-3">
                   <span className="font-bold text-sm uppercase">{plan.name}</span>
@@ -566,44 +641,51 @@ export default function SubscriptionsTab() {
           }}>
             <DialogTrigger asChild>
               <button
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-white text-xs font-semibold rounded-full transition-all duration-300 hover:shadow-lg"
+                className="inline-flex items-center justify-center gap-1 px-2.5 py-1 bg-gray-200 text-black font-semibold rounded-full transition-all duration-300 hover:bg-gray-300 hover:shadow-md"
                 style={{
                   border: 'none',
-                  background: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                  backgroundSize: '100% auto',
                   cursor: 'pointer',
                   outline: 'none',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundSize = '200% auto';
-                  e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundSize = '100% auto';
-                  e.currentTarget.style.boxShadow = 'none';
+                  fontSize: '10px',
                 }}
               >
-                <FiPlus size={14} /> CREATE PROMO CODE
+                <FiPlus size={12} /> CREATE PROMO CODE
               </button>
             </DialogTrigger>
-            <DialogContent>
-              <DialogTitle>{editingPromoId ? 'Edit Promo Code' : 'Create Promo Code'}</DialogTitle>
-              <DialogDescription>
-                {editingPromoId ? 'Edit your promotional code details.' : 'Create a new promotional code for your subscription plans.'}
-              </DialogDescription>
-              <div className="space-y-4 mt-4">
+            <DialogContent 
+              className="upload-container"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                borderRadius: '24px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                maxWidth: '500px',
+              }}
+            >
+              <DialogTitle className="text-lg font-bold text-gray-800">{editingPromoId ? 'Edit Promo Code' : 'Create Promo Code'}</DialogTitle>
+              <div className="space-y-2 mt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Promo Code</label>
+                  <label className="block text-[10px] font-medium text-gray-700 mb-1">Promo Code</label>
                   <Input
                     name="code"
                     value={promoForm.code}
                     onChange={handlePromoInput}
                     placeholder="e.g., WELCOME20"
                     className="w-full"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: '1px solid rgba(0, 0, 0, 0.1)',
+                      borderRadius: '10px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                      fontSize: '11px',
+                      padding: '6px 10px',
+                      height: '28px',
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Discount Percentage</label>
+                  <label className="block text-[10px] font-medium text-gray-700 mb-1">Discount Percentage</label>
                   <Input
                     name="discountPercent"
                     type="number"
@@ -613,10 +695,19 @@ export default function SubscriptionsTab() {
                     min="1"
                     max="100"
                     className="w-full"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: '1px solid rgba(0, 0, 0, 0.1)',
+                      borderRadius: '10px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                      fontSize: '11px',
+                      padding: '6px 10px',
+                      height: '28px',
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                  <label className="block text-[10px] font-medium text-gray-700 mb-1">Expiry Date</label>
                   <Input
                     name="expiresAt"
                     type="date"
@@ -624,11 +715,20 @@ export default function SubscriptionsTab() {
                     onChange={handlePromoInput}
                     min={new Date().toISOString().split('T')[0]}
                     className="w-full"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: '1px solid rgba(0, 0, 0, 0.1)',
+                      borderRadius: '10px',
+                      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                      fontSize: '11px',
+                      padding: '6px 10px',
+                      height: '28px',
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Applicable Plans</label>
-                  <div className="space-y-2">
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Applicable Plans</label>
+                  <div className="space-y-1.5">
                     {plans.map((plan) => (
                       <div key={`${plan.id}-${plan.name}`} className="flex items-center gap-2">
                         <input
@@ -636,19 +736,48 @@ export default function SubscriptionsTab() {
                           id={`plan-${plan.id}`}
                           checked={promoForm.applicablePlanIds.includes(plan.id)}
                           onChange={() => handlePromoPlanSelect(plan.id)}
-                          className="rounded border-gray-300"
+                          className="rounded border-gray-300 w-3.5 h-3.5 accent-blue-500"
                         />
-                        <label htmlFor={`plan-${plan.id}`} className="text-sm">
-                          {plan.name} - ${plan.price}
+                        <label htmlFor={`plan-${plan.id}`} className="text-[11px] text-gray-700">
+                          {plan.name}
                         </label>
                       </div>
                     ))}
                   </div>
                 </div>
                 <div className="flex justify-end mt-4">
-                  <Button onClick={handleCreatePromo} disabled={promoSaving}>
-                    {promoSaving ? 'Saving...' : editingPromoId ? 'Update Promo Code' : 'Create Promo Code'}
-                  </Button>
+                  <button 
+                    onClick={handleCreatePromo} 
+                    disabled={promoSaving}
+                    className="profile-btn"
+                    style={{
+                      border: 'none',
+                      color: '#fff',
+                      backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+                      backgroundColor: 'transparent',
+                      borderRadius: '20px',
+                      backgroundSize: '100% auto',
+                      fontFamily: 'inherit',
+                      fontWeight: '700',
+                      fontSize: '14px',
+                      padding: '12px 32px',
+                      cursor: promoSaving ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.3s ease',
+                      opacity: promoSaving ? 0.6 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!promoSaving) {
+                        e.currentTarget.style.backgroundSize = '200% auto';
+                        e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundSize = '100% auto';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    {promoSaving ? 'Saving...' : editingPromoId ? 'UPDATE PROMO CODE' : 'CREATE PROMO CODE'}
+                  </button>
                 </div>
               </div>
             </DialogContent>
@@ -662,74 +791,68 @@ export default function SubscriptionsTab() {
         ) : promoCodes.length === 0 ? (
           <div className="text-gray-500 text-center py-4">No promo codes yet.</div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2 max-w-full">
             {promoCodes.map((promo) => (
-              <div key={promo.id} className="relative bg-gradient-to-br from-purple-900 via-indigo-800 to-fuchsia-700 p-4 rounded-xl shadow-glow-blue overflow-hidden">
-                {/* Starfield SVG background */}
-                <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 animate-pulse" viewBox="0 0 260 340" fill="none">
-                  <circle cx="40" cy="60" r="1.2" fill="#fff" opacity="0.7" className="animate-twinkle" />
-                  <circle cx="120" cy="180" r="1.5" fill="#fff" opacity="0.5" className="animate-twinkle" />
-                  <circle cx="200" cy="100" r="0.8" fill="#fff" opacity="0.6" />
-                  <circle cx="180" cy="250" r="1" fill="#fff" opacity="0.4" />
-                  <ellipse cx="130" cy="170" rx="80" ry="32" fill="url(#nebula)" opacity="0.10" />
-                  <defs>
-                    <radialGradient id="nebula" cx="0.5" cy="0.5" r="0.5" fx="0.5" fy="0.5">
-                      <stop offset="0%" stopColor="#fff" stopOpacity="0.7" />
-                      <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
-                    </radialGradient>
-                  </defs>
-                </svg>
-
-                <div className="flex items-center justify-between relative z-10">
-                  {/* 3-dots menu at top right */}
-                  <div className="absolute top-0 right-0 z-20">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="p-1 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-fuchsia-400">
-                          <FiMoreVertical className="text-fuchsia-200" size={16} />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditPromo(promo)}>
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDeletePromo(promo.id)}>
-                          Delete
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleTogglePromoActive(promo.id, promo.isActive)}>
-                          {promo.isActive ? 'Set Inactive' : 'Set Active'}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-sci-fi font-bold text-white text-lg tracking-wider drop-shadow-glow">{promo.code}</span>
-                      <span className={`px-2 py-0.5 rounded text-xs ${
-                        promo.isActive 
-                          ? 'bg-green-200 text-green-900' 
-                          : 'bg-gray-200 text-gray-500'
-                      }`}>
-                        {promo.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-fuchsia-200 mt-1 drop-shadow-glow">
-                      <span className="relative">
-                        <span className="absolute -inset-1 rounded-full blur-xl opacity-40 bg-gradient-to-r from-fuchsia-400 via-indigo-400 to-purple-400"></span>
-                        <span className="relative">{promo.discountPercent}% off</span>
-                      </span>
-                      {" • "}
-                      <span className="text-fuchsia-100">
-                        Expires {(() => {
-                          const date = getDateFromAny(promo.expiresAt);
-                          return date ? date.toLocaleDateString() : 'N/A';
-                        })()}
-                      </span>
-                    </div>
-                    <div className="text-xs text-fuchsia-100/80 mt-1">
-                      Applies to: {promo.applicablePlanIds.map(id => plans.find(p => p.id === id)?.name).filter(Boolean).join(', ')}
-                    </div>
-                  </div>
+              <div
+                key={promo.id}
+                className="relative flex items-center justify-between px-5 text-white shadow-md hover:shadow-lg transition-all w-full"
+                style={{ 
+                  borderRadius: '20px', 
+                  height: '32px', 
+                  backgroundColor: '#3b82f6'
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-sm uppercase">{promo.code}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-bold text-sm whitespace-nowrap">
+                    {promo.discountPercent}% off • Expires {(() => {
+                      const date = getDateFromAny(promo.expiresAt);
+                      return date ? date.toLocaleDateString() : 'N/A';
+                    })()}
+                  </span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="px-3 py-1.5 rounded-full flex items-center justify-center focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none bg-white/20 hover:bg-white/30 transition-all duration-200">
+                        <FiMoreVertical className="text-white h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="end" 
+                      className="w-36 bg-white border-0 overflow-hidden p-0"
+                      style={{
+                        borderRadius: '10px',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                      }}
+                    >
+                      <DropdownMenuItem 
+                        onClick={() => handleEditPromo(promo)}
+                        className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '12px' }}
+                      >
+                        <FiEdit className="mr-2 h-3.5 w-3.5" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleTogglePromoActive(promo.id, promo.isActive)}
+                        className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '12px' }}
+                      >
+                        <div className={`mr-2 h-2 w-2 rounded-full ${promo.isActive ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        {promo.isActive ? 'Set Inactive' : 'Set Active'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleDeletePromo(promo.id)}
+                        className="cursor-pointer py-1.5 px-2.5 text-red-500 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '12px' }}
+                      >
+                        <FiTrash2 className="mr-2 h-3.5 w-3.5" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             ))}

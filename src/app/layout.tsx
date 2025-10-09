@@ -23,6 +23,25 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <style dangerouslySetInnerHTML={{__html: `
+          /* Critical CSS - Loaded immediately to prevent layout shift */
+          .chat-message-input,
+          .chat-message-input input {
+            height: 40px !important;
+            min-height: 40px !important;
+            max-height: 40px !important;
+            font-size: 14px !important;
+            line-height: 1.5 !important;
+          }
+          .chat-recipient-name {
+            font-size: 16px !important;
+            line-height: 1.5 !important;
+            display: inline-block !important;
+            min-width: 50px !important;
+          }
+        `}} />
+      </head>
       <body className={inter.className}>
         <AuthProvider>
           <ChatProvider>
