@@ -85,12 +85,22 @@ export function UsernameEditField({ currentUsername, onUsernameChange, disabled 
         type="text"
         value={usernameValue}
         onChange={handleUsernameChange}
-        className={`border rounded px-2 py-1.5 text-sm w-full pr-8 bg-transparent text-white ${
-          usernameStatus === 'available' ? 'border-green-500' :
-          usernameStatus === 'taken' ? 'border-red-500' :
-          usernameStatus === 'invalid' ? 'border-red-500' :
-          'border-gray-700'
-        }`}
+        className="w-full pr-8"
+        style={{
+          background: 'rgba(255, 255, 255, 0.6)',
+          border: `1px solid ${
+            usernameStatus === 'available' ? 'rgba(34, 197, 94, 0.5)' :
+            usernameStatus === 'taken' ? 'rgba(239, 68, 68, 0.5)' :
+            usernameStatus === 'invalid' ? 'rgba(239, 68, 68, 0.5)' :
+            'rgba(200, 200, 200, 0.3)'
+          }`,
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1), inset 0 1px 2px rgba(255, 255, 255, 0.8)',
+          borderRadius: '10px',
+          height: '28px',
+          fontSize: '11px',
+          padding: '6px 10px',
+          color: '#000'
+        }}
         placeholder="Username"
         disabled={disabled}
         autoComplete="off"

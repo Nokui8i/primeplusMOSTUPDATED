@@ -119,6 +119,10 @@ html {
   transform: translateX(480px);
 }
 
+.tab--6:checked ~ .indicator {
+  transform: translateX(600px);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .tab-container {
@@ -160,6 +164,10 @@ html {
   .tab--5:checked ~ .indicator {
     transform: translateX(400px);
   }
+  
+  .tab--6:checked ~ .indicator {
+    transform: translateX(500px);
+  }
 }
 
 @media (max-width: 480px) {
@@ -197,5 +205,9 @@ html {
   
   .tab--5:checked ~ .indicator {
     transform: translateX(320px);
+  }
+  
+  .tab--6:checked ~ .indicator {
+    transform: translateX(400px);
   }
 }

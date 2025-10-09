@@ -118,14 +118,62 @@ export function CoverPhoto({ photoUrl, className = '', onPhotoUpdate, children, 
     }
   };
 
+  const lastUpdateTimeRef = useRef(0);
+  const updateThrottleMs = 33; // Update preview every 33ms (30fps) while dragging
+  const isUpdatingPreviewRef = useRef(false);
+  
   const updateCroppedPreview = () => {
-    if (!cropperRef.current) return;
+    if (!cropperRef.current || isUpdatingPreviewRef.current) return;
     
-    const canvas = cropperRef.current.getCanvas();
-    if (canvas) {
-      const preview = canvas.toDataURL('image/jpeg', 0.95);
-      setCroppedPreview(preview);
+    isUpdatingPreviewRef.current = true;
+    
+    // Use requestAnimationFrame for smooth updates
+    requestAnimationFrame(() => {
+      try {
+        if (!cropperRef.current) return;
+        
+        const canvas = cropperRef.current.getCanvas();
+        if (canvas) {
+          // Create a much smaller canvas for maximum speed
+          const previewCanvas = document.createElement('canvas');
+          const maxWidth = 400; // Even smaller for ultra-fast preview
+          const scale = Math.min(1, maxWidth / canvas.width);
+          previewCanvas.width = canvas.width * scale;
+          previewCanvas.height = canvas.height * scale;
+          
+          const ctx = previewCanvas.getContext('2d', { 
+            alpha: false,
+            desynchronized: true 
+          });
+          
+          if (ctx) {
+            // Faster rendering with lower quality
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'low';
+            ctx.drawImage(canvas, 0, 0, previewCanvas.width, previewCanvas.height);
+            const preview = previewCanvas.toDataURL('image/jpeg', 0.5);
+            setCroppedPreview(preview);
+          }
+        }
+      } finally {
+        isUpdatingPreviewRef.current = false;
+      }
+    });
+  };
+  
+  const handleCropChange = () => {
+    const now = Date.now();
+    
+    // Throttle updates: only update if enough time has passed
+    if (now - lastUpdateTimeRef.current >= updateThrottleMs) {
+      lastUpdateTimeRef.current = now;
+      updateCroppedPreview();
     }
+  };
+  
+  const handleCropComplete = () => {
+    // Always update on completion for final accuracy
+    updateCroppedPreview();
   };
 
   const handleSave = async () => {
@@ -306,29 +354,48 @@ export function CoverPhoto({ photoUrl, className = '', onPhotoUpdate, children, 
 
           {/* Upload UI Modal */}
           {showUploadUI && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
               <div 
                 ref={uploadRef}
-                className="bg-gray-900 text-white rounded-xl p-6 w-full max-w-md"
+                className="rounded-lg p-6 w-full max-w-md"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)',
+                }}
               >
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">Upload Cover Photo</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Upload Cover Photo</h3>
                   <button
                     onClick={() => setShowUploadUI(false)}
-                    className="p-1 hover:bg-gray-800 rounded-full transition-colors"
+                    className="p-1 hover:bg-gray-200 rounded-full transition-colors"
                   >
-                    <X className="w-5 h-5 text-gray-400" />
+                    <X className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>
 
                 <div
-                  className="border-2 border-dashed rounded-lg p-8 transition-all duration-200 hover:border-blue-500 cursor-pointer border-gray-700 hover:bg-gray-800/50"
+                  className="border-2 border-dashed rounded-lg p-8 transition-all duration-200 cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    borderColor: 'rgba(200, 200, 200, 0.5)',
+                    background: 'rgba(255, 255, 255, 0.3)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+                    e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(200, 200, 200, 0.5)';
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                  }}
                 >
                   <div className="flex flex-col items-center justify-center gap-3">
-                    <Upload className="w-8 h-8 text-gray-400" />
+                    <Upload className="w-8 h-8 text-gray-600" />
                     <div className="text-center">
-                      <p className="text-sm font-medium text-gray-300">
+                      <p className="text-sm font-medium text-gray-700">
                         Click to upload or drag and drop
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
@@ -343,20 +410,43 @@ export function CoverPhoto({ photoUrl, className = '', onPhotoUpdate, children, 
 
           {/* Cropping Modal */}
           {isEditing && tempPhotoUrl && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className="bg-gray-900 text-white rounded-xl p-4 w-full max-w-4xl">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="h-[400px]">
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+              <div 
+                className="rounded-xl p-6 w-full max-w-4xl"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37), inset 0 1px 0 0 rgba(255, 255, 255, 0.5)',
+                }}
+              >
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="h-[400px] rounded-lg overflow-hidden" style={{ background: '#f3f4f6' }}>
                     <Cropper
                       src={tempPhotoUrl}
-                      className="h-full"
+                      className="h-full w-full"
                       ref={cropperRef}
                       aspectRatio={(state: CropperState) => 4/1}
-                      onChange={updateCroppedPreview}
+                      onChange={handleCropChange}
+                      onInteractionEnd={handleCropComplete}
+                      stencilProps={{
+                        handlers: true,
+                        lines: true,
+                        movable: true,
+                        resizable: true,
+                      }}
                     />
                   </div>
                   <div className="flex flex-col items-center justify-center">
-                    <div className="relative w-full h-32 rounded-lg overflow-hidden mb-4 bg-gray-800">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Preview</h3>
+                    <div 
+                      className="relative w-full h-32 rounded-lg overflow-hidden mb-3"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.5)',
+                        border: '1px solid rgba(200, 200, 200, 0.3)',
+                      }}
+                    >
                       {croppedPreview ? (
                         <Image
                           src={croppedPreview}
@@ -366,25 +456,43 @@ export function CoverPhoto({ photoUrl, className = '', onPhotoUpdate, children, 
                           sizes="100vw"
                         />
                       ) : (
-                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                          <span className="text-gray-400">Preview</span>
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-gray-500">Preview</span>
                         </div>
                       )}
                     </div>
-                    <p className="text-sm text-gray-400 mb-4">
+                    <p className="text-sm text-gray-600 mb-6">
                       This is how your cover photo will look
                     </p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-3">
                       <button
                         onClick={handleClose}
-                        className="px-4 py-2 text-gray-300 hover:bg-gray-800 rounded-lg transition-colors"
+                        className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                        style={{
+                          border: 'none',
+                          color: '#374151',
+                          backgroundImage: 'linear-gradient(30deg, #e5e7eb, #f3f4f6)',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                        }}
                       >
                         Cancel
                       </button>
                       <button
                         onClick={handleSave}
                         disabled={isUploading}
-                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50"
+                        style={{
+                          border: 'none',
+                          color: '#fff',
+                          backgroundImage: isUploading ? 'linear-gradient(30deg, #9ca3af, #d1d5db)' : 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+                          backgroundColor: 'transparent',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          padding: '0.5em 1em',
+                          cursor: isUploading ? 'not-allowed' : 'pointer',
+                          opacity: isUploading ? 0.6 : 1,
+                        }}
                       >
                         {isUploading ? 'Saving...' : 'Save'}
                       </button>

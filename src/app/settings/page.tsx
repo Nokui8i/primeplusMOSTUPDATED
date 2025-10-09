@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import '@/styles/tab-navigation.css';
 import { Card } from '@/components/ui/card';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -49,57 +49,109 @@ export default function SettingsPage() {
   return (
     <div className="container mx-auto py-8">
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-gray-500">Manage your account settings and preferences</p>
+        {/* Navigation Tabs */}
+        <div className="flex justify-center mb-6">
+          <div className="tab-container">
+            <input 
+              type="radio" 
+              name="tab" 
+              id="tab1" 
+              className="tab tab--1" 
+              checked={activeTab === 'account'}
+              onChange={() => setActiveTab('account')}
+            />
+            <label className="tab_label" htmlFor="tab1">Account</label>
+
+            <input 
+              type="radio" 
+              name="tab" 
+              id="tab2" 
+              className="tab tab--2" 
+              checked={activeTab === 'privacy'}
+              onChange={() => setActiveTab('privacy')}
+            />
+            <label className="tab_label" htmlFor="tab2">Privacy</label>
+
+            <input 
+              type="radio" 
+              name="tab" 
+              id="tab3" 
+              className="tab tab--3" 
+              checked={activeTab === 'notifications'}
+              onChange={() => setActiveTab('notifications')}
+            />
+            <label className="tab_label" htmlFor="tab3">Notifications</label>
+
+            <input 
+              type="radio" 
+              name="tab" 
+              id="tab4" 
+              className="tab tab--4" 
+              checked={activeTab === 'payments'}
+              onChange={() => setActiveTab('payments')}
+            />
+            <label className="tab_label" htmlFor="tab4">Payments</label>
+
+            <input 
+              type="radio" 
+              name="tab" 
+              id="tab5" 
+              className="tab tab--5" 
+              checked={activeTab === 'security'}
+              onChange={() => setActiveTab('security')}
+            />
+            <label className="tab_label" htmlFor="tab5">Security</label>
+
+            <input 
+              type="radio" 
+              name="tab" 
+              id="tab6" 
+              className="tab tab--6" 
+              checked={activeTab === 'creator'}
+              onChange={() => setActiveTab('creator')}
+            />
+            <label className="tab_label" htmlFor="tab6">Creator</label>
+
+            <div className="indicator"></div>
+          </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="account">Account</TabsTrigger>
-            <TabsTrigger value="privacy">Privacy</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="creator">Creator</TabsTrigger>
-          </TabsList>
+        {/* Tab Contents */}
+        {activeTab === 'account' && (
+          <Card className="p-6">
+            <AccountSettings />
+          </Card>
+        )}
 
-          <TabsContent value="account">
-            <Card className="p-6">
-              <AccountSettings />
-            </Card>
-          </TabsContent>
+        {activeTab === 'privacy' && (
+          <Card className="p-6">
+            <PrivacySettings />
+          </Card>
+        )}
 
-          <TabsContent value="privacy">
-            <Card className="p-6">
-              <PrivacySettings />
-            </Card>
-          </TabsContent>
+        {activeTab === 'notifications' && (
+          <Card className="p-6">
+            <NotificationSettings />
+          </Card>
+        )}
 
-          <TabsContent value="notifications">
-            <Card className="p-6">
-              <NotificationSettings />
-            </Card>
-          </TabsContent>
+        {activeTab === 'payments' && (
+          <Card className="p-6">
+            <PaymentSettings />
+          </Card>
+        )}
 
-          <TabsContent value="payments">
-            <Card className="p-6">
-              <PaymentSettings />
-            </Card>
-          </TabsContent>
+        {activeTab === 'security' && (
+          <Card className="p-6">
+            <SecuritySettings />
+          </Card>
+        )}
 
-          <TabsContent value="security">
-            <Card className="p-6">
-              <SecuritySettings />
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="creator">
-            <Card className="p-6">
-              <CreatorVerificationSettings />
-            </Card>
-          </TabsContent>
-        </Tabs>
+        {activeTab === 'creator' && (
+          <Card className="p-6">
+            <CreatorVerificationSettings />
+          </Card>
+        )}
       </div>
     </div>
   );

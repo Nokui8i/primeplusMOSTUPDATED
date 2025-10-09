@@ -30,6 +30,7 @@ import axios from 'axios';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'sonner';
 import { Share2 } from 'lucide-react';
+import { SocialLinksDisplay, SocialLink } from './SocialLinksDisplay';
 
 interface Plan {
   id: string;
@@ -88,6 +89,7 @@ export function ProfileHeader({
   const [plansLoading, setPlansLoading] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
 
   // Fixed button position - no more dragging
   const buttonsPosition = { x: 0, y: 0 };
@@ -110,6 +112,16 @@ export function ProfileHeader({
     const userRef = doc(db, 'users', profile.id);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       const data = docSnap.data();
+      console.log('👤 Profile data loaded:', { 
+        userId: profile.id, 
+        hasSocialLinks: !!data?.socialLinks,
+        socialLinks: data?.socialLinks 
+      });
+      if (data?.socialLinks) {
+        setSocialLinks(data.socialLinks);
+      } else {
+        setSocialLinks([]);
+      }
     });
     return () => unsubscribe();
   }, [profile.id]);
@@ -630,9 +642,9 @@ export function ProfileHeader({
             }}
             className="flex flex-col gap-2"
           >
-            <div className="relative">
+            <div className="space-y-2">
               <textarea
-                className={`border rounded p-2 w-full text-gray-900 pr-16 ${
+                className={`profile-bio-edit border rounded p-3 w-full text-gray-900 ${
                   bioValue.length > 1800 ? 'border-yellow-500' : ''
                 } ${bioValue.length > 1950 ? 'border-red-500' : ''}`}
                 value={bioValue}
@@ -642,12 +654,18 @@ export function ProfileHeader({
                     setBioValue(newValue);
                   }
                 }}
-                rows={3}
+                rows={8}
                 maxLength={2000}
                 disabled={saving}
                 placeholder="Write your bio here..."
+                style={{
+                  minHeight: '150px !important',
+                  height: 'auto !important',
+                  maxHeight: 'none !important',
+                  resize: 'vertical !important'
+                } as React.CSSProperties}
               />
-              <div className={`absolute bottom-2 right-2 text-xs ${
+              <div className={`text-xs text-right ${
                 bioValue.length > 1950 ? 'text-red-500' :
                 bioValue.length > 1800 ? 'text-yellow-500' :
                 'text-gray-500'
@@ -715,10 +733,16 @@ export function ProfileHeader({
                         Show less
                       </button>
                     )}
+                    
+                    {/* Social Links inside bio section */}
+                    <SocialLinksDisplay links={socialLinks} />
                   </div>
                 );
               })()
-            ) : null}
+            ) : (
+              /* Show social links even if no bio */
+              socialLinks.length > 0 && <SocialLinksDisplay links={socialLinks} />
+            )}
           </>
         )}
       </div>

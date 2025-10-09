@@ -1107,10 +1107,24 @@ div.text-box div.box-container textarea {
   border-bottom: none !important;
 }
 
+/* Profile Bio Edit Field & Settings Bio Field - Allow custom styling */
+.profile-bio-edit,
+.profile-bio-edit[style],
+textarea.profile-bio-edit,
+.settings-bio-field,
+.settings-bio-field[style],
+textarea.settings-bio-field {
+  height: auto !important;
+  min-height: 150px !important;
+  max-height: none !important;
+  resize: vertical !important;
+  border: 1px solid #d1d5db !important;
+}
+
 /* ULTRA HIGH SPECIFICITY - OVERRIDE EVERYTHING */
 html body div.text-box textarea,
 html body div.text-box div.box-container textarea,
-html body form textarea,
+html body form textarea:not(.settings-bio-field):not(.profile-bio-edit),
 html body .text-box textarea {
   width: 100% !important;
   height: 32px !important;
