@@ -43,10 +43,11 @@ export default function ProfilePage() {
           userDoc = await getDocs(userIdQuery);
         }
 
-        // If still not found, try direct document access using the UID
-        if (userDoc.empty && user?.uid) {
-          const directDoc = await getDoc(doc(db, 'users', user.uid));
-          if (directDoc.exists() && user?.uid) {
+        // If still not found, try direct document access using the params.username as UID
+        if (userDoc.empty) {
+          console.log('Trying direct document access with:', params.username);
+          const directDoc = await getDoc(doc(db, 'users', params.username));
+          if (directDoc.exists()) {
             const userData = directDoc.data();
             const profileData: UserProfile = {
               id: directDoc.id,

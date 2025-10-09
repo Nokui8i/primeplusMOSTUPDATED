@@ -145,27 +145,37 @@ export default function MessagesPage() {
             <div className="mr-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-black hover:text-black hover:bg-transparent">
-                  <span className="text-sm">
+                <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
+                  <span className="text-xs font-medium">
                     {filterType === 'all' ? 'All' : 'Unread'}
                   </span>
                   <ChevronDown className="h-3 w-3" />
-                </Button>
+                </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-20 bg-white border border-gray-200 shadow-lg">
+              <DropdownMenuContent 
+                align="end" 
+                className="w-24 bg-white border-0 overflow-hidden p-0"
+                style={{
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                }}
+              >
                 <DropdownMenuItem 
                   onClick={() => setFilterType('all')}
-                  className={`text-xs py-0.5 bg-white hover:bg-gray-50 cursor-pointer ${
+                  className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
                     filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
                   }`}
+                  style={{ fontWeight: '500', fontSize: '12px' }}
                 >
                   All
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => setFilterType('unread')}
-                  className={`text-xs py-0.5 bg-white hover:bg-gray-50 cursor-pointer ${
+                  className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
                     filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
                   }`}
+                  style={{ fontWeight: '500', fontSize: '12px' }}
                 >
                   Unread
                 </DropdownMenuItem>

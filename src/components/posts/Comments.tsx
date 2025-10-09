@@ -158,23 +158,33 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
         <div className="px-2 py-1 border-b border-gray-100 dark:border-gray-700/50">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-5 gap-0.5 px-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100">
-                <ArrowUpDown className="h-2.5 w-2.5" />
-                <span className="text-xs">
+              <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
+                <ArrowUpDown className="h-3 w-3" />
+                <span className="text-xs font-medium">
                   {sortBy === 'newest' ? 'Newest' : 'Oldest'}
                 </span>
-              </Button>
+              </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-24 bg-white">
+            <DropdownMenuContent 
+              align="start" 
+              className="w-28 bg-white border-0 overflow-hidden p-0"
+              style={{
+                borderRadius: '12px',
+                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+              }}
+            >
               <DropdownMenuItem 
                 onClick={() => onSortChange('newest')}
-                className="text-xs py-0.5"
+                className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                style={{ fontWeight: '500', fontSize: '12px' }}
               >
                 Newest First
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => onSortChange('oldest')}
-                className="text-xs py-0.5"
+                className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                style={{ fontWeight: '500', fontSize: '12px' }}
               >
                 Oldest First
               </DropdownMenuItem>

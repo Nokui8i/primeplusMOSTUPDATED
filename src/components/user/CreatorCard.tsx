@@ -15,6 +15,7 @@ interface CreatorCardProps {
   displayName?: string;
   photoURL?: string;
   coverPhotoUrl?: string;
+  isSimpleCard?: boolean; // If true, clicking card navigates directly to profile (for sidebar)
 }
 
 export function CreatorCard({
@@ -23,6 +24,7 @@ export function CreatorCard({
   displayName,
   photoURL,
   coverPhotoUrl,
+  isSimpleCard = false,
 }: CreatorCardProps) {
   const { stats } = useFollowStats(userId);
   const [showPlansModal, setShowPlansModal] = useState(false);
@@ -119,11 +121,14 @@ export function CreatorCard({
   }, [userId]);
 
   return (
-    <div className="w-full mb-4" style={{
-      background: 'white',
-      borderRadius: '17px 17px 27px 27px',
-      boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
-    }}>
+    <div 
+      className="w-full mb-4"
+      style={{
+        background: 'white',
+        borderRadius: '17px 17px 27px 27px',
+        boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
+      }}
+    >
       {/* Cover Photo with gradient overlay and overlaid content */}
       <div className="relative h-32 w-full overflow-hidden" style={{ 
         borderRadius: '17px 17px 27px 27px'
@@ -152,57 +157,91 @@ export function CreatorCard({
               style={{ marginTop: '-20px' }} /* PADDING: marginTop: -20px */
             />
             <div className="flex-1 min-w-0 ml-2"> {/* PADDING: ml-2 (8px) */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div 
-                    onClick={(e) => e.stopPropagation()}
-                    className="block hover:opacity-80 transition-opacity cursor-pointer"
-                  >
-                    <div style={{ 
-                      color: '#ffffff', 
-                      fontWeight: '700',
-                      fontSize: '16px',
-                      lineHeight: '1.2',
-                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
-                    }}>
-                      {displayName || username || 'User'}
-                    </div>
-                    <div style={{ 
-                      color: '#d1d5db',
-                      fontSize: '12px',
-                      lineHeight: '1.2',
-                      textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
-                    }}>
-                      @{username || 'username'}
-                    </div>
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent 
-                  align="start" 
-                  className="w-28 bg-white border-0 overflow-hidden p-0"
-                  style={{
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
-                    background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+              {isSimpleCard ? (
+                // Simple card: clickable names that navigate to profile
+                <div 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    console.log('CreatorCard: Navigating to profile for userId:', userId);
+                    console.log('CreatorCard: Username:', username);
+                    console.log('CreatorCard: Display Name:', displayName);
+                    // Use userId directly as it's the Firebase UID
+                    router.push(`/profile/${userId}`);
                   }}
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
                 >
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/profile/${userId}`);
-                    }}
-                    className="cursor-pointer text-xs py-1.5 px-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                  <div style={{ 
+                    color: '#ffffff', 
+                    fontWeight: '700',
+                    fontSize: '16px',
+                    lineHeight: '1.2',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                  }}>
+                    {displayName || username || 'User'}
+                  </div>
+                  <div style={{ 
+                    color: '#d1d5db',
+                    fontSize: '12px',
+                    lineHeight: '1.2',
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                  }}>
+                    @{username || 'username'}
+                  </div>
+                </div>
+              ) : (
+                // Full card: show dropdown menu
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      className="block hover:opacity-80 transition-opacity cursor-pointer"
+                    >
+                      <div style={{ 
+                        color: '#ffffff', 
+                        fontWeight: '700',
+                        fontSize: '16px',
+                        lineHeight: '1.2',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                      }}>
+                        {displayName || username || 'User'}
+                      </div>
+                      <div style={{ 
+                        color: '#d1d5db',
+                        fontSize: '12px',
+                        lineHeight: '1.2',
+                        textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
+                      }}>
+                        @{username || 'username'}
+                      </div>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent 
+                    align="start" 
+                    className="w-28 bg-white border-0 overflow-hidden p-0"
                     style={{
-                      fontWeight: '500',
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
                     }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    Visit Profile
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/profile/${userId}`);
+                      }}
+                      className="cursor-pointer text-xs py-1.5 px-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                      style={{
+                        fontWeight: '500',
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Visit Profile
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
         </div>

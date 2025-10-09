@@ -41,16 +41,24 @@ export function SuggestedCreators() {
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-gray-900">Suggested Creators</h3>
-      {realCreators.slice(0, 3).map(creator => (
-        <CreatorCard
-          key={creator.id}
-          userId={creator.id}
-          username={creator.username}
-          displayName={creator.displayName}
-          photoURL={creator.photoURL}
-          coverPhotoUrl={creator.coverPhotoUrl}
-        />
-      ))}
+      {realCreators.slice(0, 3).map(creator => {
+        console.log('SuggestedCreators: Rendering card for creator:', {
+          id: creator.id,
+          username: creator.username,
+          displayName: creator.displayName
+        });
+        return (
+          <CreatorCard
+            key={creator.id}
+            userId={creator.id}
+            username={creator.username}
+            displayName={creator.displayName}
+            photoURL={creator.photoURL}
+            coverPhotoUrl={creator.coverPhotoUrl}
+            isSimpleCard={true}
+          />
+        );
+      })}
     </div>
   );
 } 

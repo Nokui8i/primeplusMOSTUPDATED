@@ -52,16 +52,24 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
     <DropdownMenu onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
         <button 
-          className={`h-8 w-8 rounded-md flex items-center justify-center focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none !focus-visible:ring-0 !focus-visible:ring-offset-0 transition-colors ${
+          className={`px-3 py-1.5 rounded-full flex items-center justify-center focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none !focus-visible:ring-0 !focus-visible:ring-offset-0 transition-all duration-200 ${
             isOpen 
-              ? 'text-blue-600' 
-              : 'text-black dark:text-white hover:text-gray-600'
+              ? 'bg-blue-50 text-blue-600' 
+              : 'bg-white border border-gray-200 text-black dark:text-white hover:bg-gray-50 shadow-sm'
           }`}
         >
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 bg-white border border-gray-200 shadow-lg">
+      <DropdownMenuContent 
+        align="end" 
+        className="w-48 bg-white border-0 overflow-hidden p-0"
+        style={{
+          borderRadius: '12px',
+          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+        }}
+      >
         {isAuthor && (
           <>
             <DropdownMenuItem 
@@ -72,7 +80,8 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
                 if (onEdit) onEdit();
               }} 
               disabled={isDeleting} 
-              className="bg-white hover:bg-gray-50 cursor-pointer"
+              className="cursor-pointer py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+              style={{ fontWeight: '500', fontSize: '14px' }}
             >
               <Edit className="mr-2 h-4 w-4" />
               Edit
@@ -85,7 +94,8 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
                 handleDelete();
               }} 
               disabled={isDeleting}
-              className="text-red-500 focus:text-red-500 bg-white hover:bg-red-50 cursor-pointer"
+              className="cursor-pointer py-2 px-3 text-red-500 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200"
+              style={{ fontWeight: '500', fontSize: '14px' }}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
@@ -100,7 +110,8 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
             handleShare();
           }} 
           disabled={isDeleting} 
-          className="bg-white hover:bg-gray-50 cursor-pointer"
+          className="cursor-pointer py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+          style={{ fontWeight: '500', fontSize: '14px' }}
         >
           <Share2 className="mr-2 h-4 w-4" />
           Share

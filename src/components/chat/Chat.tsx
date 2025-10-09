@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, getDocs, doc, setDoc, updateDoc, getDoc, DocumentData, deleteDoc, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, getDocs, doc, setDoc, updateDoc, getDoc, DocumentData, deleteDoc, Timestamp, writeBatch, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
 import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
@@ -1174,9 +1174,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     {/* Play/Pause Button */}
                     <button
                       className={`flex items-center justify-center w-6 h-6 rounded-full transition-all duration-200 flex-shrink-0 ${
-                        playingAudio === message.id 
-                          ? 'bg-white text-blue-500' 
-                          : 'bg-white/20 text-white hover:bg-white/30'
+                        message.senderId === user?.uid
+                          ? (playingAudio === message.id 
+                              ? 'bg-white text-blue-500' 
+                              : 'bg-white/20 text-white hover:bg-white/30')
+                          : (playingAudio === message.id
+                              ? 'bg-black text-white'
+                              : 'bg-gray-300 text-black hover:bg-gray-400')
                       }`}
                       onClick={() => handleAudioPlay(message.id, message.audioUrl!)}
                     >
@@ -1189,16 +1193,17 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     
                     {/* Progress Bar */}
                     <div 
-                      className="flex-1 min-w-0 rounded-full overflow-hidden bg-white/30"
+                      className={`flex-1 min-w-0 rounded-full overflow-hidden ${
+                        message.senderId === user?.uid ? 'bg-white/30' : 'bg-gray-300'
+                      }`}
                       style={{
                         height: '6px',
                         minWidth: '60px',
-                        backgroundColor: 'rgba(255, 255, 255, 0.3)',
                         position: 'relative'
                       }}
                     >
                       <div 
-                        className="rounded-full bg-white"
+                        className={`rounded-full ${message.senderId === user?.uid ? 'bg-white' : 'bg-black'}`}
                         style={{
                           height: '100%',
                           width: `${audioProgress[message.id] || 0}%`,
@@ -1209,7 +1214,9 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </div>
                     
                     {/* Duration */}
-                    <span className="text-xs text-white/80 font-mono flex-shrink-0">
+                    <span className={`text-xs font-mono flex-shrink-0 ${
+                      message.senderId === user?.uid ? 'text-white/80' : 'text-black/80'
+                    }`}>
                       {message.duration ? formatDuration(message.duration) : '0:00'}
                     </span>
                   </div>
@@ -1406,12 +1413,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       );
                     }
                     if (att.type === 'audio') {
+                      const isReceived = message.senderId !== user?.uid;
                       return (
                         <div key={i} className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="icon"
-                            className={`h-8 w-8 ${playingAudio === message.id ? 'text-blue-500' : 'text-gray-500'}`}
+                            className={`h-8 w-8 ${playingAudio === message.id ? (isReceived ? 'text-black' : 'text-blue-500') : (isReceived ? 'text-black' : 'text-gray-500')}`}
                             onClick={() => handleAudioPlay(message.id, att.url as string)}
                   >
                     {playingAudio === message.id ? (
@@ -1422,12 +1430,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   </Button>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
-                      <Mic className="h-3 w-3 text-white" />
-                      <span className="text-sm text-white">Voice message</span>
+                      <Mic className={`h-3 w-3 ${isReceived ? 'text-black' : 'text-white'}`} />
+                      <span className={`text-sm ${isReceived ? 'text-black' : 'text-white'}`}>Voice message</span>
                     </div>
                     {playingAudio === message.id && (
-                      <div className="h-1 w-16 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full animate-pulse" />
+                      <div className={`h-1 w-16 rounded-full overflow-hidden ${isReceived ? 'bg-gray-300' : 'bg-gray-200'}`}>
+                        <div className={`h-full rounded-full animate-pulse ${isReceived ? 'bg-black' : 'bg-blue-500'}`} />
                       </div>
                     )}
                   </div>
@@ -1608,7 +1616,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             placeholder="Type a message..."
-            className="flex-1 text-[#1A1A1A] placeholder:text-blue-400 bg-white/90 border border-blue-200 focus:ring-2 focus:ring-[#6B3BFF] focus:border-[#2B55FF] rounded-xl text-xs md:text-sm"
+            className="flex-1 h-10 text-[#1A1A1A] placeholder:text-blue-400 bg-white/90 border border-blue-200 focus:ring-2 focus:ring-[#6B3BFF] focus:border-[#2B55FF] rounded-xl text-sm md:text-base px-4"
             disabled={uploading || isRecording}
           />
           {newMessage.trim() ? (

@@ -242,9 +242,9 @@ export function ProfileHeader({
   }, [onTabChange, activeTab]);
 
   const handleShare = async () => {
-    const profileUrl = `${window.location.origin}/${profile.username}`;
+    const currentUrl = window.location.href;
     try {
-      await navigator.clipboard.writeText(profileUrl);
+      await navigator.clipboard.writeText(currentUrl);
       toast.success('Profile link copied to clipboard!');
     } catch (err) {
       toast.error('Failed to copy link');

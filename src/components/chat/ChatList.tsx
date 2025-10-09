@@ -195,7 +195,7 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
                 <div className="flex-1 min-w-0">
                   {/* Name Row */}
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate max-w-[200px]">
                       {chat.recipientName || chat.recipientId || 'Unknown User'}
                     </h3>
                     {chat.unreadCount > 0 && (
