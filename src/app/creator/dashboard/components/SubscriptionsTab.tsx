@@ -506,11 +506,12 @@ export default function SubscriptionsTab() {
         ) : plans.length === 0 ? (
           <div className="text-gray-500">No subscription plans yet.</div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3 max-w-full">
             {plans.map((plan, idx) => (
               <div
                 key={`plan-${plan.id}-${idx}`}
-                className="relative flex items-center justify-between px-6 py-3 bg-gradient-to-r from-cyan-400 to-blue-500 text-white rounded-full shadow-md hover:shadow-lg transition-all"
+                className="relative flex items-center justify-between px-6 py-3 bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-md hover:shadow-lg transition-all w-full"
+                style={{ borderRadius: '25px' }}
               >
                 <div className="flex items-center gap-3">
                   <span className="font-bold text-sm uppercase">{plan.name}</span>
@@ -519,7 +520,7 @@ export default function SubscriptionsTab() {
                   </span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className="font-bold text-sm">
+                  <span className="font-bold text-sm whitespace-nowrap">
                     {plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)} per ${plan.billingInterval === 'year' ? 'year' : plan.billingInterval === 'month' ? 'month' : plan.billingInterval === 'week' ? 'week' : `${plan.intervalCount} days`}`}
                   </span>
                   <DropdownMenu>
