@@ -506,70 +506,50 @@ export default function SubscriptionsTab() {
         ) : plans.length === 0 ? (
           <div className="text-gray-500">No subscription plans yet.</div>
         ) : (
-          <div className="flex flex-wrap gap-4 justify-center">
-            {plans.map((plan, idx) => {
-              // All cards use galactic style
-              const cardBg = 'relative bg-gradient-to-br from-purple-900 via-indigo-800 to-fuchsia-700 text-white shadow-glow-blue overflow-hidden';
-              return (
-                <div
-                  key={`plan-${plan.id}-${idx}`}
-                  className={`w-full max-w-[170px] rounded-xl flex flex-col items-center ${cardBg} transition-transform hover:scale-105 duration-150 min-h-[200px] p-3`}
-                  style={{ minWidth: 120 }}
-                >
-                  {/* Starfield SVG background for all cards */}
-                    <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 animate-pulse" viewBox="0 0 170 200" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <circle cx="30" cy="40" r="1.2" fill="#fff" opacity="0.7" className="animate-twinkle" />
-                      <circle cx="80" cy="100" r="1.5" fill="#fff" opacity="0.5" className="animate-twinkle" />
-                      <circle cx="150" cy="60" r="0.8" fill="#fff" opacity="0.6" />
-                      <circle cx="140" cy="160" r="1" fill="#fff" opacity="0.4" />
-                      <ellipse cx="85" cy="100" rx="50" ry="18" fill="url(#nebula)" opacity="0.10" />
-                      <defs>
-                        <radialGradient id="nebula" cx="0.5" cy="0.5" r="0.5" fx="0.5" fy="0.5">
-                          <stop offset="0%" stopColor="#fff" stopOpacity="0.7" />
-                          <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
-                        </radialGradient>
-                      </defs>
-                    </svg>
-                  {/* 3-dots menu at top right */}
-                  <div className="absolute top-2 right-2 z-20">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="p-1 rounded-full hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-fuchsia-400">
-                          <FiMoreVertical className="text-fuchsia-200" size={16} />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEdit(plan)}>
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDelete(plan.id)}>
-                          Delete
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleToggleActive(plan.id, plan.isActive)}>
-                          {plan.isActive ? 'Set Inactive' : 'Set Active'}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+          <div className="space-y-2">
+            {plans.map((plan, idx) => (
+              <div
+                key={`plan-${plan.id}-${idx}`}
+                className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+              >
+                <div className="flex items-center gap-4 flex-1">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-900">{plan.name}</h3>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${plan.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {plan.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)}`} per {plan.intervalCount} {plan.billingInterval === 'year' ? 'years' : plan.billingInterval === 'month' ? 'months' : plan.billingInterval === 'week' ? 'weeks' : 'days'}
+                    </p>
                   </div>
-                  {/* Plan Name */}
-                  <div className="flex flex-col items-center mb-1 z-10">
-                    <span className={`text-xs font-sci-fi font-bold uppercase tracking-widest drop-shadow-glow mb-0.5`}>{plan.name}</span>
-                    <span className={`px-1 py-0.5 rounded text-[10px] font-semibold shadow ${plan.isActive ? 'bg-green-200 text-green-900' : 'bg-gray-200 text-gray-500'}`}>{plan.isActive ? 'Active' : 'Inactive'}</span>
-                  </div>
-                  {/* Price & Duration */}
-                  <div className="relative flex flex-col items-center mb-2 z-10">
-                    {/* Nebula/Aurora Glow behind price */}
-                      <span className="absolute -inset-1 rounded-full blur-2xl opacity-60 bg-gradient-to-r from-fuchsia-400 via-indigo-400 to-purple-400"></span>
-                    <span className={`relative text-lg font-extrabold text-fuchsia-200 drop-shadow-glow`}>
-                      {plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)}`}
-                    </span>
-                    <span className="block text-[10px] text-fuchsia-100 mt-0.5">per {plan.intervalCount} {plan.billingInterval === 'year' ? 'years' : plan.billingInterval === 'month' ? 'months' : plan.billingInterval === 'week' ? 'weeks' : 'days'}</span>
-                  </div>
-                  {/* Action Button */}
-                  <button className="w-full py-1 rounded font-bold text-xs shadow-glow-pink transition-colors mt-1 z-10 bg-gradient-to-r from-fuchsia-500 via-purple-600 to-indigo-500 text-white">Get More</button>
                 </div>
-              );
-            })}
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="p-2 rounded-lg hover:bg-gray-100 focus:outline-none">
+                        <FiMoreVertical className="text-gray-500" size={18} />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(plan)}>
+                        <FiEdit className="mr-2" size={14} />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleToggleActive(plan.id, plan.isActive)}>
+                        {plan.isActive ? <FiToggleRight className="mr-2" size={14} /> : <FiToggleLeft className="mr-2" size={14} />}
+                        {plan.isActive ? 'Set Inactive' : 'Set Active'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDelete(plan.id)} className="text-red-600">
+                        <FiTrash2 className="mr-2" size={14} />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Card>
