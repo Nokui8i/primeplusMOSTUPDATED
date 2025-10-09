@@ -506,30 +506,26 @@ export default function SubscriptionsTab() {
         ) : plans.length === 0 ? (
           <div className="text-gray-500">No subscription plans yet.</div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {plans.map((plan, idx) => (
               <div
                 key={`plan-${plan.id}-${idx}`}
-                className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                className="relative flex items-center justify-between px-6 py-3 bg-gradient-to-r from-cyan-400 to-blue-500 text-white rounded-full shadow-md hover:shadow-lg transition-all"
               >
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900">{plan.name}</h3>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${plan.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {plan.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)}`} per {plan.intervalCount} {plan.billingInterval === 'year' ? 'years' : plan.billingInterval === 'month' ? 'months' : plan.billingInterval === 'week' ? 'weeks' : 'days'}
-                    </p>
-                  </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-sm uppercase">{plan.name}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${plan.isActive ? 'bg-green-200 text-green-900' : 'bg-gray-200 text-gray-700'}`}>
+                    {plan.isActive ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
+                  <span className="font-bold text-sm">
+                    {plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)} per ${plan.billingInterval === 'year' ? 'year' : plan.billingInterval === 'month' ? 'month' : plan.billingInterval === 'week' ? 'week' : `${plan.intervalCount} days`}`}
+                  </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="p-2 rounded-lg hover:bg-gray-100 focus:outline-none">
-                        <FiMoreVertical className="text-gray-500" size={18} />
+                      <button className="p-1.5 rounded-full hover:bg-white/20 focus:outline-none transition-colors">
+                        <FiMoreVertical className="text-white" size={16} />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
