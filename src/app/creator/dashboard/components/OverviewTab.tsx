@@ -161,15 +161,6 @@ export default function OverviewTab({ stats }: OverviewTabProps) {
 
       {/* Earnings Summary */}
       <EarningsSummary {...earnings} />
-
-      {/* Recent Activity */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4" style={{ color: 'rgb(26, 26, 26)' }}>Recent Activity</h2>
-        <div className="space-y-4">
-          {/* TODO: Add recent activity list */}
-          <p className="text-gray-500 text-sm">No recent activity to show</p>
-        </div>
-      </Card>
     </div>
   );
 } 
