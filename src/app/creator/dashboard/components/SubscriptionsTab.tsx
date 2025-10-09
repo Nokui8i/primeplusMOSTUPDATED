@@ -379,9 +379,39 @@ export default function SubscriptionsTab() {
               if (!open) { setForm({}); setEditingId(null); }
             }}>
               <DialogTrigger asChild>
-                <Button variant="create" size="sm" className="px-1.5 py-0.5 text-[11px] font-semibold rounded shadow-glow-pink min-w-0 h-7" onClick={() => { setForm({}); setEditingId(null); }}>
-                  <FiPlus className="mr-1 text-xs" /> Create Plan
-                </Button>
+                <button
+                  onClick={() => { setForm({}); setEditingId(null); }}
+                  style={{
+                    border: 'none',
+                    color: '#fff',
+                    backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+                    backgroundColor: 'transparent',
+                    borderRadius: '20px',
+                    backgroundSize: '100% auto',
+                    fontFamily: 'inherit',
+                    fontSize: '11px',
+                    padding: '0.3em 0.6em',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    transition: 'all 0.3s ease-in-out',
+                    boxShadow: 'none',
+                    margin: '0',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundSize = '200% auto';
+                    e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundSize = '100% auto';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <FiPlus className="mr-1" style={{ fontSize: '14px' }} /> CREATE PLAN
+                </button>
               </DialogTrigger>
               <DialogContent>
                 <DialogTitle>{editingId ? 'Edit Plan' : 'Create New Plan'}</DialogTitle>
@@ -553,9 +583,38 @@ export default function SubscriptionsTab() {
             if (!open) { setPromoForm({ code: '', discountPercent: '', expiresAt: null, applicablePlanIds: [] }); setEditingPromoId(null); }
           }}>
             <DialogTrigger asChild>
-              <Button variant="create" size="sm" className="px-1.5 py-0.5 text-[11px] font-semibold rounded shadow-glow-pink min-w-0 h-7">
-                <FiPlus className="mr-1 text-xs" /> Create Promo Code
-              </Button>
+              <button
+                style={{
+                  border: 'none',
+                  color: '#fff',
+                  backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+                  backgroundColor: 'transparent',
+                  borderRadius: '20px',
+                  backgroundSize: '100% auto',
+                  fontFamily: 'inherit',
+                  fontSize: '11px',
+                  padding: '0.3em 0.6em',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  transition: 'all 0.3s ease-in-out',
+                  boxShadow: 'none',
+                  margin: '0',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundSize = '200% auto';
+                  e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundSize = '100% auto';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <FiPlus className="mr-1" style={{ fontSize: '14px' }} /> CREATE PROMO CODE
+              </button>
             </DialogTrigger>
             <DialogContent>
               <DialogTitle>{editingPromoId ? 'Edit Promo Code' : 'Create Promo Code'}</DialogTitle>
