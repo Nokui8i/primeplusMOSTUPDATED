@@ -177,13 +177,72 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
     }
   }, [profileId, hasMore, lastDoc]);
 
+  // Set up real-time listener for posts
   useEffect(() => {
-    if (profileId) {
-      setPosts([]);
-      setLastDoc(null);
-      setHasMore(true);
-      fetchPosts(true);
-    }
+    if (!profileId) return;
+
+    // Initial fetch
+    setPosts([]);
+    setLastDoc(null);
+    setHasMore(true);
+    fetchPosts(true);
+
+    // Set up real-time listener for the first page
+    const postsQuery = query(
+      collection(db, 'posts'),
+      where('authorId', '==', profileId),
+      orderBy('createdAt', 'desc'),
+      limit(PAGE_SIZE)
+    );
+
+    const unsubscribe = onSnapshot(postsQuery, async (snapshot) => {
+      // Process only the first page in real-time
+      const realtimePosts: PostWithAuthor[] = [];
+      
+      for (const doc of snapshot.docs) {
+        try {
+          const postData = doc.data() as PostType;
+          const authorData = await fetchUserData(postData.authorId);
+          
+          if (!authorData) continue;
+
+          const postWithAuthor: PostWithAuthor = {
+            ...postData,
+            id: doc.id,
+            title: postData.title || postData.content || '',
+            authorName: String(authorData.displayName || authorData.username || ''),
+            type: (postData.type as any) || 'text',
+            isPublic: postData.isPublic ?? true,
+            shares: postData.shares || 0,
+            taggedUsers: postData.taggedUsers || [],
+            comments: postData.comments || 0,
+            updatedAt: postData.updatedAt || postData.createdAt || new Date(),
+            author: {
+              id: postData.authorId,
+              displayName: String(authorData.displayName || ''),
+              photoURL: String(authorData.photoURL || ''),
+              username: String(authorData.username || ''),
+            }
+          };
+
+          realtimePosts.push(postWithAuthor);
+        } catch (error) {
+          console.error(`Error processing post ${doc.id}:`, error);
+          continue;
+        }
+      }
+
+      // Update posts state with real-time data
+      setPosts(prev => {
+        // Keep posts beyond the first page
+        const olderPosts = prev.slice(PAGE_SIZE);
+        return [...realtimePosts, ...olderPosts];
+      });
+
+      setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+    });
+
+    return () => unsubscribe();
   }, [profileId]);
 
   // Infinite scrolling
