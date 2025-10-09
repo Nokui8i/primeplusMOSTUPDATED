@@ -1,7 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { X, Loader2, Upload, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface VideoUploadPreviewProps {
   onUpload: (files: { file: File, locked: boolean }[]) => Promise<void>;
@@ -16,10 +19,57 @@ interface PreviewVideo {
 }
 
 export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewProps) {
+  const { user } = useAuth();
   const [previewVideos, setPreviewVideos] = useState<PreviewVideo[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<PreviewVideo | null>(null);
+  const [isVerifiedCreator, setIsVerifiedCreator] = useState(false);
+
+  // Check if user is a verified creator
+  useEffect(() => {
+    const checkVerification = async () => {
+      if (!user?.uid) {
+        setIsVerifiedCreator(false);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (!userDoc.exists()) {
+          setIsVerifiedCreator(false);
+          return;
+        }
+
+        const userData = userDoc.data();
+        const isCreatorRole = userData.role === 'creator' || userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner';
+        
+        if (isCreatorRole) {
+          // Check BOTH old method (isVerified field) and new method (verificationData collection)
+          let verified = false;
+          
+          if (userData.isVerified === true) {
+            verified = true;
+          } else {
+            const verificationDoc = await getDoc(doc(db, 'verificationData', user.uid));
+            if (verificationDoc.exists()) {
+              const verificationData = verificationDoc.data();
+              verified = verificationData.status === 'approved';
+            }
+          }
+          
+          setIsVerifiedCreator(verified);
+        } else {
+          setIsVerifiedCreator(false);
+        }
+      } catch (error) {
+        console.error('Error checking verification:', error);
+        setIsVerifiedCreator(false);
+      }
+    };
+
+    checkVerification();
+  }, [user?.uid]);
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -242,36 +292,37 @@ export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewPro
                     </div>
                   )}
                   
-                  {/* Lock toggle - completely outside and below video */}
-                  <div className="setting-row">
-                    <div className="setting-info">
-                      <div className="setting-label">Free / Paid</div>
-                      <div className="setting-description">
-                        {!preview.locked ? 'Free message' : 'Paid message'}
+                  {/* Lock toggle - Only show for verified creators */}
+                  {isVerifiedCreator && (
+                    <div className="setting-row">
+                      <div className="setting-info">
+                        <div className="setting-label">Free / Paid</div>
+                        <div className="setting-description">
+                          {!preview.locked ? 'Free message' : 'Paid message'}
+                        </div>
                       </div>
-                    </div>
-                    <div className="setting-control flex items-center gap-3">
-                      <label className="flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={preview.locked}
-                          onChange={() => handleLockToggle(index, !preview.locked)}
-                          className="checkbox"
-                        />
-                        <span className="slider"></span>
-                      </label>
-                      
-                      {/* Price input - only show when paid is selected */}
-                      {preview.locked && (
-                        <div className="flex items-center gap-1.5">
-                          <label className="text-xs font-medium text-gray-600">
-                            Price ($)
-                          </label>
+                      <div className="setting-control flex items-center gap-3">
+                        <label className="flex items-center cursor-pointer">
                           <input
-                            type="number"
-                            min="0.99"
-                            step="0.01"
-                            value={preview.price || '0.99'}
+                            type="checkbox"
+                            checked={preview.locked}
+                            onChange={() => handleLockToggle(index, !preview.locked)}
+                            className="checkbox"
+                          />
+                          <span className="slider"></span>
+                        </label>
+                        
+                        {/* Price input - only show when paid is selected */}
+                        {preview.locked && (
+                          <div className="flex items-center gap-1.5">
+                            <label className="text-xs font-medium text-gray-600">
+                              Price ($)
+                            </label>
+                            <input
+                              type="number"
+                              min="0.99"
+                              step="0.01"
+                              value={preview.price || '0.99'}
                             onChange={(e) => {
                               const newPrice = parseFloat(e.target.value) || 0.99;
                               const updatedPreviews = [...previewVideos];
@@ -284,7 +335,8 @@ export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewPro
                         </div>
                       )}
                     </div>
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

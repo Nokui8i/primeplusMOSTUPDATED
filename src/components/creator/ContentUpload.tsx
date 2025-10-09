@@ -26,13 +26,15 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showWatermark, setShowWatermark] = useState(true);
-  const [accessLevel, setAccessLevel] = useState<'free' | 'paid_subscriber'>('paid_subscriber');
+  const [accessLevel, setAccessLevel] = useState<'free' | 'paid_subscriber'>('free');
   const [postType, setPostType] = useState<'text' | 'image' | 'video' | 'image360' | 'video360'>('text');
   const [step, setStep] = useState(1);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [isVerified, setIsVerified] = useState(false);
+  const [isCreatorRole, setIsCreatorRole] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
@@ -50,6 +52,34 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
             setUserProfile(userData);
             if (userData?.username) {
               setUsername(userData.username);
+            }
+            
+            // Check if user is a verified creator (for paid content monetization)
+            // Only creators can monetize their content
+            const hasCreatorRole = userData.role === 'creator' || userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner';
+            setIsCreatorRole(hasCreatorRole);
+            
+            if (hasCreatorRole) {
+              // Check BOTH old method (isVerified field) and new method (verificationData collection)
+              // This ensures backward compatibility
+              let verified = false;
+              
+              // Check old method first (for existing verified creators)
+              if (userData.isVerified === true) {
+                verified = true;
+              } else {
+                // Check new method (verificationData collection)
+                const verificationDoc = await getDoc(doc(db, 'verificationData', user.uid));
+                if (verificationDoc.exists()) {
+                  const verificationData = verificationDoc.data();
+                  verified = verificationData.status === 'approved';
+                }
+              }
+              
+              setIsVerified(verified);
+            } else {
+              // Regular users cannot monetize
+              setIsVerified(false);
             }
           }
         } catch (error) {
@@ -154,6 +184,12 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
 
   const handleSubmit = async () => {
     if (!content.trim() && !file) return;
+
+    // Prevent non-creators from uploading paid content
+    if (accessLevel === 'paid_subscriber' && !isVerified) {
+      alert('⚠️ Only verified creators can upload paid content. Please become a verified creator first, or set the post to Free.');
+      return;
+    }
 
     setUploading(true);
     setUploadProgress(0);
@@ -365,28 +401,38 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
               </div>
             </div>
 
-            <div className="setting-row">
-              <div className="setting-info">
-                <div className="setting-label">Post Visibility</div>
-                <div className="setting-description">
-                  {accessLevel === 'free' ? 'Free for everyone' : 'Paid Subscribers Only'}
-                </div>
+            {/* Post Visibility - Only show to creators */}
+            {isCreatorRole && (
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-label">Post Visibility</div>
+                  <div className="setting-description">
+                    {!isVerified ? (
+                      <span className="text-amber-600">⚠️ Creator verification required to monetize content. Currently: Free only</span>
+                    ) : (
+                      accessLevel === 'free' ? 'Free for everyone' : 'Paid Subscribers Only'
+                    )}
                   </div>
-              <div className="setting-control">
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={accessLevel === 'paid_subscriber'}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      setAccessLevel(accessLevel === 'paid_subscriber' ? 'free' : 'paid_subscriber');
-                    }}
-                    className="checkbox"
-                  />
-                  <span className="slider"></span>
-                </label>
                     </div>
-                    </div>
+                <div className="setting-control">
+                  <label className={`flex items-center ${isVerified ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`} title={!isVerified ? 'Complete creator verification to enable paid content' : ''}>
+                    <input
+                      type="checkbox"
+                      checked={accessLevel === 'paid_subscriber'}
+                      disabled={!isVerified}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        if (isVerified) {
+                          setAccessLevel(accessLevel === 'paid_subscriber' ? 'free' : 'paid_subscriber');
+                        }
+                      }}
+                      className="checkbox"
+                    />
+                    <span className="slider"></span>
+                  </label>
+                      </div>
+                      </div>
+            )}
 
             <div className="setting-row">
               <div className="setting-info">

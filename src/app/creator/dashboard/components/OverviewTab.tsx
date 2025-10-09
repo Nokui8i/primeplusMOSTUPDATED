@@ -113,10 +113,10 @@ export default function OverviewTab({ stats }: OverviewTabProps) {
         <Card className="p-6">
           <div className="flex flex-col items-center justify-center">
             <div className="flex flex-row items-center gap-2">
-              <FiUsers className="w-4 h-4 text-indigo-400" />
-              <span className="text-xs text-white font-medium">Total Subscribers</span>
+              <FiUsers className="w-4 h-4" style={{ color: 'rgb(91, 173, 255)' }} />
+              <span className="text-xs font-medium" style={{ color: 'rgb(26, 26, 26)' }}>Total Subscribers</span>
             </div>
-            <span className="text-base font-bold text-white mt-1">{formatNumberCompact(stats.totalSubscribers)}</span>
+            <span className="text-base font-bold" style={{ color: 'rgb(26, 26, 26)' }}>{formatNumberCompact(stats.totalSubscribers)}</span>
           </div>
           <div className="mt-4 flex items-center text-sm text-green-600 justify-center">
             <FiTrendingUp className="w-4 h-4 mr-1" />
@@ -127,10 +127,10 @@ export default function OverviewTab({ stats }: OverviewTabProps) {
         <Card className="p-6">
           <div className="flex flex-col items-center justify-center">
             <div className="flex flex-row items-center gap-2">
-              <FiEye className="w-4 h-4 text-blue-400" />
-              <span className="text-xs text-white font-medium">Total Views</span>
+              <FiEye className="w-4 h-4" style={{ color: 'rgb(91, 173, 255)' }} />
+              <span className="text-xs font-medium" style={{ color: 'rgb(26, 26, 26)' }}>Total Views</span>
             </div>
-            <span className="text-base font-bold text-white mt-1">{formatNumberCompact(stats.totalViews)}</span>
+            <span className="text-base font-bold" style={{ color: 'rgb(26, 26, 26)' }}>{formatNumberCompact(stats.totalViews)}</span>
           </div>
           <div className="mt-4 flex items-center text-sm text-green-600 justify-center">
             <FiTrendingUp className="w-4 h-4 mr-1" />
@@ -141,20 +141,20 @@ export default function OverviewTab({ stats }: OverviewTabProps) {
         <Card className="p-6">
           <div className="flex flex-col items-center justify-center">
             <div className="flex flex-row items-center gap-2">
-              <FiHeart className="w-4 h-4 text-red-400" />
-              <span className="text-xs text-white font-medium">Total Likes</span>
+              <FiHeart className="w-4 h-4" style={{ color: 'rgb(91, 173, 255)' }} />
+              <span className="text-xs font-medium" style={{ color: 'rgb(26, 26, 26)' }}>Total Likes</span>
             </div>
-            <span className="text-base font-bold text-white mt-1">{formatNumberCompact(stats.totalLikes)}</span>
+            <span className="text-base font-bold" style={{ color: 'rgb(26, 26, 26)' }}>{formatNumberCompact(stats.totalLikes)}</span>
           </div>
         </Card>
 
         <Card className="p-6">
           <div className="flex flex-col items-center justify-center">
             <div className="flex flex-row items-center gap-2">
-              <FiMessageSquare className="w-4 h-4 text-green-400" />
-              <span className="text-xs text-white font-medium">Total Comments</span>
+              <FiMessageSquare className="w-4 h-4" style={{ color: 'rgb(91, 173, 255)' }} />
+              <span className="text-xs font-medium" style={{ color: 'rgb(26, 26, 26)' }}>Total Comments</span>
             </div>
-            <span className="text-base font-bold text-white mt-1">{formatNumberCompact(stats.totalComments)}</span>
+            <span className="text-base font-bold" style={{ color: 'rgb(26, 26, 26)' }}>{formatNumberCompact(stats.totalComments)}</span>
           </div>
         </Card>
       </div>
@@ -164,7 +164,7 @@ export default function OverviewTab({ stats }: OverviewTabProps) {
 
       {/* Recent Activity */}
       <Card className="p-6">
-        <h2 className="text-lg font-semibold mb-4">Recent Activity</h2>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: 'rgb(26, 26, 26)' }}>Recent Activity</h2>
         <div className="space-y-4">
           {/* TODO: Add recent activity list */}
           <p className="text-gray-500 text-sm">No recent activity to show</p>

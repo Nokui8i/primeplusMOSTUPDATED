@@ -64,14 +64,15 @@ export default function CreatorVerificationSettings() {
       await updateDoc(doc(db, 'users', user.uid), {
         verificationStatus: 'unverified',
         verificationData: null,
-        role: 'user',
+        isVerified: false,
+        // Don't change role - keep as 'creator'
       });
       await fetch('https://us-central1-primeplus-11a85.cloudfunctions.net/deleteCreatorVerificationDataHttp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.uid }),
       });
-      setUserProfile((prev: any) => ({ ...prev, verificationStatus: 'unverified', verificationData: null, role: 'user' }));
+      setUserProfile((prev: any) => ({ ...prev, verificationStatus: 'unverified', verificationData: null, isVerified: false }));
       setShowCancelPendingDialog(false);
     } catch (err) {
       alert('Failed to cancel request. Please try again.');
@@ -87,7 +88,8 @@ export default function CreatorVerificationSettings() {
       await updateDoc(doc(db, 'users', user.uid), {
         verificationStatus: 'unverified',
         verificationData: null,
-        role: 'user',
+        isVerified: false,
+        // Don't change role - keep as 'creator'
       });
       await fetch('https://us-central1-primeplus-11a85.cloudfunctions.net/deleteCreatorVerificationDataHttp', {
         method: 'POST',
@@ -95,7 +97,7 @@ export default function CreatorVerificationSettings() {
         body: JSON.stringify({ userId: user.uid }),
       });
       // Update local state instead of reload
-      setUserProfile((prev: any) => ({ ...prev, verificationStatus: 'unverified', verificationData: null, role: 'user' }));
+      setUserProfile((prev: any) => ({ ...prev, verificationStatus: 'unverified', verificationData: null, isVerified: false }));
       setShowCancelDialog(false);
     } catch (err) {
       alert('Failed to cancel verification. Please try again.');

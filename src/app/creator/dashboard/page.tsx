@@ -2,18 +2,17 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FiUsers, FiBarChart2, FiImage, FiSettings } from 'react-icons/fi';
 import OverviewTab from './components/OverviewTab';
 import SubscribersTab from './components/SubscribersTab';
 import SubscriptionsTab from './components/SubscriptionsTab';
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, getCountFromServer, Timestamp, getDocs } from 'firebase/firestore';
+import '@/styles/tab-navigation.css';
 
 export default function CreatorDashboard() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
   const [stats, setStats] = useState({
     totalSubscribers: 0,
     totalViews: 0,
@@ -54,6 +53,7 @@ export default function CreatorDashboard() {
       // Fetch all posts for this creator
       const postsQ = query(collection(db, 'posts'), where('authorId', '==', user.uid));
       const postsSnap = await getDocs(postsQ);
+      console.log('[Dashboard] Found posts:', postsSnap.docs.length);
       let totalLikes = 0;
       let totalComments = 0;
       let totalViews = 0;
@@ -70,15 +70,36 @@ export default function CreatorDashboard() {
       }
       for (const docSnap of postsSnap.docs) {
         const data = docSnap.data();
-        totalLikes += typeof data.likes === 'number' ? data.likes : 0;
+        console.log('[Dashboard] Post data:', {
+          id: docSnap.id,
+          likes: data.likes,
+          engagement: data.engagement,
+          hasViews: typeof data.engagement?.views,
+          viewsValue: data.engagement?.views
+        });
+        
+        // Count real likes in subcollection (not the counter field)
+        const likesCol = collection(db, 'posts', docSnap.id, 'likes');
+        const likesSnap = await getCountFromServer(likesCol);
+        const likeCount = likesSnap.data().count || 0;
+        console.log('[Dashboard] Post', docSnap.id, 'likes:', likeCount);
+        totalLikes += likeCount;
+        
         // Count real comments in subcollection
         const commentsCol = collection(db, 'posts', docSnap.id, 'comments');
         const commentsSnap = await getCountFromServer(commentsCol);
-        totalComments += commentsSnap.data().count || 0;
+        const commentCount = commentsSnap.data().count || 0;
+        console.log('[Dashboard] Post', docSnap.id, 'comments:', commentCount);
+        totalComments += commentCount;
+        
         // Sum views from engagement
         if (typeof data.engagement?.views === 'number') {
+          console.log('[Dashboard] Adding views:', data.engagement.views);
           totalViews += data.engagement.views;
+        } else {
+          console.log('[Dashboard] No views found for post', docSnap.id);
         }
+        
         // Sum views this week from engagement.viewsByDay
         if (data.engagement?.viewsByDay) {
           for (const day of weekDays) {
@@ -90,6 +111,15 @@ export default function CreatorDashboard() {
       }
       totalComments = Math.max(0, totalComments);
 
+      console.log('[Dashboard] Final stats:', {
+        totalSubscribers: snapshot.data().count || 0,
+        recentSubscribers: weekSnapshot.data().count || 0,
+        totalLikes,
+        totalComments,
+        totalViews,
+        recentViews,
+      });
+      
       setStats(prev => ({
         ...prev,
         totalSubscribers: snapshot.data().count || 0,
@@ -119,34 +149,49 @@ export default function CreatorDashboard() {
         <p className="text-gray-500 mt-1">Manage your content, subscribers, and settings</p>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <FiBarChart2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="subscriptions" className="flex items-center gap-2">
-            <FiImage className="w-4 h-4" />
-            <span className="hidden sm:inline">Subscriptions</span>
-          </TabsTrigger>
-          <TabsTrigger value="subscribers" className="flex items-center gap-2">
-            <FiUsers className="w-4 h-4" />
-            <span className="hidden sm:inline">Subscribers</span>
-          </TabsTrigger>
-        </TabsList>
+      {/* Radio Button Tabs */}
+      <div className="flex justify-center mb-6">
+        <div className="tab-container">
+          <input 
+            type="radio" 
+            name="dashboard-tab" 
+            id="tab1" 
+            className="tab tab--1" 
+            checked={activeTab === 'overview'}
+            onChange={() => setActiveTab('overview')}
+          />
+          <label className="tab_label" htmlFor="tab1">Overview</label>
 
-        <TabsContent value="overview">
-          <OverviewTab stats={stats} />
-        </TabsContent>
+          <input 
+            type="radio" 
+            name="dashboard-tab" 
+            id="tab2" 
+            className="tab tab--2" 
+            checked={activeTab === 'subscriptions'}
+            onChange={() => setActiveTab('subscriptions')}
+          />
+          <label className="tab_label" htmlFor="tab2">Subscriptions</label>
 
-        <TabsContent value="subscriptions">
-          <SubscriptionsTab />
-        </TabsContent>
+          <input 
+            type="radio" 
+            name="dashboard-tab" 
+            id="tab3" 
+            className="tab tab--3" 
+            checked={activeTab === 'subscribers'}
+            onChange={() => setActiveTab('subscribers')}
+          />
+          <label className="tab_label" htmlFor="tab3">Subscribers</label>
 
-        <TabsContent value="subscribers">
-          <SubscribersTab />
-        </TabsContent>
-      </Tabs>
+          <div className="indicator"></div>
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="mt-6">
+        {activeTab === 'overview' && <OverviewTab stats={stats} />}
+        {activeTab === 'subscriptions' && <SubscriptionsTab />}
+        {activeTab === 'subscribers' && <SubscribersTab />}
+      </div>
     </div>
   );
 } 

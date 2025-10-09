@@ -28,6 +28,11 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
   const handleDelete = async () => {
     if (!isAuthor || !user) return;
 
+    // Confirm deletion
+    if (!confirm('Are you sure you want to delete this post? This action cannot be undone.')) {
+      return;
+    }
+
     try {
       setIsDeleting(true);
       await deletePost(postId, user.uid);

@@ -190,24 +190,120 @@ export async function getFeaturedPosts(): Promise<FeaturedPost[]> {
 }
 
 // Additional functions that were missing
-export async function deletePost(postId: string) {
+export async function deletePost(postId: string, userId?: string) {
   const user = auth.currentUser;
   if (!user) throw new Error('Must be logged in to delete posts');
 
-  // Delete the post document
-  await deleteDoc(doc(db, 'posts', postId));
-  
-  // Delete all comments for this post
-  const commentsRef = collection(db, `posts/${postId}/comments`);
-  const commentsSnapshot = await getDocs(commentsRef);
-  const deletePromises = commentsSnapshot.docs.map(commentDoc => deleteDoc(commentDoc.ref));
-  await Promise.all(deletePromises);
-  
-  // Delete all likes for this post
-  const likesRef = collection(db, `posts/${postId}/likes`);
-  const likesSnapshot = await getDocs(likesRef);
-  const deleteLikePromises = likesSnapshot.docs.map(likeDoc => deleteDoc(likeDoc.ref));
-  await Promise.all(deleteLikePromises);
+  try {
+    // Get post data to find media URLs
+    const postDoc = await getDoc(doc(db, 'posts', postId));
+    if (!postDoc.exists()) {
+      throw new Error('Post not found');
+    }
+
+    const postData = postDoc.data();
+    console.log('[deletePost] Deleting post:', postId, 'with media:', postData.mediaUrl);
+
+    // Delete media from storage if it exists
+    if (postData.mediaUrl) {
+      try {
+        // Check if it's Firebase Storage or AWS S3
+        if (postData.mediaUrl.includes('firebasestorage.googleapis.com')) {
+          // Firebase Storage - extract path and delete
+          console.log('[deletePost] Deleting from Firebase Storage');
+          const { getStorage, ref: storageRef, deleteObject } = await import('firebase/storage');
+          const storage = getStorage();
+          
+          // Extract the file path from the URL
+          const urlParts = postData.mediaUrl.split('/o/')[1];
+          if (urlParts) {
+            const filePath = decodeURIComponent(urlParts.split('?')[0]);
+            const fileRef = storageRef(storage, filePath);
+            await deleteObject(fileRef);
+            console.log('[deletePost] Deleted from Firebase Storage:', filePath);
+          }
+        } else if (postData.mediaUrl.includes('amazonaws.com') || postData.mediaUrl.includes('cloudfront.net')) {
+          // AWS S3 - extract key and delete
+          console.log('[deletePost] Deleting from AWS S3');
+          // Extract the S3 key from the URL
+          const urlObj = new URL(postData.mediaUrl);
+          const s3Key = urlObj.pathname.substring(1); // Remove leading slash
+          
+          // Call backend API to delete from S3
+          const response = await fetch('/api/delete-media', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: s3Key })
+          });
+          
+          if (!response.ok) {
+            console.error('[deletePost] Failed to delete from S3:', await response.text());
+          } else {
+            console.log('[deletePost] Deleted from S3:', s3Key);
+          }
+        }
+        
+        // Also delete thumbnail if exists
+        if (postData.thumbnailUrl) {
+          console.log('[deletePost] Deleting thumbnail:', postData.thumbnailUrl);
+          // Same logic for thumbnail
+          if (postData.thumbnailUrl.includes('firebasestorage.googleapis.com')) {
+            const { getStorage, ref: storageRef, deleteObject } = await import('firebase/storage');
+            const storage = getStorage();
+            const urlParts = postData.thumbnailUrl.split('/o/')[1];
+            if (urlParts) {
+              const filePath = decodeURIComponent(urlParts.split('?')[0]);
+              const fileRef = storageRef(storage, filePath);
+              await deleteObject(fileRef);
+              console.log('[deletePost] Deleted thumbnail from Firebase Storage');
+            }
+          } else if (postData.thumbnailUrl.includes('amazonaws.com') || postData.thumbnailUrl.includes('cloudfront.net')) {
+            // AWS S3 thumbnail
+            const urlObj = new URL(postData.thumbnailUrl);
+            const s3Key = urlObj.pathname.substring(1);
+            
+            const response = await fetch('/api/delete-media', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: s3Key })
+            });
+            
+            if (!response.ok) {
+              console.error('[deletePost] Failed to delete thumbnail from S3');
+            } else {
+              console.log('[deletePost] Deleted thumbnail from S3');
+            }
+          }
+        }
+      } catch (storageError) {
+        console.error('[deletePost] Error deleting media:', storageError);
+        // Continue with post deletion even if media deletion fails
+      }
+    }
+
+    // Delete the post document
+    await deleteDoc(doc(db, 'posts', postId));
+    console.log('[deletePost] Deleted post document');
+    
+    // Delete all comments for this post
+    const commentsRef = collection(db, `posts/${postId}/comments`);
+    const commentsSnapshot = await getDocs(commentsRef);
+    const deletePromises = commentsSnapshot.docs.map(commentDoc => deleteDoc(commentDoc.ref));
+    await Promise.all(deletePromises);
+    console.log('[deletePost] Deleted comments:', commentsSnapshot.size);
+    
+    // Delete all likes for this post
+    const likesRef = collection(db, `posts/${postId}/likes`);
+    const likesSnapshot = await getDocs(likesRef);
+    const deleteLikePromises = likesSnapshot.docs.map(likeDoc => deleteDoc(likeDoc.ref));
+    await Promise.all(deleteLikePromises);
+    console.log('[deletePost] Deleted likes:', likesSnapshot.size);
+
+    console.log('[deletePost] Post deleted successfully');
+  } catch (error) {
+    console.error('[deletePost] Error:', error);
+    throw error;
+  }
 }
 
 export async function updatePost(postId: string, updates: Partial<Pick<Post, 'content' | 'mediaUrl'>>) {

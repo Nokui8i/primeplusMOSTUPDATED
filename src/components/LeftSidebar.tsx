@@ -185,7 +185,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                 </li>
               )}
               
-              {/* Upload Button - Inside navigation list */}
+              {/* Upload Button - Available for all logged-in users */}
               <li key="upload" role="menuitem">
                 <ContentUploadDialog 
                   onUploadComplete={() => {

@@ -144,7 +144,11 @@ export default function AdminDashboard() {
       const db = getFirestore(app);
       // Update user role and verification status
       const userRef = doc(db, 'users', application.userId);
-      await updateDoc(userRef, { role: 'creator', verificationStatus: 'verified' });
+      await updateDoc(userRef, { 
+        role: 'creator', 
+        verificationStatus: 'verified',
+        isVerified: true  // Set isVerified flag
+      });
       // Update application status
       const appRef = doc(db, 'verificationData', application.id);
       await updateDoc(appRef, { status: 'approved' });
@@ -367,9 +371,17 @@ export default function AdminDashboard() {
       }
       const db = getFirestore(app);
       const previousRole = targetUser?.role;
-      await updateDoc(doc(db, 'users', userId), { role: newRole });
-      setAllUsers((prev) => prev.map(u => u.id === userId ? { ...u, role: newRole } : u));
-      setRoleUpdateMsg('Role updated successfully.');
+      
+      // If setting role to 'creator', automatically verify them
+      const updateData: any = { role: newRole };
+      if (newRole === 'creator') {
+        updateData.isVerified = true;
+        updateData.verificationStatus = 'verified';
+      }
+      
+      await updateDoc(doc(db, 'users', userId), updateData);
+      setAllUsers((prev) => prev.map(u => u.id === userId ? { ...u, role: newRole, isVerified: newRole === 'creator' ? true : u.isVerified } : u));
+      setRoleUpdateMsg('Role updated successfully.' + (newRole === 'creator' ? ' User is now verified.' : ''));
       // Log to audit log
       await addDoc(collection(db, 'auditLogs'), {
         action: 'role_changed',
