@@ -522,21 +522,41 @@ export default function SubscriptionsTab() {
                   </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="p-1.5 rounded-full hover:bg-white/20 focus:outline-none transition-colors">
-                        <FiMoreVertical className="text-white" size={16} />
+                      <button className="px-3 py-1.5 rounded-full flex items-center justify-center focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none bg-white/20 hover:bg-white/30 transition-all duration-200">
+                        <FiMoreVertical className="text-white h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(plan)}>
-                        <FiEdit className="mr-2" size={14} />
+                    <DropdownMenuContent 
+                      align="end" 
+                      className="w-48 bg-white border-0 overflow-hidden p-0"
+                      style={{
+                        borderRadius: '12px',
+                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                      }}
+                    >
+                      <DropdownMenuItem 
+                        onClick={() => handleEdit(plan)}
+                        className="cursor-pointer py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '14px' }}
+                      >
+                        <FiEdit className="mr-2 h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleToggleActive(plan.id, plan.isActive)}>
-                        {plan.isActive ? <FiToggleRight className="mr-2" size={14} /> : <FiToggleLeft className="mr-2" size={14} />}
+                      <DropdownMenuItem 
+                        onClick={() => handleToggleActive(plan.id, plan.isActive)}
+                        className="cursor-pointer py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '14px' }}
+                      >
+                        {plan.isActive ? <FiToggleRight className="mr-2 h-4 w-4" /> : <FiToggleLeft className="mr-2 h-4 w-4" />}
                         {plan.isActive ? 'Set Inactive' : 'Set Active'}
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(plan.id)} className="text-red-600">
-                        <FiTrash2 className="mr-2" size={14} />
+                      <DropdownMenuItem 
+                        onClick={() => handleDelete(plan.id)}
+                        className="cursor-pointer py-2 px-3 text-red-500 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200"
+                        style={{ fontWeight: '500', fontSize: '14px' }}
+                      >
+                        <FiTrash2 className="mr-2 h-4 w-4" />
                         Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
