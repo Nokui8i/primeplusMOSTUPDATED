@@ -134,6 +134,7 @@ export default function MessagesPage() {
                   placeholder="Type to search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  autoComplete="off"
                 />
                 <div className="search-icon">
                   <Search className="w-full h-full text-gray-500" />

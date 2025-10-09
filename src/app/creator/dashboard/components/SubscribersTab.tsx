@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { FiSearch, FiUserPlus, FiUserMinus, FiMail } from 'react-icons/fi';
+import { ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/lib/firebase/auth';
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
@@ -281,34 +283,103 @@ export default function SubscribersTab() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input
+          <div className="relative w-64">
+            <input
               type="text"
               placeholder="Search subscribers..."
-              className="pl-10"
+              className="input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <FiSearch className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <select
-            className="ml-2 border border-gray-300 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 bg-white text-black"
-            value={planFilter}
-            onChange={e => setPlanFilter(e.target.value as 'All' | 'Paid' | 'Free')}
-            aria-label="Filter by plan"
-          >
-            <option value="All">All Plans</option>
-            <option value="Paid">Paid</option>
-            <option value="Free">Free</option>
-          </select>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
+                <span className="text-xs font-medium">
+                  {planFilter === 'All' ? 'All Plans' : planFilter}
+                </span>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent 
+              align="end" 
+              className="w-28 bg-white border-0 overflow-hidden p-0"
+              style={{
+                borderRadius: '12px',
+                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+              }}
+            >
+              <DropdownMenuItem 
+                onClick={() => setPlanFilter('All')}
+                className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                  planFilter === 'All' ? 'text-blue-600' : 'text-gray-700'
+                }`}
+                style={{ fontWeight: '500', fontSize: '12px' }}
+              >
+                All Plans
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setPlanFilter('Paid')}
+                className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                  planFilter === 'Paid' ? 'text-blue-600' : 'text-gray-700'
+                }`}
+                style={{ fontWeight: '500', fontSize: '12px' }}
+              >
+                Paid
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setPlanFilter('Free')}
+                className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                  planFilter === 'Free' ? 'text-blue-600' : 'text-gray-700'
+                }`}
+                style={{ fontWeight: '500', fontSize: '12px' }}
+              >
+                Free
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         <div className="flex items-center space-x-2">
           <button
-            className="flex items-center space-x-2 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
             onClick={() => setBulkModalOpen(true)}
+            className="profile-btn"
+            style={{
+              border: 'none',
+              color: '#fff',
+              backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+              backgroundColor: 'transparent',
+              borderRadius: '20px',
+              backgroundSize: '100% auto',
+              fontFamily: 'inherit',
+              fontWeight: '700',
+              fontSize: '14px',
+              padding: '12px 32px',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundSize = '200% auto';
+              e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundSize = '100% auto';
+              e.currentTarget.style.boxShadow = 'none';
+            }}
           >
             <FiMail />
-            <span>Message All</span>
+            <span>MESSAGE ALL</span>
           </button>
         </div>
       </div>

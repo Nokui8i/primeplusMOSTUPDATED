@@ -414,6 +414,7 @@ export default function SubscriptionsTab() {
                       onChange={handleInput} 
                       placeholder="e.g., Basic Plan" 
                       className="w-full"
+                      autoComplete="off"
                       style={{
                         background: 'rgba(255, 255, 255, 0.9)',
                         border: '1px solid rgba(0, 0, 0, 0.1)',
@@ -673,6 +674,7 @@ export default function SubscriptionsTab() {
                     onChange={handlePromoInput}
                     placeholder="e.g., WELCOME20"
                     className="w-full"
+                    autoComplete="off"
                     style={{
                       background: 'rgba(255, 255, 255, 0.9)',
                       border: '1px solid rgba(0, 0, 0, 0.1)',
