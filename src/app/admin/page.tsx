@@ -372,16 +372,17 @@ export default function AdminDashboard() {
       const db = getFirestore(app);
       const previousRole = targetUser?.role;
       
-      // If setting role to 'creator', automatically verify them
+      // If setting role to 'creator', 'admin', 'superadmin', or 'owner', automatically verify them
       const updateData: any = { role: newRole };
-      if (newRole === 'creator') {
+      if (newRole === 'creator' || newRole === 'admin' || newRole === 'superadmin' || newRole === 'owner') {
         updateData.isVerified = true;
         updateData.verificationStatus = 'verified';
       }
       
       await updateDoc(doc(db, 'users', userId), updateData);
-      setAllUsers((prev) => prev.map(u => u.id === userId ? { ...u, role: newRole, isVerified: newRole === 'creator' ? true : u.isVerified } : u));
-      setRoleUpdateMsg('Role updated successfully.' + (newRole === 'creator' ? ' User is now verified.' : ''));
+      const shouldAutoVerify = ['creator', 'admin', 'superadmin', 'owner'].includes(newRole);
+      setAllUsers((prev) => prev.map(u => u.id === userId ? { ...u, role: newRole, isVerified: shouldAutoVerify ? true : u.isVerified } : u));
+      setRoleUpdateMsg('Role updated successfully.' + (shouldAutoVerify ? ' User is now verified.' : ''));
       // Log to audit log
       await addDoc(collection(db, 'auditLogs'), {
         action: 'role_changed',
