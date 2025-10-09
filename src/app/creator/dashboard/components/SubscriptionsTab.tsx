@@ -510,8 +510,8 @@ export default function SubscriptionsTab() {
             {plans.map((plan, idx) => (
               <div
                 key={`plan-${plan.id}-${idx}`}
-                className="relative flex items-center justify-between px-4 py-2 bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-md hover:shadow-lg transition-all w-full"
-                style={{ borderRadius: '20px' }}
+                className="relative flex items-center justify-between px-5 py-1.5 bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-md hover:shadow-lg transition-all w-full"
+                style={{ borderRadius: '20px', height: '42px' }}
               >
                 <div className="flex items-center gap-3">
                   <span className="font-bold text-sm uppercase">{plan.name}</span>
