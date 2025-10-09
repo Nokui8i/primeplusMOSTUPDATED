@@ -46,20 +46,25 @@ export function ImageUploadPreview({ onUpload, onCancel }: ImageUploadPreviewPro
         const isCreatorRole = userData.role === 'creator' || userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner';
         
         if (isCreatorRole) {
-          // Check BOTH old method (isVerified field) and new method (verificationData collection)
-          let verified = false;
-          
-          if (userData.isVerified === true) {
-            verified = true;
+          // Admin, superadmin, and owner roles are automatically verified
+          if (userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner') {
+            setIsVerifiedCreator(true);
           } else {
-            const verificationDoc = await getDoc(doc(db, 'verificationData', user.uid));
-            if (verificationDoc.exists()) {
-              const verificationData = verificationDoc.data();
-              verified = verificationData.status === 'approved';
+            // For regular creators, check BOTH old method (isVerified field) and new method (verificationData collection)
+            let verified = false;
+            
+            if (userData.isVerified === true) {
+              verified = true;
+            } else {
+              const verificationDoc = await getDoc(doc(db, 'verificationData', user.uid));
+              if (verificationDoc.exists()) {
+                const verificationData = verificationDoc.data();
+                verified = verificationData.status === 'approved';
+              }
             }
+            
+            setIsVerifiedCreator(verified);
           }
-          
-          setIsVerifiedCreator(verified);
         } else {
           setIsVerifiedCreator(false);
         }

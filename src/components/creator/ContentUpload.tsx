@@ -60,23 +60,28 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
             setIsCreatorRole(hasCreatorRole);
             
             if (hasCreatorRole) {
-              // Check BOTH old method (isVerified field) and new method (verificationData collection)
-              // This ensures backward compatibility
-              let verified = false;
-              
-              // Check old method first (for existing verified creators)
-              if (userData.isVerified === true) {
-                verified = true;
+              // Admin, superadmin, and owner roles are automatically verified
+              if (userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner') {
+                setIsVerified(true);
               } else {
-                // Check new method (verificationData collection)
-                const verificationDoc = await getDoc(doc(db, 'verificationData', user.uid));
-                if (verificationDoc.exists()) {
-                  const verificationData = verificationDoc.data();
-                  verified = verificationData.status === 'approved';
+                // For regular creators, check BOTH old method (isVerified field) and new method (verificationData collection)
+                // This ensures backward compatibility
+                let verified = false;
+                
+                // Check old method first (for existing verified creators)
+                if (userData.isVerified === true) {
+                  verified = true;
+                } else {
+                  // Check new method (verificationData collection)
+                  const verificationDoc = await getDoc(doc(db, 'verificationData', user.uid));
+                  if (verificationDoc.exists()) {
+                    const verificationData = verificationDoc.data();
+                    verified = verificationData.status === 'approved';
+                  }
                 }
+                
+                setIsVerified(verified);
               }
-              
-              setIsVerified(verified);
             } else {
               // Regular users cannot monetize
               setIsVerified(false);
