@@ -122,6 +122,111 @@ button[class*="profile-btn"] {
   }
 }
 
+/* Delete Account Button - From Uiverse.io by Peary74 */
+.del:hover .del-inner {
+  letter-spacing: 4px;
+  color: #fff !important;
+  background: #ff0000 !important;
+}
+
+/* Delete Confirmation Card - From Uiverse.io by vinodjangid07 */
+.card {
+  position: relative !important;
+  width: 400px !important;
+  max-width: 90vw !important;
+  padding: 25px !important;
+  background: #ffffff !important;
+  border-radius: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 25px !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.5) !important;
+  border: none !important;
+}
+
+.card-content {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+}
+
+.card-heading {
+  font-size: 22px !important;
+  font-weight: 700 !important;
+  color: #1a1a1a !important;
+  margin: 0 !important;
+}
+
+.card-description {
+  font-weight: 400 !important;
+  color: #666666 !important;
+  margin: 0 !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+
+.card-button-wrapper {
+  width: 100% !important;
+  display: flex !important;
+  gap: 10px !important;
+  justify-content: flex-end !important;
+}
+
+.card-button {
+  padding: 10px 20px !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  font-weight: 600 !important;
+  border: none !important;
+  transition: all 0.3s !important;
+  font-size: 14px !important;
+}
+
+.card-button.secondary {
+  background: #e5e7eb !important;
+  color: #1a1a1a !important;
+}
+
+.card-button.secondary:hover {
+  background: #d1d5db !important;
+}
+
+.card-button.primary {
+  background: #ff4444 !important;
+  color: #fff !important;
+}
+
+.card-button.primary:hover {
+  background: #ff6666 !important;
+}
+
+.exit-button {
+  position: absolute !important;
+  top: 20px !important;
+  right: 20px !important;
+  background: #e5e7eb !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 35px !important;
+  height: 35px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.3s !important;
+  padding: 0 !important;
+}
+
+.exit-button:hover {
+  background: #d1d5db !important;
+}
+
+.exit-button svg {
+  fill: #1a1a1a !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+
 /* Custom Toggle Switch - From Uiverse.io by Galahhad - Smaller Version */
 .checkbox {
   display: none;

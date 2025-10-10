@@ -269,41 +269,35 @@ const ModernAFrame360: React.FC<ModernAFrame360Props> = ({
         )}
 
         {showControls && (
-          <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-center gap-1.5 md:gap-2 bg-black bg-opacity-50 rounded-lg p-1.5 md:p-2 transition-all duration-300">
+          <div className="absolute top-14 right-3 flex flex-col items-center gap-2 transition-all duration-300">
             <button
-              className="vr-control-icon group relative scale-75 md:scale-90"
+              className="w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/80 transition-all shadow-md"
               onClick={() => handleVRModeChange(!isVRMode)}
               aria-label="Toggle VR mode"
+              title="View in VR"
             >
-              <FaVrCardboard className="w-3 h-3 md:w-4 md:h-4" />
-              <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 px-1.5 py-0.5 text-[10px] text-white bg-black rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                View in VR
-              </span>
+              <FaVrCardboard className="text-[10px]" />
             </button>
             {!previewMode && (
               <button
-                className="vr-control-icon group relative scale-75 md:scale-90"
+                className="w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/80 transition-all shadow-md"
                 onClick={toggleFullscreen}
                 aria-label="Toggle fullscreen"
+                title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
               >
                 {isFullscreen ? 
-                  <FaCompress className="w-3 h-3 md:w-4 md:h-4" /> : 
-                  <FaExpand className="w-3 h-3 md:w-4 md:h-4" />
+                  <FaCompress className="text-[10px]" /> : 
+                  <FaExpand className="text-[10px]" />
                 }
-                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 px-1.5 py-0.5 text-[10px] text-white bg-black rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                  {isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-                </span>
               </button>
             )}
             <button
-              className="vr-control-icon group relative scale-75 md:scale-90"
+              className="w-7 h-7 rounded-full bg-black/60 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white hover:bg-black/80 transition-all shadow-md"
               onClick={resetView}
               aria-label="Reset view"
+              title="Reset View"
             >
-              <FaUndo className="w-3 h-3 md:w-4 md:h-4" />
-              <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1.5 px-1.5 py-0.5 text-[10px] text-white bg-black rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                Reset View
-              </span>
+              <FaUndo className="text-[10px]" />
             </button>
           </div>
         )}

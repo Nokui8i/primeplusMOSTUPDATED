@@ -7,7 +7,6 @@ import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { Loader2, Shield, Lock, Key, CheckCircle2, Circle, XCircle } from 'lucide-react';
 import { 
@@ -311,33 +310,69 @@ export default function SecuritySettings() {
         ) : (
           <form onSubmit={handlePasswordChange} className="space-y-2">
             <div className="space-y-1">
-              <Label htmlFor="currentPassword">Current Password</Label>
-              <Input
+              <Label htmlFor="currentPassword" className="text-sm font-medium text-gray-800">Current Password</Label>
+              <input
                 id="currentPassword"
                 type="password"
                 value={passwordForm.currentPassword}
                 onChange={e => setPasswordForm(prev => ({ ...prev, currentPassword: e.target.value }))}
                 required
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.6)',
+                  border: '1px solid rgba(200, 200, 200, 0.3)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '10px',
+                  height: '28px',
+                  fontSize: '11px',
+                  padding: '6px 10px',
+                  color: '#000',
+                  outline: 'none',
+                }}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="newPassword">New Password</Label>
-              <Input
+              <Label htmlFor="newPassword" className="text-sm font-medium text-gray-800">New Password</Label>
+              <input
                 id="newPassword"
                 type="password"
                 value={passwordForm.newPassword}
                 onChange={e => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
                 required
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.6)',
+                  border: '1px solid rgba(200, 200, 200, 0.3)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '10px',
+                  height: '28px',
+                  fontSize: '11px',
+                  padding: '6px 10px',
+                  color: '#000',
+                  outline: 'none',
+                }}
               />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="confirmPassword">Confirm New Password</Label>
-              <Input
+              <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-800">Confirm New Password</Label>
+              <input
                 id="confirmPassword"
                 type="password"
                 value={passwordForm.confirmPassword}
                 onChange={e => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
                 required
+                style={{
+                  width: '100%',
+                  background: 'rgba(255, 255, 255, 0.6)',
+                  border: '1px solid rgba(200, 200, 200, 0.3)',
+                  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '10px',
+                  height: '28px',
+                  fontSize: '11px',
+                  padding: '6px 10px',
+                  color: '#000',
+                  outline: 'none',
+                }}
               />
               {(passwordForm.newPassword && passwordForm.confirmPassword) && (
                 passwordForm.newPassword === passwordForm.confirmPassword ? (
@@ -379,10 +414,26 @@ export default function SecuritySettings() {
                 </li>
               </ul>
             </div>
-            <Button type="submit" disabled={isLoading} className="mt-2">
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-2"
+              style={{
+                border: 'none',
+                color: '#fff',
+                backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
+                backgroundColor: 'transparent',
+                borderRadius: '15px',
+                fontSize: '13px',
+                padding: '0.4em 0.8em',
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                textTransform: 'uppercase',
+                opacity: isLoading ? 0.6 : 1,
+              }}
+            >
+              {isLoading && <Loader2 className="inline mr-2 h-4 w-4 animate-spin" />}
               Update Password
-            </Button>
+            </button>
           </form>
         )}
       </div>
@@ -392,55 +443,107 @@ export default function SecuritySettings() {
         <p className="text-sm text-gray-600 mb-4">
           Deleting your account is <span className="font-bold text-red-600">permanent</span> and will remove all your data, content, and files from our system. This action cannot be undone.
         </p>
-        <Button
-          variant="destructive"
-          className="bg-red-600 hover:bg-red-700"
+        <button
           onClick={() => setShowDeleteDialog(true)}
           disabled={isLoading}
+          className="del"
+          style={{
+            position: 'relative',
+            top: 0,
+            left: 0,
+            width: '120px',
+            height: '38px',
+            margin: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            background: 'none',
+            border: 'none',
+            cursor: isLoading ? 'not-allowed' : 'pointer',
+            opacity: isLoading ? 0.6 : 1,
+          }}
         >
-          Delete Account
-        </Button>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              background: 'none',
+              boxShadow: '3px 3px 5px 0 rgba(255,255,255,.5), -3px -3px 5px 0 rgba(116, 125, 136, .5), inset -3px -3px 5px 0 rgba(255,255,255,.2), inset 3px 3px 5px 0 rgba(0, 0, 0, .4)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '25px',
+              letterSpacing: '1px',
+              color: '#ff0000',
+              zIndex: 1,
+              transition: '.6s',
+              fontSize: '13px',
+            }}
+            className="del-inner"
+          >
+            Delete
+          </div>
+        </button>
         {/* First Confirmation Dialog */}
         {showDeleteDialog && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-[#0F172A] rounded-lg shadow-lg p-6 max-w-sm w-full text-white">
-              <h3 className="text-lg font-bold text-red-600 mb-2">Confirm Account Deletion</h3>
-              <p className="text-sm mb-4">Are you sure you want to permanently delete your account? This cannot be undone.</p>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={isLoading}>Cancel</Button>
-                <Button
-                  variant="destructive"
-                  className="bg-red-600 hover:bg-red-700"
+            <div className="card">
+              <div className="card-content">
+                <p className="card-heading">Confirm Account Deletion</p>
+                <p className="card-description">Are you sure you want to permanently delete your account? This cannot be undone.</p>
+              </div>
+              <div className="card-button-wrapper">
+                <button className="card-button secondary" onClick={() => setShowDeleteDialog(false)} disabled={isLoading}>Cancel</button>
+                <button
+                  className="card-button primary"
                   onClick={() => { setShowDeleteDialog(false); setShowFinalDeleteDialog(true); setDeleteError(null); setDeleteConfirmInput(''); }}
                   disabled={isLoading}
                 >
-                  Continue to Delete
-                </Button>
+                  Continue
+                </button>
               </div>
+              <button className="exit-button" onClick={() => setShowDeleteDialog(false)}>
+                <svg height="20px" viewBox="0 0 384 512">
+                  <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"></path>
+                </svg>
+              </button>
             </div>
           </div>
         )}
         {/* Second (Final) Confirmation Dialog */}
         {showFinalDeleteDialog && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="bg-[#0F172A] rounded-lg shadow-lg p-6 max-w-sm w-full text-white">
-              <h3 className="text-lg font-bold text-red-600 mb-2">Final Confirmation</h3>
-              <p className="text-sm mb-4">To confirm, please type <span className="font-bold">DELETE</span> below. This action is <span className="text-red-600 font-bold">permanent</span> and cannot be undone.</p>
-              <input
-                type="text"
-                className="w-full px-3 py-2 rounded bg-[#1E293B] text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-red-600 mb-2"
-                placeholder="Type DELETE to confirm"
-                value={deleteConfirmInput}
-                onChange={e => setDeleteConfirmInput(e.target.value)}
-                disabled={isLoading}
-                autoFocus
-              />
-              {deleteError && <div className="text-red-500 text-xs mb-2">{deleteError}</div>}
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => { setShowFinalDeleteDialog(false); setDeleteConfirmInput(''); setDeleteError(null); }} disabled={isLoading}>Cancel</Button>
-                <Button
-                  variant="destructive"
-                  className="bg-red-600 hover:bg-red-700"
+            <div className="card">
+              <div className="card-content">
+                <p className="card-heading">Final Confirmation</p>
+                <p className="card-description">To confirm, please type <span className="font-bold text-white">DELETE</span> below. This action is <span className="text-red-500 font-bold">permanent</span> and cannot be undone.</p>
+                <input
+                  type="text"
+                  style={{
+                    width: '100%',
+                    padding: '10px 15px',
+                    borderRadius: '10px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    color: '#fff',
+                    fontSize: '14px',
+                    outline: 'none',
+                    marginTop: '10px',
+                  }}
+                  placeholder="Type DELETE to confirm"
+                  value={deleteConfirmInput}
+                  onChange={e => setDeleteConfirmInput(e.target.value)}
+                  disabled={isLoading}
+                  autoFocus
+                />
+                {deleteError && <div style={{ color: '#ff4444', fontSize: '12px', marginTop: '8px' }}>{deleteError}</div>}
+              </div>
+              <div className="card-button-wrapper">
+                <button className="card-button secondary" onClick={() => { setShowFinalDeleteDialog(false); setDeleteConfirmInput(''); setDeleteError(null); }} disabled={isLoading}>Cancel</button>
+                <button
+                  className="card-button primary"
                   onClick={async () => {
                     if (deleteConfirmInput !== 'DELETE') {
                       setDeleteError('You must type DELETE to confirm.');
@@ -451,11 +554,20 @@ export default function SecuritySettings() {
                     await handleDeleteAccount();
                   }}
                   disabled={isLoading || deleteConfirmInput !== 'DELETE'}
+                  style={{
+                    opacity: (isLoading || deleteConfirmInput !== 'DELETE') ? 0.5 : 1,
+                    cursor: (isLoading || deleteConfirmInput !== 'DELETE') ? 'not-allowed' : 'pointer',
+                  }}
                 >
-                  {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Permanently Delete Account
-                </Button>
+                  {isLoading ? <Loader2 className="inline mr-2 h-4 w-4 animate-spin" /> : null}
+                  Delete
+                </button>
               </div>
+              <button className="exit-button" onClick={() => { setShowFinalDeleteDialog(false); setDeleteConfirmInput(''); setDeleteError(null); }}>
+                <svg height="20px" viewBox="0 0 384 512">
+                  <path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"></path>
+                </svg>
+              </button>
             </div>
           </div>
         )}

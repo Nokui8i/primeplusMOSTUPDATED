@@ -5,7 +5,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { doc, updateDoc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 
 export default function NotificationSettings() {
@@ -91,46 +90,82 @@ export default function NotificationSettings() {
   return (
     <div className="space-y-8">
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Push Notifications</h2>
+        <h2 className="text-xl font-semibold text-gray-800">Push Notifications</h2>
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between p-4 rounded-lg" style={{
+            background: 'rgba(255, 255, 255, 0.6)',
+            border: '1px solid rgba(200, 200, 200, 0.3)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          }}>
             <div className="space-y-0.5">
-              <Label>Likes</Label>
-              <p className="text-sm text-gray-500">
+              <div className="font-medium text-gray-800">Likes</div>
+              <p className="text-sm text-gray-600">
                 Get notified when someone likes your posts
               </p>
             </div>
-            <Switch
-              checked={notificationSettings.push.likes}
-              onCheckedChange={value => handleNotificationChange('likes', value)}
-              disabled={isLoading}
-            />
+            <label className={`flex items-center ${isLoading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+              <input
+                type="checkbox"
+                checked={notificationSettings.push.likes}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleNotificationChange('likes', e.target.checked);
+                }}
+                disabled={isLoading}
+                className="checkbox"
+              />
+              <span className="slider"></span>
+            </label>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between p-4 rounded-lg" style={{
+            background: 'rgba(255, 255, 255, 0.6)',
+            border: '1px solid rgba(200, 200, 200, 0.3)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          }}>
             <div className="space-y-0.5">
-              <Label>Comments</Label>
-              <p className="text-sm text-gray-500">
+              <div className="font-medium text-gray-800">Comments</div>
+              <p className="text-sm text-gray-600">
                 Get notified when someone comments on your posts
               </p>
             </div>
-            <Switch
-              checked={notificationSettings.push.comment}
-              onCheckedChange={value => handleNotificationChange('comment', value)}
-              disabled={isLoading}
-            />
+            <label className={`flex items-center ${isLoading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+              <input
+                type="checkbox"
+                checked={notificationSettings.push.comment}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleNotificationChange('comment', e.target.checked);
+                }}
+                disabled={isLoading}
+                className="checkbox"
+              />
+              <span className="slider"></span>
+            </label>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between p-4 rounded-lg" style={{
+            background: 'rgba(255, 255, 255, 0.6)',
+            border: '1px solid rgba(200, 200, 200, 0.3)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          }}>
             <div className="space-y-0.5">
-              <Label>Mentions</Label>
-              <p className="text-sm text-gray-500">
+              <div className="font-medium text-gray-800">Mentions</div>
+              <p className="text-sm text-gray-600">
                 Get notified when someone mentions you
               </p>
             </div>
-            <Switch
-              checked={notificationSettings.push.mention}
-              onCheckedChange={value => handleNotificationChange('mention', value)}
-              disabled={isLoading}
-            />
+            <label className={`flex items-center ${isLoading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+              <input
+                type="checkbox"
+                checked={notificationSettings.push.mention}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handleNotificationChange('mention', e.target.checked);
+                }}
+                disabled={isLoading}
+                className="checkbox"
+              />
+              <span className="slider"></span>
+            </label>
           </div>
         </div>
       </div>
