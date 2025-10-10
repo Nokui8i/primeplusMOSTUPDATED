@@ -171,4 +171,5 @@ export { plansApi, subscriptionsApi, onUserCreate, setupExistingUsers, onFollowW
 // Scheduled tasks
 export { restoreUserRoles } from './scheduled/restoreUserRoles';
 export { cleanupExpiredStories } from './scheduled/cleanupExpiredStories';
+export { cleanupStreamThumbnails } from './scheduled/cleanupStreamThumbnails';
 export { deleteStoryAndFileHttp } from './admin/deleteStoryAndFileHttp'; 

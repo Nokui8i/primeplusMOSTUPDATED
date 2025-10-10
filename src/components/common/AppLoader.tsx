@@ -7,11 +7,11 @@ export default function AppLoader({ isVisible = true }: { isVisible?: boolean })
       {isVisible && (
         <motion.div
           key="apploader"
-          initial={{ opacity: 0 }}
+          initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.4, ease: 'easeInOut' }}
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white"
+          className="fixed inset-0 flex flex-col items-center justify-center"
           style={{ 
             margin: 0, 
             padding: 0, 
@@ -23,7 +23,9 @@ export default function AppLoader({ isVisible = true }: { isVisible?: boolean })
             top: 0,
             left: 0,
             right: 0,
-            bottom: 0
+            bottom: 0,
+            zIndex: 999999,
+            backgroundColor: '#ffffff'
           }}
         >
           {/* Clean white background */}

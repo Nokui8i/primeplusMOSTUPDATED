@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
-import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { StreamingClient } from '@/lib/streaming/client';
 import { toast } from '@/components/ui/use-toast';
@@ -114,12 +114,22 @@ export default function LiveStream({ onStreamStart }: LiveStreamProps) {
 
   const stopStream = async () => {
     setIsStreaming(false);
-    // Optionally update Firestore to mark stream as ended
-    await updateDoc(doc(db, 'streams', streamId.current), {
-      status: 'ended',
-      endedAt: Date.now(),
-      updatedAt: Date.now(),
-    });
+    
+    try {
+      // Update Firestore to mark stream as ended
+      // Don't delete thumbnail yet - let the user decide if they want to save as post
+      await updateDoc(doc(db, 'streams', streamId.current), {
+        status: 'ended',
+        endedAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+      
+      // Note: Thumbnail cleanup will be handled by:
+      // 1. PostStreamDialog - keeps thumbnail if saved as post
+      // 2. A cleanup function/trigger that deletes thumbnails from ended streams after 24 hours if not saved
+    } catch (error) {
+      console.error('Error stopping stream:', error);
+    }
   };
 
   return (

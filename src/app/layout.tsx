@@ -25,7 +25,12 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <style dangerouslySetInnerHTML={{__html: `
-          /* Critical CSS - Loaded immediately to prevent layout shift */
+          /* Critical CSS - Loaded immediately to prevent layout shift and flash */
+          html, body {
+            background-color: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
           .chat-message-input,
           .chat-message-input input {
             height: 40px !important;
@@ -42,7 +47,7 @@ export default function RootLayout({
           }
         `}} />
       </head>
-      <body className={inter.className}>
+      <body className={inter.className} style={{ backgroundColor: '#ffffff', margin: 0, padding: 0 }}>
         <AuthProvider>
           <ChatProvider>
             <NotificationProvider>
