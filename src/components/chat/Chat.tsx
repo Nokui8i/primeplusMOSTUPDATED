@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { VideoUploadPreview } from './VideoUploadPreview';
 import { EmojiPicker } from './EmojiPicker';
 import { VoiceRecorder } from './VoiceRecorder';
+import { TipButton } from '@/components/tips/TipButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/contexts/ChatContext';
@@ -37,6 +38,7 @@ interface Message {
   duration?: number;
   status?: 'sent' | 'delivered' | 'read';
   locked?: boolean;
+  price?: number;
   attachments?: MessageAttachment[];
 }
 
@@ -121,6 +123,9 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState<{ id: string; type: string } | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<Array<{ file: File; preview: string; type: 'image' | 'video'; locked: boolean; price?: number }>>([]);
+  const [isVerifiedCreator, setIsVerifiedCreator] = useState(false);
+  const [verifiedCreators, setVerifiedCreators] = useState<Record<string, boolean>>({});
   const [editText, setEditText] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -211,6 +216,117 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const TYPING_TIMEOUT = 3000; // 3 seconds
   const [recipientStatus, setRecipientStatus] = useState<{ online?: boolean; lastSeen?: any }>({});
   const [userPlanType, setUserPlanType] = useState<'Free' | 'Paid' | null>(null);
+
+  // Check if user is a verified creator
+  useEffect(() => {
+    const checkVerification = async () => {
+      if (!user?.uid) {
+        setIsVerifiedCreator(false);
+        return;
+      }
+
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (!userDoc.exists()) {
+          setIsVerifiedCreator(false);
+          return;
+        }
+
+        const userData = userDoc.data();
+        const isCreatorRole = userData.role === 'creator' || userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner';
+        
+        if (isCreatorRole) {
+          // Admin, superadmin, and owner roles are automatically verified
+          if (userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner') {
+            setIsVerifiedCreator(true);
+          } else {
+            // For regular creators, check verification status
+            let verified = false;
+            
+            if (userData.isVerified === true) {
+              verified = true;
+            } else {
+              const verificationDoc = await getDoc(doc(db, 'verificationData', user.uid));
+              if (verificationDoc.exists()) {
+                const verificationData = verificationDoc.data();
+                verified = verificationData.status === 'approved';
+              }
+            }
+            
+            setIsVerifiedCreator(verified);
+          }
+        } else {
+          setIsVerifiedCreator(false);
+        }
+      } catch (error) {
+        console.error('Error checking verification:', error);
+        setIsVerifiedCreator(false);
+      }
+    };
+
+    checkVerification();
+  }, [user?.uid]);
+
+  // Check verification status for message senders
+  useEffect(() => {
+    const checkSenderVerification = async () => {
+      const uniqueSenderIds = [...new Set(messages.map(m => m.senderId))];
+      const newVerifiedStatus: Record<string, boolean> = {};
+
+      for (const senderId of uniqueSenderIds) {
+        // Skip if we already checked this user
+        if (verifiedCreators[senderId] !== undefined) {
+          newVerifiedStatus[senderId] = verifiedCreators[senderId];
+          continue;
+        }
+
+        try {
+          const userDoc = await getDoc(doc(db, 'users', senderId));
+          if (!userDoc.exists()) {
+            newVerifiedStatus[senderId] = false;
+            continue;
+          }
+
+          const userData = userDoc.data();
+          const isCreatorRole = userData.role === 'creator' || userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner';
+          
+          if (isCreatorRole) {
+            // Admin, superadmin, and owner roles are automatically verified
+            if (userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner') {
+              newVerifiedStatus[senderId] = true;
+            } else {
+              // For regular creators, check verification status
+              let verified = false;
+              
+              if (userData.isVerified === true) {
+                verified = true;
+              } else {
+                const verificationDoc = await getDoc(doc(db, 'verificationData', senderId));
+                if (verificationDoc.exists()) {
+                  const verificationData = verificationDoc.data();
+                  verified = verificationData.status === 'approved';
+                }
+              }
+              
+              newVerifiedStatus[senderId] = verified;
+            }
+          } else {
+            newVerifiedStatus[senderId] = false;
+          }
+        } catch (error) {
+          console.error(`Error checking verification for user ${senderId}:`, error);
+          newVerifiedStatus[senderId] = false;
+        }
+      }
+
+      setVerifiedCreators(prev => ({ ...prev, ...newVerifiedStatus }));
+    };
+
+    if (messages.length > 0) {
+      checkSenderVerification();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, messages.map(m => m.senderId).join(',')]);  
 
   useEffect(() => {
     if (!user) return;
@@ -405,46 +521,91 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     }
   }, [recipientId, user]);
 
+  const handleSendFiles = async () => {
+    if (selectedFiles.length === 0 || !user) return;
+
+    setUploading(true);
+    
+    try {
+      // Separate images and videos
+      const images = selectedFiles.filter(f => f.type === 'image');
+      const videos = selectedFiles.filter(f => f.type === 'video');
+      
+      // Get the text message to attach as caption
+      const captionText = newMessage.trim();
+      
+      // Upload images with caption
+      if (images.length > 0) {
+        await handleImageUpload(images.map(({ file, locked, price }) => ({ file, locked, price })), captionText);
+      }
+      
+      // Upload videos with caption
+      if (videos.length > 0) {
+        await handleVideoUpload(videos.map(({ file, locked, price }) => ({ file, locked, price })), captionText);
+      }
+      
+      // Clear text message and selected files
+      setNewMessage('');
+      selectedFiles.forEach(f => URL.revokeObjectURL(f.preview));
+      setSelectedFiles([]);
+    } catch (error) {
+      console.error('Error sending files:', error);
+      toast.error('Failed to send files');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    
+    // If there are selected files, send them with caption text
+    if (selectedFiles.length > 0) {
+      await handleSendFiles();
+      return; // Don't send separate text message
+    }
+    
+    // If no files, send text message only
+    if (!newMessage.trim()) return;
+    
+    if (user) {
+      const chatId = [user.uid, recipientId].sort().join('_');
+      const messagesRef = collection(db, 'chats', chatId, 'messages');
 
-    const chatId = [user.uid, recipientId].sort().join('_');
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
+      const messageData = {
+        text: newMessage,
+        senderId: user.uid,
+        senderName: user.displayName || user.email || 'Anonymous',
+        timestamp: serverTimestamp(),
+        read: false,
+        status: 'sent',
+        type: 'text'
+      };
 
-    const messageData = {
-      text: newMessage,
-      senderId: user.uid,
-      senderName: user.displayName || user.email || 'Anonymous',
-      timestamp: serverTimestamp(),
-      read: false,
-      status: 'sent',
-      type: 'text'
-    };
-
-    await addDoc(messagesRef, messageData);
-    
-    // Update chat metadata with last message
-    const chatRef = doc(db, 'chats', chatId);
-    await updateDoc(chatRef, {
-      lastMessage: newMessage.trim(),
-      lastMessageTime: serverTimestamp(),
-      unreadCounts: {
-        [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
-      }
-    });
-    
-    
-    // Force refresh chat metadata by querying the actual last message
-    setTimeout(async () => {
-      try {
-        await updateChatMetadataFromActualLastMessage(chatId);
-      } catch (error) {
-        console.error('Error refreshing chat metadata:', error);
-      }
-    }, 500);
-    
-    setNewMessage('');
+      await addDoc(messagesRef, messageData);
+      
+      // Update chat metadata with last message
+      const chatRef = doc(db, 'chats', chatId);
+      await updateDoc(chatRef, {
+        lastMessage: newMessage.trim(),
+        lastMessageTime: serverTimestamp(),
+        unreadCounts: {
+          [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
+        }
+      });
+      
+      
+      // Force refresh chat metadata by querying the actual last message
+      setTimeout(async () => {
+        try {
+          await updateChatMetadataFromActualLastMessage(chatId);
+        } catch (error) {
+          console.error('Error refreshing chat metadata:', error);
+        }
+      }, 500);
+      
+      setNewMessage('');
+    }
     
     // Scroll to bottom after sending message
     setTimeout(() => scrollToBottom(), 100);
@@ -452,10 +613,30 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const handleImageClick = () => {
-    setShowImageUpload(true);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const files = Array.from(target.files || []);
+      
+      const newFiles = await Promise.all(
+        files.map(async (file) => ({
+          file,
+          preview: URL.createObjectURL(file),
+          type: 'image' as const,
+          locked: false,
+          price: undefined
+        }))
+      );
+      
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    };
+    input.click();
   };
 
-  const handleImageUpload = async (files: { file: File, locked: boolean }[]) => {
+  const handleImageUpload = async (files: { file: File, locked: boolean, price?: number }[], captionText: string = '') => {
     if (!user) return;
     setUploading(true);
 
@@ -471,14 +652,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       const senderPhotoURL = senderProfile.photoURL || user.photoURL || '';
 
       // Upload each file to AWS S3 and create a message
-      for (const { file, locked } of files) {
+      for (const { file, locked, price } of files) {
         try {
           // Import AWS upload function
           const { uploadChatMedia } = await import('@/lib/aws/upload');
           const url = await uploadChatMedia(file, chatId);
           
-          await addDoc(messagesRef, {
-            text: '',
+          const messageData: any = {
+            text: captionText,
             imageUrl: url,
             senderId: user.uid,
             senderName,
@@ -487,7 +668,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             read: false,
             type: 'image',
             locked: !!locked,
-          });
+          };
+          
+          // Add price if content is locked
+          if (locked && price) {
+            messageData.price = price;
+          }
+          
+          await addDoc(messagesRef, messageData);
           
           // Update chat metadata
           const chatRef = doc(db, 'chats', chatId);
@@ -518,7 +706,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const handleVideoClick = () => {
-    setShowVideoUpload(true);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'video/*';
+    input.multiple = true;
+    input.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const files = Array.from(target.files || []);
+      
+      const newFiles = await Promise.all(
+        files.map(async (file) => ({
+          file,
+          preview: URL.createObjectURL(file),
+          type: 'video' as const,
+          locked: false,
+          price: undefined
+        }))
+      );
+      
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    };
+    input.click();
   };
 
   const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
@@ -527,7 +735,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   // Handle video upload
-  const handleVideoUpload = async (files: { file: File, locked: boolean }[]) => {
+  const handleVideoUpload = async (files: { file: File, locked: boolean, price?: number }[], captionText: string = '') => {
     if (!user) return;
     setUploading(true);
 
@@ -543,14 +751,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       const senderPhotoURL = senderProfile.photoURL || user.photoURL || '';
 
       // Upload each file to AWS S3 and create a message
-      for (const { file, locked } of files) {
+      for (const { file, locked, price } of files) {
         try {
           // Import AWS upload function
           const { uploadChatMedia } = await import('@/lib/aws/upload');
           const url = await uploadChatMedia(file, chatId);
           
-          await addDoc(messagesRef, {
-            text: '',
+          const messageData: any = {
+            text: captionText,
             videoUrl: url,
             senderId: user.uid,
             senderName,
@@ -559,7 +767,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             read: false,
             type: 'video',
             locked: !!locked,
-          });
+          };
+          
+          // Add price if content is locked
+          if (locked && price) {
+            messageData.price = price;
+          }
+          
+          await addDoc(messagesRef, messageData);
           
           // Update chat metadata
           const chatRef = doc(db, 'chats', chatId);
@@ -1139,12 +1354,191 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 )}
                 
                 <div className="relative">
-                  <img
-                    src={message.imageUrl}
-                    alt="Sent image"
-                    className="rounded-lg max-w-full max-h-[400px] cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => setSelectedImage(message.imageUrl!)}
-                  />
+                  {/* Check if image is locked and user is receiver */}
+                  {message.locked && message.senderId !== user?.uid ? (
+                    <div 
+                      className="overflow-hidden"
+                      style={{
+                        borderRadius: '18px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                        padding: '4px'
+                      }}
+                    >
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <img
+                          src={message.imageUrl}
+                          alt="Locked image"
+                          style={{
+                            borderRadius: '14px',
+                            maxWidth: '100%',
+                            maxHeight: '400px',
+                            display: 'block',
+                            filter: 'blur(20px)',
+                            pointerEvents: 'none'
+                          }}
+                        />
+                        
+                        {/* Lock overlay */}
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '14px'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '12px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={24} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
+                            </div>
+                            {message.price && (
+                              <p style={{ 
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '12px',
+                                marginBottom: '10px',
+                                textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                                letterSpacing: '0.5px'
+                              }}>${message.price.toFixed(2)}</p>
+                            )}
+                            <button
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                              }}
+                              onClick={() => {
+                                toast.info('Payment system coming soon!');
+                              }}
+                            >
+                              UNLOCK
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Caption text below locked content */}
+                      {message.text && (
+                        <div style={{
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          color: '#1a1a1a',
+                          lineHeight: '1.5'
+                        }}>
+                          {message.text}
+                        </div>
+                      )}
+                      
+                      {/* Tip button for received locked images */}
+                      {verifiedCreators[message.senderId] === true && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          padding: '2px 8px 2px',
+                          borderTop: '1px solid rgba(0, 0, 0, 0.05)'
+                        }}>
+                          <div style={{ transform: 'translateY(3px)' }}>
+                            <TipButton
+                              creatorId={message.senderId}
+                              creatorName={message.senderName}
+                              context={{
+                                type: 'message',
+                                id: message.id,
+                                mediaType: 'image',
+                              }}
+                              variant="ghost"
+                              size="icon"
+                              showLabel={false}
+                              className="scale-100"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div 
+                      className="overflow-hidden"
+                      style={{
+                        borderRadius: '18px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                        padding: '4px'
+                      }}
+                    >
+                      <img
+                        src={message.imageUrl}
+                        alt="Sent image"
+                        style={{
+                          borderRadius: '14px',
+                          maxWidth: '100%',
+                          maxHeight: '400px',
+                          cursor: 'pointer',
+                          display: 'block'
+                        }}
+                        className="hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedImage(message.imageUrl!)}
+                      />
+                      
+                      {/* Caption text if present */}
+                      {message.text && (
+                        <div style={{
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          color: '#1a1a1a',
+                          lineHeight: '1.5'
+                        }}>
+                          {message.text}
+                        </div>
+                      )}
+                      
+                      {/* Tip button for received images */}
+                      {message.senderId !== user?.uid && verifiedCreators[message.senderId] === true && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          padding: '2px 8px 2px',
+                          borderTop: '1px solid rgba(0, 0, 0, 0.05)'
+                        }}>
+                          <div style={{ transform: 'translateY(3px)' }}>
+                            <TipButton
+                              creatorId={message.senderId}
+                              creatorName={message.senderName}
+                              context={{
+                                type: 'message',
+                                id: message.id,
+                                mediaType: 'image',
+                              }}
+                              variant="ghost"
+                              size="icon"
+                              showLabel={false}
+                              className="scale-100"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : message.type === 'video' && message.videoUrl ? (
@@ -1166,15 +1560,196 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 )}
                 
                 <div className="relative">
-                  <video
-                    className="rounded-lg max-w-full max-h-[400px] cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => setSelectedVideo(message.videoUrl!)}
-                    playsInline
-                    preload="metadata"
-                  >
-                    <source src={message.videoUrl} type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
+                  {/* Check if video is locked and user is receiver */}
+                  {message.locked && message.senderId !== user?.uid ? (
+                    <div 
+                      className="overflow-hidden"
+                      style={{
+                        borderRadius: '18px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                        padding: '4px'
+                      }}
+                    >
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <video
+                          style={{
+                            borderRadius: '14px',
+                            maxWidth: '100%',
+                            maxHeight: '400px',
+                            display: 'block',
+                            filter: 'blur(20px)',
+                            pointerEvents: 'none'
+                          }}
+                          playsInline
+                          preload="metadata"
+                        >
+                          <source src={message.videoUrl} type="video/mp4" />
+                        </video>
+                        
+                        {/* Lock overlay */}
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '14px'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '12px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={24} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
+                            </div>
+                            {message.price && (
+                              <p style={{ 
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '12px',
+                                marginBottom: '10px',
+                                textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                                letterSpacing: '0.5px'
+                              }}>${message.price.toFixed(2)}</p>
+                            )}
+                            <button
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                              }}
+                              onClick={() => {
+                                toast.info('Payment system coming soon!');
+                              }}
+                            >
+                              UNLOCK
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Caption text below locked content */}
+                      {message.text && (
+                        <div style={{
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          color: '#1a1a1a',
+                          lineHeight: '1.5'
+                        }}>
+                          {message.text}
+                        </div>
+                      )}
+                      
+                      {/* Tip button for received locked videos */}
+                      {verifiedCreators[message.senderId] === true && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          padding: '2px 8px 2px',
+                          borderTop: '1px solid rgba(0, 0, 0, 0.05)'
+                        }}>
+                          <div style={{ transform: 'translateY(3px)' }}>
+                            <TipButton
+                              creatorId={message.senderId}
+                              creatorName={message.senderName}
+                              context={{
+                                type: 'message',
+                                id: message.id,
+                                mediaType: 'video',
+                              }}
+                              variant="ghost"
+                              size="icon"
+                              showLabel={false}
+                              className="scale-100"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div 
+                      className="overflow-hidden"
+                      style={{
+                        borderRadius: '18px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                        padding: '4px'
+                      }}
+                    >
+                      <video
+                        style={{
+                          borderRadius: '14px',
+                          maxWidth: '100%',
+                          maxHeight: '400px',
+                          cursor: 'pointer',
+                          display: 'block'
+                        }}
+                        className="hover:opacity-90 transition-opacity"
+                        onClick={() => setSelectedVideo(message.videoUrl!)}
+                        playsInline
+                        preload="metadata"
+                      >
+                        <source src={message.videoUrl} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                      
+                      {/* Caption text if present */}
+                      {message.text && (
+                        <div style={{
+                          padding: '8px 12px',
+                          fontSize: '14px',
+                          color: '#1a1a1a',
+                          lineHeight: '1.5'
+                        }}>
+                          {message.text}
+                        </div>
+                      )}
+                      
+                      {/* Tip button for received videos */}
+                      {message.senderId !== user?.uid && verifiedCreators[message.senderId] === true && (
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          padding: '2px 8px 2px',
+                          borderTop: '1px solid rgba(0, 0, 0, 0.05)'
+                        }}>
+                          <div style={{ transform: 'translateY(3px)' }}>
+                            <TipButton
+                              creatorId={message.senderId}
+                              creatorName={message.senderName}
+                              context={{
+                                type: 'message',
+                                id: message.id,
+                                mediaType: 'video',
+                              }}
+                              variant="ghost"
+                              size="icon"
+                              showLabel={false}
+                              className="scale-100"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ) : message.type === 'audio' && message.audioUrl ? (
@@ -1617,6 +2192,111 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         filter: 'none !important',
         boxShadow: 'none !important'
       }}>
+        {/* File Preview Section */}
+        {selectedFiles.length > 0 && (
+          <div className="mb-2 p-2 bg-gray-50 rounded-lg">
+            <div className="flex flex-wrap gap-2">
+              {selectedFiles.map((file, index) => (
+                <div key={index} className="relative group flex items-start gap-2">
+                  {/* Thumbnail Preview */}
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+                    {file.type === 'image' ? (
+                      <img src={file.preview} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Video className="h-8 w-8 text-gray-400" />
+                      </div>
+                    )}
+                    
+                    {/* Remove Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        URL.revokeObjectURL(file.preview);
+                        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+                      }}
+                      className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    
+                    {/* Locked Indicator */}
+                    {file.locked && (
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1 rounded flex items-center gap-0.5">
+                        <Lock className="h-2 w-2" />
+                        ${file.price?.toFixed(2)}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Locked Toggle (Verified Creators Only) */}
+                  {isVerifiedCreator && (
+                    <div 
+                      className="flex flex-col gap-2 p-2"
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                        minWidth: '85px'
+                      }}
+                    >
+                      <label className="flex items-center cursor-pointer text-[11px] font-semibold whitespace-nowrap text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={file.locked}
+                          onChange={(e) => {
+                            const newFiles = [...selectedFiles];
+                            newFiles[index] = { 
+                              ...file, 
+                              locked: e.target.checked,
+                              price: e.target.checked ? (file.price || 0.99) : undefined
+                            };
+                            setSelectedFiles(newFiles);
+                          }}
+                          className="mr-1.5 w-4 h-4 cursor-pointer accent-blue-500 focus:outline-none focus:ring-0 focus:ring-offset-0"
+                          style={{ outline: 'none', boxShadow: 'none' }}
+                        />
+                        Paid
+                      </label>
+                      
+                      {/* Price Input */}
+                      {file.locked && (
+                        <input
+                          type="number"
+                          min="0.99"
+                          step="0.01"
+                          value={file.price || '0.99'}
+                          onChange={(e) => {
+                            const newFiles = [...selectedFiles];
+                            newFiles[index] = { 
+                              ...file, 
+                              price: parseFloat(e.target.value) || 0.99
+                            };
+                            setSelectedFiles(newFiles);
+                          }}
+                          className="text-[11px] font-semibold text-gray-700 text-center"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            border: '1px solid rgba(0, 0, 0, 0.1)',
+                            borderRadius: '8px',
+                            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                            padding: '4px 8px',
+                            outline: 'none',
+                            width: '100%'
+                          }}
+                          placeholder="0.99"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
         <div className="flex gap-1 md:gap-2 items-center">
           {/* Dropdown for Media & Emoji Buttons */}
           <DropdownMenu>
@@ -1667,7 +2347,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               disabled={uploading || isRecording}
             />
           </div>
-          {newMessage.trim() ? (
+          {(newMessage.trim() || selectedFiles.length > 0) ? (
             <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200" disabled={uploading}>
               <Send className="h-3 w-3 md:h-4 md:w-4" />
             </Button>

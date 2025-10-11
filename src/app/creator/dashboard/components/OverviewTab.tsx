@@ -46,61 +46,23 @@ export default function OverviewTab({ stats }: OverviewTabProps) {
     async function fetchEarnings() {
       if (!user?.uid) return;
 
-      // Calculate start of the week (Monday)
-      const now = new Date();
-      const day = now.getDay();
-      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-      const weekStart = new Date(now.setDate(diff));
-      weekStart.setHours(0, 0, 0, 0);
-      const weekStartTimestamp = Timestamp.fromDate(weekStart);
-
-      // Get total earnings
-      const { subscriptionEarnings, tipEarnings } = await getCreatorEarnings(user.uid);
-
-      // Get recent earnings (this week)
-      const recentSubscriptionsQuery = query(
-        collection(db, 'subscriptions'),
-        where('creatorId', '==', user.uid),
-        where('status', '==', 'active'),
-        where('createdAt', '>=', weekStartTimestamp)
-      );
-      const recentSubscriptionsSnap = await getDocs(recentSubscriptionsQuery);
-      
-      let recentSubscriptionEarnings = 0;
-      for (const doc of recentSubscriptionsSnap.docs) {
-        const data = doc.data();
-        const planQuery = query(
-          collection(db, 'plans'),
-          where('id', '==', data.planId)
-        );
-        const planSnap = await getDocs(planQuery);
-        if (!planSnap.empty) {
-          const plan = planSnap.docs[0].data();
-          recentSubscriptionEarnings += plan.price * 0.85; // 85% to creator
-        }
+      try {
+        const earningsData = await getCreatorEarnings(user.uid);
+        setEarnings({
+          subscriptionEarnings: earningsData.subscriptionEarnings,
+          tipEarnings: earningsData.tipEarnings,
+          recentSubscriptionEarnings: earningsData.recentSubscriptionEarnings,
+          recentTipEarnings: earningsData.recentTipEarnings,
+        });
+      } catch (error) {
+        console.error('Error fetching earnings:', error);
+        setEarnings({
+          subscriptionEarnings: 0,
+          tipEarnings: 0,
+          recentSubscriptionEarnings: 0,
+          recentTipEarnings: 0,
+        });
       }
-
-      // Get recent tips
-      const recentTipsQuery = query(
-        collection(db, 'tips'),
-        where('creatorId', '==', user.uid),
-        where('status', '==', 'completed'),
-        where('createdAt', '>=', weekStartTimestamp)
-      );
-      const recentTipsSnap = await getDocs(recentTipsQuery);
-      
-      let recentTipEarnings = 0;
-      for (const doc of recentTipsSnap.docs) {
-        const data = doc.data();
-        recentTipEarnings += data.amount * 0.85; // 85% to creator
-      }
-
-      setEarnings({
-        subscriptionEarnings,
-        tipEarnings,
-        recentSubscriptionEarnings,
-        recentTipEarnings,
-      });
     }
 
     fetchEarnings();

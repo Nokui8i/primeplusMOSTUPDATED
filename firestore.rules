@@ -417,6 +417,27 @@ service cloud.firestore {
       allow write: if request.auth.uid == request.resource.data.authorId;
     }
 
+    // Tips collection rules
+    match /tips/{tipId} {
+      // Anyone can read their own tips (sent or received)
+      allow read: if isAuthenticated() &&
+                     (request.auth.uid == resource.data.tipperId ||
+                      request.auth.uid == resource.data.creatorId);
+      
+      // Only authenticated users can create tips
+      allow create: if isAuthenticated() &&
+                      request.resource.data.tipperId == request.auth.uid && // Tipper must be authenticated user
+                      request.resource.data.status == 'completed' && // Status must be completed (no payment processing)
+                      request.resource.data.amount is number && request.resource.data.amount > 0 && // Amount must be positive
+                      request.resource.data.currency is string && // Currency must be provided
+                      request.resource.data.creatorId is string && // Creator ID must be provided
+                      request.resource.data.createdAt == request.time && // Enforce server timestamp
+                      request.resource.data.updatedAt == request.time; // Enforce server timestamp
+      
+      // Tips cannot be updated or deleted (immutable once created)
+      allow update, delete: if false;
+    }
+
     // Follows collection rules
     match /follows/{followId} {
       allow read: if isAuthenticated();

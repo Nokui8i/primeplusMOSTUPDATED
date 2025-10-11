@@ -46,7 +46,7 @@ export const cleanupStreamThumbnails = functions.pubsub
         const postId = `post_${streamId}`;
         const postDoc = await db.collection('posts').doc(postId).get();
 
-        if (postDoc.exists()) {
+        if (postDoc.exists) {
           console.log(`Stream ${streamId} was saved as post, keeping thumbnail`);
           skippedCount++;
           continue;

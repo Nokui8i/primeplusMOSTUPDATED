@@ -8,7 +8,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface ImageUploadPreviewProps {
-  onUpload: (files: { file: File, locked: boolean }[]) => Promise<void>;
+  onUpload: (files: { file: File, locked: boolean, price?: number }[]) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -17,6 +17,7 @@ interface PreviewImage {
   preview: string;
   progress: number;
   locked: boolean;
+  price?: number;
 }
 
 export function ImageUploadPreview({ onUpload, onCancel }: ImageUploadPreviewProps) {
@@ -195,7 +196,7 @@ export function ImageUploadPreview({ onUpload, onCancel }: ImageUploadPreviewPro
       const compressedFiles = await Promise.all(
         previewImages.map(async (preview) => {
           const compressed = await compressImage(preview.file);
-          return { file: compressed, locked: preview.locked };
+          return { file: compressed, locked: preview.locked, price: preview.price };
         })
       );
 

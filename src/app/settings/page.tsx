@@ -9,7 +9,7 @@ import { db } from '@/lib/firebase';
 import AccountSettings from './components/AccountSettings';
 import PrivacySettings from './components/PrivacySettings';
 import NotificationSettings from './components/NotificationSettings';
-import PaymentSettings from './components/PaymentSettings';
+// import PaymentSettings from './components/PaymentSettings'; // REMOVED - No payment system implemented
 import SecuritySettings from './components/SecuritySettings';
 import CreatorVerificationSettings from './components/CreatorVerificationSettings';
 
@@ -87,30 +87,20 @@ export default function SettingsPage() {
               name="tab" 
               id="tab4" 
               className="tab tab--4" 
-              checked={activeTab === 'payments'}
-              onChange={() => setActiveTab('payments')}
+              checked={activeTab === 'security'}
+              onChange={() => setActiveTab('security')}
             />
-            <label className="tab_label" htmlFor="tab4">Payments</label>
+            <label className="tab_label" htmlFor="tab4">Security</label>
 
             <input 
               type="radio" 
               name="tab" 
               id="tab5" 
               className="tab tab--5" 
-              checked={activeTab === 'security'}
-              onChange={() => setActiveTab('security')}
-            />
-            <label className="tab_label" htmlFor="tab5">Security</label>
-
-            <input 
-              type="radio" 
-              name="tab" 
-              id="tab6" 
-              className="tab tab--6" 
               checked={activeTab === 'creator'}
               onChange={() => setActiveTab('creator')}
             />
-            <label className="tab_label" htmlFor="tab6">Creator</label>
+            <label className="tab_label" htmlFor="tab5">Creator</label>
 
             <div className="indicator"></div>
           </div>
@@ -132,12 +122,6 @@ export default function SettingsPage() {
         {activeTab === 'notifications' && (
           <Card className="p-6">
             <NotificationSettings />
-          </Card>
-        )}
-
-        {activeTab === 'payments' && (
-          <Card className="p-6">
-            <PaymentSettings />
           </Card>
         )}
 

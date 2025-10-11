@@ -30,6 +30,7 @@ import MediaContent from '@/components/posts/MediaContent'
 import { LikeButton } from '@/components/posts/LikeButton'
 import { HeartButton } from '@/components/ui/HeartButton'
 import { CommentButton } from '@/components/ui/CommentButton'
+import { TipButton } from '@/components/tips/TipButton'
 import { Badge } from '@/components/ui/badge'
 import { PostDetailsDialog } from '@/components/posts/PostDetailsDialog'
 import { EditPostDialog } from '@/components/posts/EditPostDialog'
@@ -108,6 +109,8 @@ function toDate(date: { toDate: () => Date } | Date): Date {
 export function CompactPost({ post, currentUserId, onPostDeleted, commentId, highlight, showAsGridItem = false, showAsGalleryOnly = false }: CompactPostProps) {
   const { user } = useAuth()
   const { commentCount, loading: commentCountLoading } = useCommentCount(post.id)
+  const isOwnPost = user?.uid === post.authorId
+  
   const [currentPost, setCurrentPost] = useState<PostWithAuthor>(() => {
     const correctedPost = {
       ...post,
@@ -1216,6 +1219,24 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
               {currentPost.likes || 0}
             </span>
           </div>
+
+          {/* Tip button - Middle */}
+          {!isOwnPost && user && (
+            <div className="flex flex-col items-center gap-0">
+              <TipButton
+                creatorId={currentPost.authorId}
+                creatorName={currentPost.author?.displayName || currentPost.author?.username || 'Creator'}
+                context={{
+                  type: 'post',
+                  id: currentPost.id,
+                }}
+                variant="ghost"
+                size="icon"
+                showLabel={false}
+                className="scale-100"
+              />
+            </div>
+          )}
         </div>
 
         {/* Comment button - Right side */}

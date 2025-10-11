@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteStoryAndFileHttp = exports.cleanupExpiredStories = exports.restoreUserRoles = exports.sendNotificationHttp = exports.deleteCreatorVerificationDataHttp = exports.onFollowCreate = exports.onCommentCreate = exports.onLikeCreate = exports.onFollowWrite = exports.setupExistingUsers = exports.onUserCreate = exports.subscriptionsApi = exports.plansApi = exports.testHttp = exports.cleanupStorageOnStoryDelete = exports.cleanupStorageOnUserDelete = exports.cleanupStorageOnPostDelete = void 0;
+exports.deleteStoryAndFileHttp = exports.cleanupStreamThumbnails = exports.cleanupExpiredStories = exports.restoreUserRoles = exports.sendNotificationHttp = exports.deleteCreatorVerificationDataHttp = exports.onTipCreatedAnalytics = exports.onTipCreated = exports.onFollowCreate = exports.onCommentCreate = exports.onLikeCreate = exports.onFollowWrite = exports.setupExistingUsers = exports.onUserCreate = exports.subscriptionsApi = exports.plansApi = exports.testHttp = exports.cleanupStorageOnStoryDelete = exports.cleanupStorageOnUserDelete = exports.cleanupStorageOnPostDelete = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
@@ -56,6 +56,10 @@ const notificationTriggers_1 = require("./triggers/notificationTriggers");
 Object.defineProperty(exports, "onLikeCreate", { enumerable: true, get: function () { return notificationTriggers_1.onLikeCreate; } });
 Object.defineProperty(exports, "onCommentCreate", { enumerable: true, get: function () { return notificationTriggers_1.onCommentCreate; } });
 Object.defineProperty(exports, "onFollowCreate", { enumerable: true, get: function () { return notificationTriggers_1.onFollowCreate; } });
+// Import and re-export Tip triggers
+const tipTriggers_1 = require("./triggers/tipTriggers");
+Object.defineProperty(exports, "onTipCreated", { enumerable: true, get: function () { return tipTriggers_1.onTipCreated; } });
+Object.defineProperty(exports, "onTipCreatedAnalytics", { enumerable: true, get: function () { return tipTriggers_1.onTipCreatedAnalytics; } });
 const supportActions_1 = require("./admin/supportActions");
 Object.defineProperty(exports, "deleteCreatorVerificationDataHttp", { enumerable: true, get: function () { return supportActions_1.deleteCreatorVerificationDataHttp; } });
 const notifications_1 = require("./admin/notifications");
@@ -184,6 +188,8 @@ var restoreUserRoles_1 = require("./scheduled/restoreUserRoles");
 Object.defineProperty(exports, "restoreUserRoles", { enumerable: true, get: function () { return restoreUserRoles_1.restoreUserRoles; } });
 var cleanupExpiredStories_1 = require("./scheduled/cleanupExpiredStories");
 Object.defineProperty(exports, "cleanupExpiredStories", { enumerable: true, get: function () { return cleanupExpiredStories_1.cleanupExpiredStories; } });
+var cleanupStreamThumbnails_1 = require("./scheduled/cleanupStreamThumbnails");
+Object.defineProperty(exports, "cleanupStreamThumbnails", { enumerable: true, get: function () { return cleanupStreamThumbnails_1.cleanupStreamThumbnails; } });
 var deleteStoryAndFileHttp_1 = require("./admin/deleteStoryAndFileHttp");
 Object.defineProperty(exports, "deleteStoryAndFileHttp", { enumerable: true, get: function () { return deleteStoryAndFileHttp_1.deleteStoryAndFileHttp; } });
 //# sourceMappingURL=index.js.map

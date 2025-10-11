@@ -8,6 +8,7 @@ import LiveKitStream from './LiveKitStream';
 import { Users, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
+import { TipButton } from '@/components/tips/TipButton';
 
 interface LiveStreamViewerProps {
   streamId: string;
@@ -17,6 +18,7 @@ interface StreamData {
   title: string;
   description: string;
   username: string;
+  userId: string;
   startedAt: number;
   status: 'live' | 'ended';
   viewerCount: number;
@@ -114,17 +116,35 @@ export default function LiveStreamViewer({ streamId }: LiveStreamViewerProps) {
     <div className="relative bg-black rounded-lg overflow-hidden">
       {/* Stream Info */}
       <div className="absolute top-0 left-0 right-0 bg-gradient-to-b from-black/70 to-transparent p-4 z-10">
-        <h2 className="text-white text-lg font-bold">{streamData.title}</h2>
-        <div className="flex items-center space-x-4 mt-2 text-white/80 text-sm">
-          <div className="flex items-center">
-            <Users className="w-4 h-4 mr-1" />
-            {streamData.viewerCount} watching
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <h2 className="text-white text-lg font-bold">{streamData.title}</h2>
+            <div className="flex items-center space-x-4 mt-2 text-white/80 text-sm">
+              <div className="flex items-center">
+                <Users className="w-4 h-4 mr-1" />
+                {streamData.viewerCount} watching
+              </div>
+              <div className="flex items-center">
+                <Calendar className="w-4 h-4 mr-1" />
+                Started {formatDistanceToNow(streamData.startedAt, { addSuffix: true })}
+              </div>
+              <div>by {streamData.username}</div>
+            </div>
           </div>
-          <div className="flex items-center">
-            <Calendar className="w-4 h-4 mr-1" />
-            Started {formatDistanceToNow(streamData.startedAt, { addSuffix: true })}
-          </div>
-          <div>by {streamData.username}</div>
+          {/* Tip button - only show if not the streamer */}
+          {user && user.uid !== streamData.userId && (
+            <TipButton
+              creatorId={streamData.userId}
+              creatorName={streamData.username}
+              context={{
+                type: 'live',
+                id: streamId,
+              }}
+              variant="default"
+              size="sm"
+              className="bg-pink-500 hover:bg-pink-600 text-white"
+            />
+          )}
         </div>
       </div>
 

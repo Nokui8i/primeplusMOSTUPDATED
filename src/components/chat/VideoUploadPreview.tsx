@@ -7,7 +7,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 interface VideoUploadPreviewProps {
-  onUpload: (files: { file: File, locked: boolean }[]) => Promise<void>;
+  onUpload: (files: { file: File, locked: boolean, price?: number }[]) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -16,6 +16,7 @@ interface PreviewVideo {
   preview: string;
   progress: number;
   locked: boolean;
+  price?: number;
 }
 
 export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewProps) {
@@ -186,7 +187,7 @@ export function VideoUploadPreview({ onUpload, onCancel }: VideoUploadPreviewPro
       };
 
       // Upload files
-      await onUpload(previewVideos.map(p => ({ file: p.file, locked: p.locked })));
+      await onUpload(previewVideos.map(p => ({ file: p.file, locked: p.locked, price: p.price })));
       
       // Clean up previews
       previewVideos.forEach(preview => URL.revokeObjectURL(preview.preview));

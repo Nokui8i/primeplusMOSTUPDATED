@@ -19,7 +19,10 @@ export default function EarningsSummary({
 
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold mb-4" style={{ color: 'rgb(26, 26, 26)' }}>Earnings Summary</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold" style={{ color: 'rgb(26, 26, 26)' }}>Earnings Summary</h2>
+        <span className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Tracking Only (No Payment Processing)</span>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="flex flex-col items-center justify-center">
           <div className="flex flex-row items-center gap-2">
