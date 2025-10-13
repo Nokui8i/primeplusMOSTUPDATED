@@ -42,7 +42,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { X, ArrowUpDown, Lock, Play } from 'lucide-react'
+import { X, ArrowUpDown, Lock, Play, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Hotspot } from '@/lib/types/media'
 import {
   DropdownMenu,
@@ -62,6 +62,15 @@ interface CompactPostProps {
   highlight?: boolean
   showAsGridItem?: boolean
   showAsGalleryOnly?: boolean
+  transparent?: boolean
+  showNavigation?: boolean
+  onClose?: () => void
+  onPrev?: () => void
+  onNext?: () => void
+  canGoPrev?: boolean
+  canGoNext?: boolean
+  currentIndex?: number
+  totalCount?: number
 }
 
 interface Subscription {
@@ -106,7 +115,7 @@ function toDate(date: { toDate: () => Date } | Date): Date {
   return date instanceof Date ? date : date.toDate();
 }
 
-export function CompactPost({ post, currentUserId, onPostDeleted, commentId, highlight, showAsGridItem = false, showAsGalleryOnly = false }: CompactPostProps) {
+export function CompactPost({ post, currentUserId, onPostDeleted, commentId, highlight, showAsGridItem = false, showAsGalleryOnly = false, transparent = false, showNavigation = false, onClose, onPrev, onNext, canGoPrev = false, canGoNext = false, currentIndex, totalCount }: CompactPostProps) {
   const { user } = useAuth()
   const { commentCount, loading: commentCountLoading } = useCommentCount(post.id)
   const isOwnPost = user?.uid === post.authorId
@@ -972,9 +981,10 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
 
     return (
       <div className="relative w-full mb-2" style={{
-        background: 'white',
-        borderRadius: '17px 17px 27px 27px',
-        boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
+        background: transparent ? 'transparent' : 'white',
+        borderRadius: transparent ? '0px' : '17px 17px 27px 27px',
+        boxShadow: transparent ? 'none' : '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)',
+        maxWidth: showNavigation ? '672px' : '100%'
       }}>
         {/* Post Header - Profile and Time */}
         <div className="flex items-center justify-between gap-2 px-3 py-1.5">
@@ -1006,12 +1016,49 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
             </div>
           </div>
           
-          {/* Post Options Menu */}
-          <PostOptionsMenu
-            postId={currentPost.id}
-            authorId={currentPost.authorId}
-            onEdit={handleEdit}
-          />
+          {/* Navigation Controls for Profile Tabs */}
+          {showNavigation ? (
+            <div className="flex items-center gap-2">
+              {/* Post Counter */}
+              {currentIndex !== undefined && totalCount && (
+                <div className="px-2 py-1 rounded-full bg-black/20 text-white text-xs font-medium">
+                  {currentIndex + 1} of {totalCount}
+                </div>
+              )}
+              
+              {/* Navigation Arrows */}
+              <button
+                onClick={onPrev}
+                disabled={!canGoPrev}
+                className="p-1.5 rounded-full bg-black/20 hover:bg-black/40 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              
+              <button
+                onClick={onNext}
+                disabled={!canGoNext}
+                className="p-1.5 rounded-full bg-black/20 hover:bg-black/40 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+              
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all duration-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            /* Post Options Menu - Only show when not in navigation mode */
+            <PostOptionsMenu
+              postId={currentPost.id}
+              authorId={currentPost.authorId}
+              onEdit={handleEdit}
+            />
+          )}
         </div>
 
         {/* Post Text Content - Before Media */}

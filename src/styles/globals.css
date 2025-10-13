@@ -1054,7 +1054,7 @@ div.text-box div.box-container textarea {
   resize: none !important;
   border: 0 !important;
   border-radius: 0 !important;
-  padding: 8px 12px !important;
+  padding: 4px 8px !important;
   font-size: 14px !important;
   outline: none !important;
   caret-color: #0a84ff !important;
@@ -1063,7 +1063,7 @@ div.text-box div.box-container textarea {
   font-family: inherit !important;
   line-height: normal !important;
   box-shadow: none !important;
-  min-height: 32px !important;
+  min-height: 16px !important;
   max-height: 32px !important;
   margin: 0 !important;
   display: block !important;
@@ -1136,7 +1136,7 @@ div.text-box div.box-container textarea {
   border: none !important;
   outline: none !important;
   background: transparent !important;
-  padding: 8px 12px !important;
+  padding: 4px 8px !important;
   font-size: 14px !important;
   color: #333 !important;
   height: 32px !important;
@@ -1229,16 +1229,16 @@ textarea.settings-bio-field {
 /* ULTRA HIGH SPECIFICITY - OVERRIDE EVERYTHING */
 html body div.text-box textarea,
 html body div.text-box div.box-container textarea,
-html body form textarea:not(.settings-bio-field):not(.profile-bio-edit),
-html body .text-box textarea {
+html body form textarea:not(.settings-bio-field):not(.profile-bio-edit):not(.comment-input-3d),
+html body .text-box textarea:not(.comment-input-3d) {
   width: 100% !important;
   height: 32px !important;
-  min-height: 32px !important;
+  min-height: 16px !important;
   max-height: 32px !important;
   resize: none !important;
   border: 0 !important;
   border-radius: 0 !important;
-  padding: 8px 12px !important;
+  padding: 4px 8px !important;
   font-size: 14px !important;
   outline: none !important;
   caret-color: #0a84ff !important;
@@ -1284,7 +1284,7 @@ html body .text-box textarea {
 
 .comment-form-3d {
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   gap: 12px !important;
   margin: 0 !important;
   padding: 0 !important;
@@ -1299,13 +1299,71 @@ html body .text-box textarea {
 .comment-input-wrapper {
   flex: 1 !important;
   display: flex !important;
-  align-items: center !important;
+  align-items: flex-start !important;
   background: #f1f1f1 !important;
   border-radius: 20px !important;
   padding: 8px !important;
   box-shadow: 
     inset 0 2px 4px rgba(0, 0, 0, 0.1),
     0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  min-height: 16px !important;
+  max-height: 136px !important;
+  overflow: visible !important;
+  transition: height 0.1s ease !important; /* Smooth expansion */
+}
+
+/* PROFILE CONTENT VIEWER ONLY - Ultra High Specificity */
+.fixed.inset-0.bg-black.z-50 .comment-input-bubble .comment-input-wrapper .comment-input-3d,
+.fixed.inset-0.bg-black.z-50 .comment-input-bubble textarea.comment-input-3d,
+.fixed.inset-0.bg-black.z-50 div.comment-input-bubble textarea.comment-input-3d,
+.fixed.inset-0.bg-black.z-50 form.comment-form-3d textarea.comment-input-3d {
+  flex: 1 !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  padding: 4px 8px !important;
+  font-size: 14px !important;
+  color: #333 !important;
+  font-family: inherit !important;
+  line-height: 16px !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  height: auto !important;
+  min-height: 16px !important;
+  max-height: 64px !important;
+  resize: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  transition: height 0.1s ease !important; /* Smooth expansion */
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+}
+
+/* PROFILE CONTENT VIEWER ONLY - ABSOLUTE MAXIMUM SPECIFICITY */
+html body div.fixed.inset-0.bg-black.z-50.flex div.w-80.bg-white.border-l.border-gray-200.flex.flex-col div.p-4.border-t.border-gray-200 div.comment-input-bubble form.comment-form-3d textarea.comment-input-3d,
+html body div.fixed.inset-0.bg-black.z-50.flex div.w-80.bg-white.border-l.border-gray-200.flex.flex-col div.p-4.border-t.border-gray-200 div.comment-input-bubble div.comment-input-wrapper textarea.comment-input-3d {
+  height: auto !important;
+  min-height: 16px !important;
+  max-height: 64px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  line-height: 16px !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  flex: 1 !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  padding: 4px 8px !important;
+  font-size: 14px !important;
+  color: #333 !important;
+  font-family: inherit !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  resize: none !important;
+  width: 100% !important;
+  transition: height 0.1s ease !important;
 }
 
 .comment-input-3d {
@@ -1314,25 +1372,81 @@ html body .text-box textarea {
   outline: none !important;
   background: transparent !important;
   padding: 4px 8px !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   color: #333 !important;
   font-family: inherit !important;
-  line-height: normal !important;
+  line-height: 16px !important;
   box-shadow: none !important;
   margin: 0 !important;
-  height: 24px !important;
-  min-height: 24px !important;
-  max-height: 24px !important;
+  height: auto !important;
+  min-height: 32px !important;
+  max-height: 32px !important;
   resize: none !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  transition: height 0.1s ease !important; /* Smooth expansion */
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
 }
 
 .comment-input-3d::placeholder {
   color: #999 !important;
 }
 
+/* Comment Content Wrapping */
+.comment-text {
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  max-width: 100% !important;
+  line-height: 1.4 !important;
+}
+
+.comment-text div {
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  max-width: 100% !important;
+}
+
+/* Ensure comment content wraps properly */
+/* ULTRA SPECIFIC OVERRIDE FOR PROFILE MODAL INPUT */
+html body div.fixed.inset-0.bg-black.z-50.flex.items-center.justify-center.p-8 div.max-w-6xl.max-h-\[85vh\].w-full.h-full.flex.bg-white.rounded-lg.overflow-hidden.shadow-2xl.animate-in.fade-in-0.zoom-in-95.duration-300 div.w-80.bg-white.border-l.border-gray-200.flex.flex-col div.p-4.border-t.border-gray-200 div.comment-input-bubble form.comment-form-3d div.comment-input-wrapper textarea.comment-input-3d {
+  height: auto !important;
+  min-height: 16px !important;
+  max-height: 64px !important;
+  line-height: 16px !important;
+  padding: 4px 8px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  word-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  flex: 1 !important;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  font-size: 14px !important;
+  color: #333 !important;
+  font-family: inherit !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  resize: none !important;
+  width: 100% !important;
+  transition: height 0.1s ease !important;
+}
+
+.comment-content div {
+  word-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  max-width: 100% !important;
+}
+
 .comment-send-3d {
   width: 24px !important;
-  height: 24px !important;
+  height: 32px !important;
   background: linear-gradient(135deg, #0a84ff 0%, #026eda 100%) !important;
   border: none !important;
   border-radius: 50% !important;
@@ -2334,7 +2448,7 @@ div[class*="fixed"][class*="inset-0"][class*="bg-black"] div[class*="bg-white"][
   background-image: none !important;
   border-radius: 4px !important;
   width: 60px !important;
-  height: 24px !important;
+  height: 32px !important;
   background-size: 100% auto !important;
   font-family: inherit !important;
   display: inline-flex !important;

@@ -94,6 +94,7 @@ export function Comment({
   const [searchTerm, setSearchTerm] = useState('');
   const [cursorPosition, setCursorPosition] = useState(0);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const [isExpanded, setIsExpanded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const commentRef = useRef<HTMLDivElement>(null);
 
@@ -107,6 +108,25 @@ export function Comment({
   // Check if content is a command
   const isCommand = (content: string) => {
     return content.trim().startsWith('$') || content.trim().startsWith('>');
+  };
+
+  // Check if comment is longer than 3 lines
+  const isLongComment = (content: string) => {
+    // Check if content would wrap to more than 3 lines
+    // Split by words and estimate line count based on typical line width
+    const words = content.split(' ');
+    const estimatedCharsPerLine = 50; // Rough estimate for mobile/desktop
+    const estimatedLines = Math.ceil(content.length / estimatedCharsPerLine);
+    return estimatedLines > 3 || content.length > 120;
+  };
+
+  // Get truncated content for display
+  const getDisplayContent = (content: string) => {
+    if (!isLongComment(content) || isExpanded) {
+      return content;
+    }
+    // Truncate to approximately 3 lines (120 characters)
+    return content.length > 120 ? content.substring(0, 120) + '...' : content;
   };
 
   // Add a helper to render content with clickable @mentions and URLs
@@ -328,7 +348,19 @@ export function Comment({
               </div>
             </div>
           ) : (
-            renderContentWithMentions(initialContent)
+            <div className="comment-text">
+              <div className="whitespace-pre-wrap break-words">
+                {renderContentWithMentions(getDisplayContent(initialContent))}
+              </div>
+              {isLongComment(initialContent) && (
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium mt-1 transition-colors"
+                >
+                  {isExpanded ? 'Show less' : 'Read all'}
+                </button>
+              )}
+            </div>
           )}
         </div>
       </div>

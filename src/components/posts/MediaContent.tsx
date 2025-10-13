@@ -170,13 +170,13 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
     switch (type) {
       case 'image':
         return (
-          <div className="post-image-container relative w-full mx-auto rounded-lg overflow-hidden">
+          <div className="post-image-container relative w-full mx-auto rounded-lg overflow-hidden aspect-video">
             <div
-              className="relative flex justify-center items-center overflow-hidden"
+              className="relative flex justify-center items-center overflow-hidden h-full"
               style={{ transform: `scale(${1.02})`, transition: 'transform 0.3s' }}
             >
               {!error && (
-                <div className="relative w-full">
+                <div className="relative w-full h-full">
                   <Image
                     src={correctedUrl || url}
                     alt="Post image"
@@ -184,7 +184,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
                     width={dimensions?.width || metadata?.width || 1920}
                     height={dimensions?.height || metadata?.height || 1080}
                     className={`
-                      post-image w-full h-auto object-contain
+                      post-image w-full h-full object-contain
                       ${isLoading ? 'blur-sm' : ''}
                       transition-transform duration-300
                     `}
@@ -196,10 +196,9 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
                     }}
                     style={{
                       cursor: 'pointer',
-                      maxHeight: '80vh',
                       width: '100%',
-                      height: dimensions?.height ? `${dimensions.height}px` : 'auto',
-                      aspectRatio: dimensions?.aspectRatio || metadata?.aspectRatio || 'auto'
+                      height: '100%',
+                      objectFit: 'contain'
                     }}
                   />
                   {username && showWatermark && <ContentWatermark username={username} />}
@@ -284,7 +283,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
 
       case 'image360':
         return (
-          <div className="relative w-full" style={{ aspectRatio: dimensions?.aspectRatio || metadata?.aspectRatio || '16/9' }}>
+          <div className="relative w-full aspect-video">
             <VRMediaPlayer
               type="image360"
               src={url}
@@ -301,7 +300,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
 
       case 'video360':
         return (
-          <div className="relative w-full" style={{ height: compact ? '300px' : '400px' }}>
+          <div className="relative w-full aspect-video">
             <VRMediaPlayer
               type="video360"
               src={url}
@@ -318,7 +317,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
 
       case 'vr':
         return (
-          <div className="relative w-full" style={{ height: compact ? '300px' : '400px' }}>
+          <div className="relative w-full aspect-video">
             <VRMediaPlayer
               type="vr"
               src={url}

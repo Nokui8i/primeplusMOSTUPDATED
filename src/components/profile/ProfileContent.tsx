@@ -21,6 +21,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import VRVideoPlayer from '@/components/media/VRVideoPlayer';
 import { Image, Video, LayoutGrid, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import React from 'react';
+import { CommentsList } from '@/components/posts/CommentsList';
+import { CommentInput } from '@/components/posts/CommentInput';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { toast } from 'react-hot-toast';
 
 interface ProfileContentProps {
   profile: UserProfile;
@@ -501,122 +505,37 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
       </div>
 
       {/* Facebook-Style Post Display */}
-      {selectedPost && (
-        <div 
-          className="fixed inset-0 bg-black z-50 flex"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setSelectedPost(null);
-            }
-          }}
-        >
-          {/* Main Image Area with Navigation Arrows */}
-          <div className="flex-1 flex items-center justify-center relative">
-            {/* Left Arrow */}
-            <button
-              onClick={goToPrev}
-              disabled={selectedIndex === 0}
-              className="absolute left-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            
-            {/* Right Arrow */}
-            <button
-              onClick={goToNext}
-              disabled={selectedIndex === filteredPosts.length - 1}
-              className="absolute right-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-            
-            {/* Close Button */}
-            <button
-              onClick={() => setSelectedPost(null)}
-              className="absolute top-4 right-4 z-10 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all duration-200"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
-            {/* Post Counter */}
-            <div className="absolute top-4 left-4 z-10 px-3 py-2 rounded-full bg-black/50 text-white text-sm font-medium">
-              {selectedIndex !== null ? selectedIndex + 1 : 1} of {filteredPosts.length}
-            </div>
-            
-            {/* Main Post Content */}
-            <div className="w-full h-full flex items-center justify-center">
-              <CompactPost
-                post={selectedPost}
-                currentUserId={profile.id}
-                onPostDeleted={handlePostDeleted}
-              />
-            </div>
-          </div>
-          
-          {/* Right Sidebar - Comments Panel */}
-          <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
-            {/* Post Info Header */}
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gray-200"></div>
-                <div>
-                  <div className="font-semibold text-gray-900">{selectedPost.author?.displayName || 'User'}</div>
-                  <div className="text-sm text-gray-500">
-                    {selectedPost.createdAt && new Date(selectedPost.createdAt.seconds * 1000).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Comments Section */}
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-4">
-                {/* Sample Comments - Replace with real comments */}
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gray-200"></div>
-                  <div className="flex-1">
-                    <div className="bg-gray-100 rounded-lg p-3">
-                      <div className="font-medium text-sm text-gray-900">User Name</div>
-                      <div className="text-sm text-gray-700 mt-1">This is a sample comment...</div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">2h</div>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gray-200"></div>
-                  <div className="flex-1">
-                    <div className="bg-gray-100 rounded-lg p-3">
-                      <div className="font-medium text-sm text-gray-900">Another User</div>
-                      <div className="text-sm text-gray-700 mt-1">Another comment here...</div>
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">1h</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Comment Input */}
-            <div className="p-4 border-t border-gray-200">
-              <div className="flex gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-200"></div>
-                <div className="flex-1">
-                  <textarea
-                    placeholder="Write a comment..."
-                    className="w-full p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    rows={2}
-                  />
-                  <div className="flex justify-end mt-2">
-                    <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                      Post
-                    </button>
-                  </div>
-                </div>
+        {selectedPost && (
+          <div 
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-8"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setSelectedPost(null);
+              }
+            }}
+          >
+            {/* Just the Post Component - Fixed size container */}
+            <div className="relative max-w-4xl w-full max-h-[90vh] overflow-y-auto animate-in fade-in-0 zoom-in-95 duration-300">
+              {/* Fixed size container for consistent post dimensions */}
+              <div className="w-full max-w-2xl mx-auto">
+                <CompactPost
+                  post={selectedPost}
+                  currentUserId={profile.id}
+                  onPostDeleted={handlePostDeleted}
+                  transparent={false}
+                  showNavigation={true}
+                  onClose={() => setSelectedPost(null)}
+                  onPrev={goToPrev}
+                  onNext={goToNext}
+                  canGoPrev={selectedIndex !== 0}
+                  canGoNext={selectedIndex !== filteredPosts.length - 1}
+                  currentIndex={selectedIndex || 0}
+                  totalCount={filteredPosts.length}
+                />
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }
