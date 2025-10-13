@@ -422,6 +422,19 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       return;
     }
     
+    // Skip incrementing views for posts created by the current user in the last 5 minutes
+    if (user?.uid === post.authorId) {
+      const postCreatedAt = post.createdAt;
+      if (postCreatedAt) {
+        const createdAt = postCreatedAt instanceof Date ? postCreatedAt : postCreatedAt.toDate();
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        if (createdAt > fiveMinutesAgo) {
+          console.log('[CompactPost] Skipping view count for recently created post by current user');
+          return;
+        }
+      }
+    }
+    
     const viewedKey = `viewed_post_${post.id}`;
     if (!sessionStorage.getItem(viewedKey)) {
       const today = new Date();
@@ -437,7 +450,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
         .then(() => sessionStorage.setItem(viewedKey, '1'))
         .catch((err) => console.error('[CompactPost] Failed to increment views:', err));
     }
-  }, [post.id, post.authorId]);
+  }, [post.id, post.authorId, user?.uid]);
 
   const handleLike = async () => {
     console.log('handleLike called!', { currentPostId: currentPost.id, isLiked, user: user?.uid });

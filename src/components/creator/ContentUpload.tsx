@@ -232,6 +232,13 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
         shares: 0,
         views: 0,
         taggedUsers: [],
+        engagement: {
+          views: 0,
+          uniqueViews: 0,
+          saveCount: 0,
+          reportCount: 0,
+          viewsByDay: {}
+        },
       });
 
       console.log('Post created with ID:', postRef.id);
