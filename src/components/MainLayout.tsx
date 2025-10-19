@@ -7,6 +7,7 @@ import { NotificationsDropdown } from './NotificationsDropdown';
 import { Search } from './Search';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { isUserBlocked } from '@/lib/services/block.service';
 import { useRouter, usePathname } from 'next/navigation';
 import AppLoader from './common/AppLoader';
 import { AnimatePresence } from 'framer-motion';
@@ -16,6 +17,7 @@ import { UserProfile } from '@/lib/types/user';
 import { RoutePrefetcher } from './common/RoutePrefetcher';
 import { DataPreloader } from './common/DataPreloader';
 import { ChatWindows } from './chat/ChatWindows';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Creator {
   id: string;
@@ -45,6 +47,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const mainContentRef = useRef<HTMLElement>(null);
+  const { user } = useAuth();
   
   // Hide right sidebar on messages page
   const isMessagesPage = pathname === '/messages';
@@ -86,7 +89,23 @@ export default function MainLayout({ children }: MainLayoutProps) {
           postCount: doc.data().postCount || 0
         }));
 
-        setSuggestedCreators(creators.map(creator => ({
+        // Filter out creators who blocked current user (one-way blocking)
+        const filteredCreators = [];
+        for (const creator of creators) {
+          if (user?.uid) {
+            // Only check if creator blocked current user (one-way blocking)
+            const creatorBlockedUser = await isUserBlocked(creator.id, user.uid);
+
+            if (!creatorBlockedUser) {
+              filteredCreators.push(creator);
+            }
+          } else {
+            // If no user is logged in, include all creators
+            filteredCreators.push(creator);
+          }
+        }
+
+        setSuggestedCreators(filteredCreators.map(creator => ({
           uid: creator.id,
           id: creator.id,
           email: '',
@@ -124,7 +143,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
     fetchData();
     return () => clearTimeout(timeout);
-  }, []);
+  }, [user?.uid]);
 
 
   // Global scroll handler - redirect scroll events to main content when mouse is over feed

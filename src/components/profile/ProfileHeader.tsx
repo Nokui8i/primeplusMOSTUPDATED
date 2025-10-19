@@ -200,25 +200,20 @@ export function ProfileHeader({
     checkSubscriptionStatus();
   }, [profile?.id, isOwnProfile]);
 
-  // Check if user is blocked (bidirectional)
+  // Check if current user blocked the profile owner (for block/unblock button)
   useEffect(() => {
     const checkBlockStatus = async () => {
       if (isOwnProfile || !user?.uid || !profile?.uid) return;
       
       setCheckingBlockStatus(true);
       try {
-        // Check both directions: if current user blocked profile OR if profile blocked current user
-        const [userBlockedProfile, profileBlockedUser] = await Promise.all([
-          isUserBlocked(user.uid, profile.uid),
-          isUserBlocked(profile.uid, user.uid)
-        ]);
+        // Check if current user blocked the profile owner (for button display)
+        const userBlockedProfile = await isUserBlocked(user.uid, profile.uid);
         
-        const blocked = userBlockedProfile || profileBlockedUser;
-        setIsBlocked(blocked);
+        setIsBlocked(userBlockedProfile);
         console.log('[ProfileHeader] Block status:', { 
           userBlockedProfile, 
-          profileBlockedUser, 
-          blocked, 
+          blocked: userBlockedProfile, 
           viewer: user.uid, 
           profile: profile.uid 
         });
@@ -352,289 +347,49 @@ export function ProfileHeader({
 
             {/* Action Buttons - Fixed Position */}
             <div className="inline-flex flex-wrap gap-3">
-              {isOwnProfile && (
-                profile.bio ? (
+              {!isOwnProfile && !isBlocked && (
+                <>
                   <button
-                    className="profile-btn edit-bio"
-                    onClick={() => setEditingBio(true)}
-                    style={{
-                      border: 'none',
-                      color: '#fff',
-                      backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                      backgroundColor: 'transparent',
-                      borderRadius: '20px',
-                      backgroundSize: '100% auto',
-                      fontFamily: 'inherit',
-                      fontSize: '11px',
-                      padding: '0.3em 0.6em',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      transition: 'all 0.3s ease-in-out',
-                      boxShadow: 'none',
-                      margin: '0',
-                      width: 'auto',
-                      height: 'auto',
-                      minWidth: 'auto',
-                      minHeight: 'auto',
-                      maxWidth: 'none',
-                      maxHeight: 'none',
-                      flexShrink: '0',
-                      textDecoration: 'none',
-                      fontWeight: 'normal',
-                      textTransform: 'none',
-                      letterSpacing: 'normal',
-                      whiteSpace: 'nowrap',
-                      verticalAlign: 'middle',
-                      userSelect: 'none',
-                      WebkitUserSelect: 'none',
-                      MozUserSelect: 'none',
-                      msUserSelect: 'none',
-                      WebkitAppearance: 'none',
-                      MozAppearance: 'none',
-                      appearance: 'none',
-                      backgroundOrigin: 'padding-box',
-                      backgroundClip: 'padding-box',
-                      position: 'relative'
-                    }}
+                    onClick={handleMessageClick}
+                    className="profile-btn chat"
                   >
-                    <span>EDIT BIO</span>
+                    <HiOutlineChatBubbleLeftRight size={16} />
+                    <span>CHAT</span>
                   </button>
-                ) : (
+                  <FollowButton
+                    userId={profile.id}
+                    className="profile-btn follow"
+                  />
                   <button
-                    className="profile-btn edit-bio"
-                    onClick={() => setEditingBio(true)}
-                    style={{
-                      border: 'none',
-                      color: '#fff',
-                      backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                      backgroundColor: 'transparent',
-                      borderRadius: '20px',
-                      backgroundSize: '100% auto',
-                      fontFamily: 'inherit',
-                      fontSize: '11px',
-                      padding: '0.3em 0.6em',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      cursor: 'pointer',
-                      outline: 'none',
-                      transition: 'all 0.3s ease-in-out',
-                      boxShadow: 'none',
-                      margin: '0',
-                      width: 'auto',
-                      height: 'auto',
-                      minWidth: 'auto',
-                      minHeight: 'auto',
-                      maxWidth: 'none',
-                      maxHeight: 'none',
-                      flexShrink: '0',
-                      textDecoration: 'none',
-                      fontWeight: 'normal',
-                      textTransform: 'none',
-                      letterSpacing: 'normal',
-                      whiteSpace: 'nowrap',
-                      verticalAlign: 'middle',
-                      userSelect: 'none',
-                      WebkitUserSelect: 'none',
-                      MozUserSelect: 'none',
-                      msUserSelect: 'none',
-                      WebkitAppearance: 'none',
-                      MozAppearance: 'none',
-                      appearance: 'none',
-                      backgroundOrigin: 'padding-box',
-                      backgroundClip: 'padding-box',
-                      position: 'relative'
-                    }}
+                    onClick={() => setShowPlansModal(true)}
+                    disabled={checkingSubscription || isSubscribed}
+                    className="profile-btn subscribe"
                   >
-                    <span>ADD BIO</span>
+                    <span>SUBSCRIBE</span>
                   </button>
-                )
+                </>
               )}
             
-            <button
-              onClick={handleShare}
-              className="profile-btn share"
-              style={{
-                border: 'none',
-                color: '#fff',
-                backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                backgroundColor: 'transparent',
-                borderRadius: '20px',
-                backgroundSize: '100% auto',
-                fontFamily: 'inherit',
-                fontSize: '11px',
-                padding: '0.3em 0.6em',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                cursor: 'pointer',
-                outline: 'none',
-                transition: 'all 0.3s ease-in-out',
-                boxShadow: 'none',
-                margin: '0',
-                width: 'auto',
-                height: 'auto',
-                minWidth: 'auto',
-                minHeight: 'auto',
-                maxWidth: 'none',
-                maxHeight: 'none',
-                textDecoration: 'none',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                letterSpacing: 'normal',
-                whiteSpace: 'nowrap',
-                verticalAlign: 'middle',
-                userSelect: 'none',
-                WebkitUserSelect: 'none',
-                MozUserSelect: 'none',
-                msUserSelect: 'none',
-                WebkitAppearance: 'none',
-                MozAppearance: 'none',
-                appearance: 'none',
-                backgroundOrigin: 'padding-box',
-                backgroundClip: 'padding-box',
-                position: 'relative'
-              }}
-            >
-              <Share2 size={16} />
-              <span>SHARE</span>
-            </button>
-            
-            {!isOwnProfile && !isBlocked && (
-              <>
-                <button
-                  onClick={handleMessageClick}
-                  className="profile-btn chat"
-                  style={{
-                    border: 'none',
-                    color: '#fff',
-                    backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                    backgroundColor: 'transparent',
-                    borderRadius: '20px',
-                    backgroundSize: '100% auto',
-                    fontFamily: 'inherit',
-                    fontSize: '11px',
-                    padding: '0.3em 0.6em',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    transition: 'all 0.3s ease-in-out',
-                    boxShadow: 'none',
-                    margin: '0',
-                    width: 'auto',
-                    height: 'auto',
-                    minWidth: 'auto',
-                    minHeight: 'auto',
-                    maxWidth: 'none',
-                    maxHeight: 'none',
-                    textDecoration: 'none',
-                    fontWeight: '600',
-                    textTransform: 'uppercase',
-                    letterSpacing: 'normal',
-                    whiteSpace: 'nowrap',
-                    verticalAlign: 'middle',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    MozUserSelect: 'none',
-                    msUserSelect: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                    appearance: 'none',
-                    backgroundOrigin: 'padding-box',
-                    backgroundClip: 'padding-box',
-                    position: 'relative'
-                  }}
-                >
-                  <HiOutlineChatBubbleLeftRight size={16} />
-                  <span>CHAT</span>
-                </button>
-                <FollowButton
-                  userId={profile.id}
-                  className="profile-btn follow"
-                />
-                <button
-                  onClick={() => setShowPlansModal(true)}
-                  disabled={checkingSubscription || isSubscribed}
-                  className="profile-btn subscribe"
-                  style={{
-                    border: 'none',
-                    color: '#fff',
-                    backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                    backgroundColor: 'transparent',
-                    borderRadius: '20px',
-                    backgroundSize: '100% auto',
-                    fontFamily: 'inherit',
-                    fontSize: '11px',
-                    padding: '0.3em 0.6em',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    transition: 'all 0.3s ease-in-out',
-                    boxShadow: 'none',
-                    margin: '0',
-                    width: 'auto',
-                    height: 'auto',
-                    minWidth: 'auto',
-                    minHeight: 'auto',
-                    maxWidth: 'none',
-                    maxHeight: 'none',
-                    textDecoration: 'none',
-                    fontWeight: '600',
-                    textTransform: 'uppercase',
-                    letterSpacing: 'normal',
-                    whiteSpace: 'nowrap',
-                    verticalAlign: 'middle',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    MozUserSelect: 'none',
-                    msUserSelect: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                    appearance: 'none',
-                    backgroundOrigin: 'padding-box',
-                    backgroundClip: 'padding-box',
-                    position: 'relative'
-                  }}
-                >
-                  <span>SUBSCRIBE</span>
-                </button>
-              </>
-            )}
-            
-            {!isOwnProfile && (
-              <>
-                {/* 3 Dots Dropdown Menu - Always visible for block/unblock */}
-                <div className="relative dropdown-container">
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      console.log('🔍 3 dots clicked!');
-                      setIsDropdownOpen(!isDropdownOpen);
-                    }}
-                    className={`h-8 w-8 p-0 opacity-100 transition-colors flex items-center justify-center rounded ${
-                      isDropdownOpen 
-                        ? 'text-blue-600' 
-                        : 'text-gray-600 hover:text-gray-800'
-                    }`}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </button>
+            {/* 3 Dots Dropdown Menu - Always visible */}
+            <div className="relative dropdown-container">
+              <button 
+                type="button"
+                onClick={() => {
+                  console.log('🔍 3 dots clicked!');
+                  setIsDropdownOpen(!isDropdownOpen);
+                }}
+                className={`h-8 w-8 p-0 opacity-100 transition-colors flex items-center justify-center rounded ${
+                  isDropdownOpen 
+                    ? 'text-blue-600' 
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
                   
                   {isDropdownOpen && (
                     <div 
-                      className="absolute right-0 top-full mt-1 w-32 z-50"
+                      className="absolute right-0 top-full mt-1 w-28 z-50"
                       style={{
                         borderRadius: '12px',
                         boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
@@ -645,60 +400,106 @@ export function ProfileHeader({
                         zIndex: 99999
                       }}
                     >
-                      {isBlocked ? (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleUnblockUser();
-                            setIsDropdownOpen(false);
-                          }}
-                          disabled={blocking || checkingBlockStatus}
-                          className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
-                          style={{ 
-                            fontWeight: '500', 
-                            fontSize: '12px',
-                            pointerEvents: 'auto',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {blocking ? (
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
-                          ) : (
-                            <UserX className="mr-2 h-3 w-3" />
-                          )}
-                          Unblock
-                        </button>
+                      {isOwnProfile ? (
+                        <>
+                          {/* Share Button */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleShare();
+                              setIsDropdownOpen(false);
+                            }}
+                            className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center justify-between"
+                            style={{ 
+                              fontWeight: '500', 
+                              fontSize: '12px',
+                              pointerEvents: 'auto',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <span>Share</span>
+                            <Share2 className="h-3 w-3 text-gray-500" />
+                          </button>
+                          
+                          {/* Edit Bio Button */}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setEditingBio(true);
+                              setIsDropdownOpen(false);
+                            }}
+                            className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center justify-between"
+                            style={{ 
+                              fontWeight: '500', 
+                              fontSize: '12px',
+                              pointerEvents: 'auto',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <span>{profile.bio ? 'Edit Bio' : 'Add Bio'}</span>
+                            <svg className="h-3 w-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                        </>
                       ) : (
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            handleBlockUser();
-                            setIsDropdownOpen(false);
-                          }}
-                          disabled={blocking || checkingBlockStatus}
-                          className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
-                          style={{ 
-                            fontWeight: '500', 
-                            fontSize: '12px',
-                            pointerEvents: 'auto',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          {blocking ? (
-                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
+                        <>
+                          {isBlocked ? (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleUnblockUser();
+                                setIsDropdownOpen(false);
+                              }}
+                              disabled={blocking || checkingBlockStatus}
+                              className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
+                              style={{ 
+                                fontWeight: '500', 
+                                fontSize: '12px',
+                                pointerEvents: 'auto',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {blocking ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
+                              ) : (
+                                <UserX className="mr-2 h-3 w-3" />
+                              )}
+                              Unblock
+                            </button>
                           ) : (
-                            <UserX className="mr-2 h-3 w-3" />
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleBlockUser();
+                                setIsDropdownOpen(false);
+                              }}
+                              disabled={blocking || checkingBlockStatus}
+                              className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
+                              style={{ 
+                                fontWeight: '500', 
+                                fontSize: '12px',
+                                pointerEvents: 'auto',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {blocking ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
+                              ) : (
+                                <UserX className="mr-2 h-3 w-3" />
+                              )}
+                              Block
+                            </button>
                           )}
-                          Block
-                        </button>
+                        </>
                       )}
                     </div>
                   )}
                 </div>
-              </>
-            )}
             </div>
           </div>
         </div>

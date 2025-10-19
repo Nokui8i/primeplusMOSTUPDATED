@@ -3,6 +3,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 import { useAuth } from '@/hooks/useAuth';
 import { CreatorCard } from '../user/CreatorCard';
+import { isUserBlocked } from '@/lib/services/block.service';
 
 function shuffleArray(array: any[]) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -14,6 +15,8 @@ function shuffleArray(array: any[]) {
 
 export function SuggestedCreators() {
   const [creators, setCreators] = useState<any[]>([]);
+  const [filteredCreators, setFilteredCreators] = useState<any[]>([]);
+  const [isFiltering, setIsFiltering] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -29,10 +32,45 @@ export function SuggestedCreators() {
     return () => unsub();
   }, [user]);
 
-  // Filter to only real, registered users
-  const realCreators = creators.filter(
+  // Filter out blocked users
+  useEffect(() => {
+    const filterBlockedUsers = async () => {
+      if (!user?.uid || creators.length === 0) {
+        setFilteredCreators(creators);
+        return;
+      }
+
+      setIsFiltering(true);
+      try {
+        const filtered = [];
+        for (const creator of creators) {
+          // Only check if creator blocked current user (one-way blocking)
+          const creatorBlockedUser = await isUserBlocked(creator.id, user.uid);
+
+          if (!creatorBlockedUser) {
+            filtered.push(creator);
+          }
+        }
+        setFilteredCreators(filtered);
+      } catch (error) {
+        console.error('Error filtering blocked users:', error);
+        setFilteredCreators(creators);
+      } finally {
+        setIsFiltering(false);
+      }
+    };
+
+    filterBlockedUsers();
+  }, [creators, user?.uid]);
+
+  // Filter to only real, registered users from the already filtered (non-blocked) creators
+  const realCreators = filteredCreators.filter(
     (u) => u.email && u.profileCompleted === true && !u.email.includes('test') && !u.username?.toLowerCase().includes('test')
   );
+
+  if (isFiltering) {
+    return <div className="text-gray-500 text-sm">Loading suggested creators...</div>;
+  }
 
   if (realCreators.length === 0) {
     return <div className="text-gray-500 text-sm">No creators found yet.</div>;

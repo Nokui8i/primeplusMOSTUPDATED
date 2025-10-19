@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -136,7 +136,7 @@ button[class*="profile-btn"] {
   max-width: 90vw !important;
   padding: 25px !important;
   background: #ffffff !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 25px !important;
@@ -233,16 +233,16 @@ button[class*="profile-btn"] {
 }
 
 .slider {
-  width: 40px;
-  height: 20px;
+  width: 32px;
+  height: 16px;
   background-color: lightgray;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
   display: flex;
   align-items: center;
   border: 2px solid transparent;
   transition: .3s;
-  box-shadow: 0 0 6px 0 rgb(0, 0, 0, 0.25) inset;
+  box-shadow: 0 0 4px 0 rgb(0, 0, 0, 0.25) inset;
   cursor: pointer;
 }
 
@@ -252,15 +252,15 @@ button[class*="profile-btn"] {
   width: 100%;
   height: 100%;
   background-color: #fff;
-  transform: translateX(-20px);
-  border-radius: 12px;
+  transform: translateX(-16px);
+  border-radius: 10px;
   transition: .3s;
-  box-shadow: 0 0 6px 2px rgb(0, 0, 0, 0.25);
+  box-shadow: 0 0 4px 2px rgb(0, 0, 0, 0.25);
 }
 
 .checkbox:checked ~ .slider::before {
-  transform: translateX(20px);
-  box-shadow: 0 0 6px 2px rgb(0, 0, 0, 0.25);
+  transform: translateX(16px);
+  box-shadow: 0 0 4px 2px rgb(0, 0, 0, 0.25);
 }
 
 .checkbox:checked ~ .slider {
@@ -332,13 +332,13 @@ button[class*="profile-btn"] {
 
 .upload-drop-zone {
   border: 2px dashed #4480FF;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 6px;
+  padding: 8px;
   text-align: center;
   transition: all 0.3s ease;
   background: #f8faff;
   margin: 0;
-  min-height: 80px;
+  min-height: 45px;
 }
 
 .upload-drop-zone:hover {
@@ -352,10 +352,10 @@ button[class*="profile-btn"] {
 }
 
 .upload-drop-zone .drop-text {
-  font-size: 14px;
+  font-size: 11px;
   font-weight: 500;
   color: #666;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 /* Settings Section */
@@ -427,13 +427,13 @@ button[class*="profile-btn"] {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  padding: 12px 24px;
-  height: 40px;
+  padding: 8px 16px;
+  height: 32px;
   background: #ffffff;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #e0e0e0;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 12px;
   color: #666;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -449,13 +449,13 @@ button[class*="profile-btn"] {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  padding: 12px 24px;
-  height: 40px;
+  padding: 8px 16px;
+  height: 32px;
   background: #4480FF;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 0;
   font-weight: 500;
-  font-size: 14px;
+  font-size: 12px;
   color: #ffffff;
   transition: all 0.3s ease;
   cursor: pointer;
@@ -483,11 +483,11 @@ button[class*="profile-btn"] {
   color: #fff !important;
   background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
   background-color: transparent !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   background-size: 100% auto !important;
   font-family: inherit !important;
-  font-size: 11px !important;
-  padding: 0.3em 0.6em !important;
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -503,6 +503,57 @@ button[class*="profile-btn"] {
   min-height: auto !important;
   max-width: none !important;
   max-height: none !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+  font-weight: normal !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  position: relative !important;
+}
+
+/* ULTIMATE OVERRIDE - Force all profile buttons to be identical */
+div.inline-flex.flex-wrap.gap-3 button.profile-btn,
+div.inline-flex.flex-wrap.gap-3 .profile-btn,
+div.inline-flex.gap-3 button.profile-btn,
+div.inline-flex.gap-3 .profile-btn,
+html body div button.profile-btn,
+html body div .profile-btn {
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  color: #fff !important;
+  background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
+  background-color: transparent !important;
+  border-radius: 16px !important;
+  background-size: 100% auto !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: all 0.3s ease-in-out !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: none !important;
   flex-shrink: 0 !important;
   text-decoration: none !important;
   font-weight: normal !important;
@@ -650,11 +701,11 @@ div button.profile-btn {
   border: none !important;
   color: #fff !important;
   background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   background-size: 100% auto !important;
   font-family: inherit !important;
-  font-size: 11px !important;
-  padding: 0.3em 0.6em !important;
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -855,11 +906,11 @@ button.profile-btn[class*="h-"] {
   border: none !important;
   color: #fff !important;
   background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   background-size: 100% auto !important;
   font-family: inherit !important;
-  font-size: 11px !important;
-  padding: 0.3em 0.6em !important;
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -912,15 +963,19 @@ button.profile-btn *,
 div.flex.flex-wrap.gap-3.mb-4 button.profile-btn,
 div.flex.flex-wrap.gap-3.mb-4 .profile-btn,
 div.flex.gap-3 button.profile-btn,
-div.flex.gap-3 .profile-btn {
+div.flex.gap-3 .profile-btn,
+div.inline-flex.flex-wrap.gap-3 button.profile-btn,
+div.inline-flex.flex-wrap.gap-3 .profile-btn,
+div.inline-flex.gap-3 button.profile-btn,
+div.inline-flex.gap-3 .profile-btn {
   border: none !important;
   color: #fff !important;
   background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   background-size: 100% auto !important;
   font-family: inherit !important;
-  font-size: 11px !important;
-  padding: 0.3em 0.6em !important;
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -956,7 +1011,11 @@ div.flex.gap-3 .profile-btn {
 div.flex.flex-wrap.gap-3.mb-4 button.profile-btn:hover,
 div.flex.flex-wrap.gap-3.mb-4 .profile-btn:hover,
 div.flex.gap-3 button.profile-btn:hover,
-div.flex.gap-3 .profile-btn:hover {
+div.flex.gap-3 .profile-btn:hover,
+div.inline-flex.flex-wrap.gap-3 button.profile-btn:hover,
+div.inline-flex.flex-wrap.gap-3 .profile-btn:hover,
+div.inline-flex.gap-3 button.profile-btn:hover,
+div.inline-flex.gap-3 .profile-btn:hover {
   background-position: right center !important;
   background-size: 200% auto !important;
   -webkit-animation: pulse 2s infinite !important;
@@ -969,16 +1028,21 @@ html body div .profile-btn,
 html body button.profile-btn,
 html body .profile-btn,
 button.profile-btn.profile-btn,
-.profile-btn.profile-btn {
+.profile-btn.profile-btn,
+button.profile-btn.edit-bio,
+button.profile-btn.share,
+button.profile-btn.chat,
+button.profile-btn.follow,
+button.profile-btn.subscribe {
   border: none !important;
   color: #fff !important;
   background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
   background-color: transparent !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   background-size: 100% auto !important;
   font-family: inherit !important;
-  font-size: 11px !important;
-  padding: 0.3em 0.6em !important;
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -994,6 +1058,57 @@ button.profile-btn.profile-btn,
   min-height: auto !important;
   max-width: none !important;
   max-height: none !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+  font-weight: normal !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  position: relative !important;
+}
+
+/* ULTIMATE OVERRIDE - Force all profile buttons to be identical */
+div.inline-flex.flex-wrap.gap-3 button.profile-btn,
+div.inline-flex.flex-wrap.gap-3 .profile-btn,
+div.inline-flex.gap-3 button.profile-btn,
+div.inline-flex.gap-3 .profile-btn,
+html body div button.profile-btn,
+html body div .profile-btn {
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  color: #fff !important;
+  background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
+  background-color: transparent !important;
+  border-radius: 16px !important;
+  background-size: 100% auto !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: all 0.3s ease-in-out !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: none !important;
   flex-shrink: 0 !important;
   text-decoration: none !important;
   font-weight: normal !important;
@@ -1038,7 +1153,7 @@ button.profile-btn.profile-btn:hover,
 
 .text-box .box-container {
   background-color: #f1f1f1 !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   padding: 8px !important;
   margin: 0 !important;
   border: none !important;
@@ -1050,7 +1165,7 @@ button.profile-btn.profile-btn:hover,
 div.text-box textarea,
 div.text-box div.box-container textarea {
   width: 100% !important;
-  height: 32px !important;
+  height: 24px !important;
   resize: none !important;
   border: 0 !important;
   border-radius: 0 !important;
@@ -1125,7 +1240,7 @@ div.text-box div.box-container textarea {
   display: flex !important;
   align-items: center !important;
   background-color: #f1f1f1 !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   padding: 8px !important;
   margin: 0 !important;
   border: none !important;
@@ -1139,7 +1254,7 @@ div.text-box div.box-container textarea {
   padding: 4px 8px !important;
   font-size: 14px !important;
   color: #333 !important;
-  height: 32px !important;
+  height: 24px !important;
   resize: none !important;
   font-family: inherit !important;
   line-height: normal !important;
@@ -1152,7 +1267,7 @@ div.text-box div.box-container textarea {
 
 .comment-send-icon {
   width: 32px !important;
-  height: 32px !important;
+  height: 24px !important;
   background-color: #0a84ff !important;
   border: none !important;
   border-radius: 50% !important;
@@ -1232,7 +1347,7 @@ html body div.text-box div.box-container textarea,
 html body form textarea:not(.settings-bio-field):not(.profile-bio-edit):not(.comment-input-3d),
 html body .text-box textarea:not(.comment-input-3d) {
   width: 100% !important;
-  height: 32px !important;
+  height: 24px !important;
   min-height: 16px !important;
   max-height: 32px !important;
   resize: none !important;
@@ -1301,7 +1416,7 @@ html body .text-box textarea:not(.comment-input-3d) {
   display: flex !important;
   align-items: flex-start !important;
   background: #f1f1f1 !important;
-  border-radius: 20px !important;
+  border-radius: 16px !important;
   padding: 8px !important;
   box-shadow: 
     inset 0 2px 4px rgba(0, 0, 0, 0.1),
@@ -1379,8 +1494,8 @@ html body div.fixed.inset-0.bg-black.z-50.flex div.w-80.bg-white.border-l.border
   box-shadow: none !important;
   margin: 0 !important;
   height: auto !important;
-  min-height: 32px !important;
-  max-height: 32px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
   resize: none !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -1446,7 +1561,7 @@ html body div.fixed.inset-0.bg-black.z-50.flex.items-center.justify-center.p-8 d
 
 .comment-send-3d {
   width: 24px !important;
-  height: 32px !important;
+  height: 24px !important;
   background: linear-gradient(135deg, #0a84ff 0%, #026eda 100%) !important;
   border: none !important;
   border-radius: 50% !important;
@@ -2448,7 +2563,7 @@ div[class*="fixed"][class*="inset-0"][class*="bg-black"] div[class*="bg-white"][
   background-image: none !important;
   border-radius: 4px !important;
   width: 60px !important;
-  height: 32px !important;
+  height: 24px !important;
   background-size: 100% auto !important;
   font-family: inherit !important;
   display: inline-flex !important;
@@ -2466,6 +2581,57 @@ div[class*="fixed"][class*="inset-0"][class*="bg-black"] div[class*="bg-white"][
   min-height: auto !important;
   max-width: none !important;
   max-height: none !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+  font-weight: normal !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  position: relative !important;
+}
+
+/* ULTIMATE OVERRIDE - Force all profile buttons to be identical */
+div.inline-flex.flex-wrap.gap-3 button.profile-btn,
+div.inline-flex.flex-wrap.gap-3 .profile-btn,
+div.inline-flex.gap-3 button.profile-btn,
+div.inline-flex.gap-3 .profile-btn,
+html body div button.profile-btn,
+html body div .profile-btn {
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  color: #fff !important;
+  background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
+  background-color: transparent !important;
+  border-radius: 16px !important;
+  background-size: 100% auto !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: all 0.3s ease-in-out !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: none !important;
   flex-shrink: 0 !important;
   text-decoration: none !important;
   font-weight: normal !important;
@@ -2606,4 +2772,112 @@ div[class*="fixed"][class*="inset-0"][class*="bg-black"] div[class*="bg-white"][
 .radio-inputs .radio input:checked + .name {
   background-color: #fff;
   font-weight: 600;
+}
+
+/* FORCE ALL PROFILE BUTTONS TO BE EXACTLY THE SAME SMALL SIZE */
+button.profile-btn,
+.profile-btn,
+button.profile-btn.edit-bio,
+button.profile-btn.share,
+button.profile-btn.chat,
+button.profile-btn.follow,
+button.profile-btn.subscribe,
+.profile-btn.edit-bio,
+.profile-btn.share,
+.profile-btn.chat,
+.profile-btn.follow,
+.profile-btn.subscribe {
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
+  height: auto !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  color: #fff !important;
+  background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
+  background-color: transparent !important;
+  border-radius: 16px !important;
+  background-size: 100% auto !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: all 0.3s ease-in-out !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: none !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+  font-weight: normal !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  position: relative !important;
+}
+
+/* ULTIMATE OVERRIDE - Force all profile buttons to be identical */
+div.inline-flex.flex-wrap.gap-3 button.profile-btn,
+div.inline-flex.flex-wrap.gap-3 .profile-btn,
+div.inline-flex.gap-3 button.profile-btn,
+div.inline-flex.gap-3 .profile-btn,
+html body div button.profile-btn,
+html body div .profile-btn {
+  font-size: 10px !important;
+  padding: 0.25em 0.5em !important;
+  height: 24px !important;
+  min-height: 24px !important;
+  max-height: 24px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  color: #fff !important;
+  background-image: linear-gradient(30deg, #0400ff, #4ce3f7) !important;
+  background-color: transparent !important;
+  border-radius: 16px !important;
+  background-size: 100% auto !important;
+  font-family: inherit !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: all 0.3s ease-in-out !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  width: auto !important;
+  min-width: auto !important;
+  max-width: none !important;
+  flex-shrink: 0 !important;
+  text-decoration: none !important;
+  font-weight: normal !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  white-space: nowrap !important;
+  vertical-align: middle !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-origin: padding-box !important;
+  background-clip: padding-box !important;
+  position: relative !important;
 }

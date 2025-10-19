@@ -13,6 +13,7 @@ import { User } from '@/lib/types/user'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { onSnapshot as onDocSnapshot } from 'firebase/firestore'
 import AppLoader from '@/components/common/AppLoader'
+import { isUserBlocked } from '@/lib/services/block.service'
 
 const POSTS_PER_PAGE = 10
 
@@ -122,6 +123,15 @@ export default function HomePage() {
           console.error(`No author ID found for post ${doc.id}`);
           continue;
         }
+
+        // Only check if author blocked current user (one-way blocking)
+        const authorBlockedUser = await isUserBlocked(authorId, user.uid);
+
+        if (authorBlockedUser) {
+          console.log(`Skipping post ${doc.id} from blocked user ${authorId}`);
+          continue; // Skip this post completely
+        }
+
         const authorSnap = await getDoc(docRef(db, 'users', authorId));
         const authorData = authorSnap.data() as DocumentData;
         if (!authorData) {

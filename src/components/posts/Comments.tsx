@@ -121,7 +121,7 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
     checkCommentAccess();
   }, [user, post]);
 
-  // Check if user is blocked (bidirectional)
+  // Check if current user is blocked by the post author (one-way blocking)
   useEffect(() => {
     const checkBlockStatus = async () => {
       if (!user?.uid || !postAuthorId) {
@@ -132,18 +132,13 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
       
       setCheckingBlock(true);
       try {
-        // Check both directions: if current user blocked author OR if author blocked current user
-        const [userBlockedAuthor, authorBlockedUser] = await Promise.all([
-          isUserBlocked(user.uid, postAuthorId),
-          isUserBlocked(postAuthorId, user.uid)
-        ]);
+        // Only check if author blocked current user (one-way blocking)
+        const authorBlockedUser = await isUserBlocked(postAuthorId, user.uid);
         
-        const blocked = userBlockedAuthor || authorBlockedUser;
-        setIsBlocked(blocked);
+        setIsBlocked(authorBlockedUser);
         console.log('[Comments] Block status:', { 
-          userBlockedAuthor, 
           authorBlockedUser, 
-          blocked, 
+          blocked: authorBlockedUser, 
           viewer: user.uid, 
           author: postAuthorId 
         });
@@ -200,16 +195,9 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
     );
   }
 
-  // Show blocked message if user is blocked
+  // Completely hide blocked content - no message shown
   if (isBlocked) {
-    return (
-      <div className="comments-bubble-container p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
-        <div className="flex items-center justify-center gap-2">
-          <Lock className="h-4 w-4" />
-          <span>Comments are not available</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

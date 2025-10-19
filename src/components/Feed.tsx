@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { collection, query, orderBy, limit, startAfter, getDocs, where } from 'firebase/firestore'
+import { collection, query, orderBy, limit, startAfter, getDocs, where, getDoc, doc } from 'firebase/firestore'
 import { db } from '../lib/firebase/config'
 import { Post } from './Post'
 import { useInfiniteScroll } from '../hooks/useInfiniteScroll'
 import { useAuth } from '../hooks/useAuth'
 import { PostData } from '../types'
 import { ErrorBoundary } from './ErrorBoundary'
+import { isUserBlocked } from '../lib/services/block.service'
 
 const POSTS_PER_PAGE = 10
 const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
@@ -25,7 +26,7 @@ export function Feed() {
   const cache = useRef<Map<string, CachedData>>(new Map())
 
   const fetchPosts = useCallback(async (isInitial = false) => {
-    if (isLoading) return
+    if (isLoading || !user?.uid) return
 
     try {
       setIsLoading(true)
@@ -44,7 +45,7 @@ export function Feed() {
       let q = query(
         collection(db, 'posts'),
         orderBy('createdAt', 'desc'),
-        limit(POSTS_PER_PAGE)
+        limit(POSTS_PER_PAGE * 2) // Fetch more to account for filtering
       )
 
       if (!isInitial && lastDoc) {
@@ -52,20 +53,37 @@ export function Feed() {
       }
 
       const snapshot = await getDocs(q)
-      const newPosts = snapshot.docs.map(doc => ({
+      const allPosts = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as PostData[]
 
-      if (newPosts.length > 0) {
+      // Filter out posts from users who blocked current user (one-way blocking)
+      const filteredPosts = []
+      for (const post of allPosts) {
+        const authorId = post.authorId || post.userId
+        if (!authorId) continue
+
+        // Only check if author blocked current user (one-way blocking)
+        const authorBlockedUser = await isUserBlocked(authorId, user.uid)
+
+        if (!authorBlockedUser) {
+          filteredPosts.push(post)
+        }
+
+        // Stop when we have enough posts
+        if (filteredPosts.length >= POSTS_PER_PAGE) break
+      }
+
+      if (filteredPosts.length > 0) {
         cache.current.set(cacheKey, {
-          posts: newPosts,
+          posts: filteredPosts,
           timestamp: now
         })
       }
 
-      setPosts(prev => isInitial ? newPosts : [...prev, ...newPosts])
-      setHasMore(newPosts.length === POSTS_PER_PAGE)
+      setPosts(prev => isInitial ? filteredPosts : [...prev, ...filteredPosts])
+      setHasMore(allPosts.length === POSTS_PER_PAGE * 2) // Check if there might be more
       setLastDoc(snapshot.docs[snapshot.docs.length - 1])
     } catch (err) {
       console.error('Error fetching posts:', err)
@@ -73,7 +91,7 @@ export function Feed() {
     } finally {
       setIsLoading(false)
     }
-  }, [isLoading, lastDoc])
+  }, [isLoading, lastDoc, user?.uid])
 
   useEffect(() => {
     fetchPosts(true)

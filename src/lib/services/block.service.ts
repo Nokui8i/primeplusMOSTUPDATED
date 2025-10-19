@@ -59,21 +59,39 @@ export async function isUserBlocked(blockerId: string, userId: string): Promise<
 }
 
 /**
- * Get list of blocked users with their details
+ * Get list of blocked users with their details (with pagination)
  */
-export async function getBlockedUsers(blockerId: string): Promise<BlockedUser[]> {
+export async function getBlockedUsers(
+  blockerId: string, 
+  limit: number = 20, 
+  startAfter?: string
+): Promise<{ users: BlockedUser[], hasMore: boolean, lastUserId?: string }> {
   try {
     const userDoc = await getDoc(doc(db, 'users', blockerId));
-    if (!userDoc.exists()) return [];
+    if (!userDoc.exists()) return { users: [], hasMore: false };
     
     const userData = userDoc.data();
     const blockedUserIds = userData.blockedUsers || [];
     
-    if (blockedUserIds.length === 0) return [];
+    if (blockedUserIds.length === 0) return { users: [], hasMore: false };
     
-    // Get user details for blocked users
+    // Find starting index for pagination
+    let startIndex = 0;
+    if (startAfter) {
+      startIndex = blockedUserIds.indexOf(startAfter) + 1;
+      if (startIndex === 0) startIndex = 0; // If not found, start from beginning
+    }
+    
+    // Get the slice of user IDs for this page
+    const pageUserIds = blockedUserIds.slice(startIndex, startIndex + limit);
+    const hasMore = startIndex + limit < blockedUserIds.length;
+    const lastUserId = pageUserIds[pageUserIds.length - 1];
+    
+    if (pageUserIds.length === 0) return { users: [], hasMore: false };
+    
+    // Get user details for blocked users in this page
     const blockedUsersData = await Promise.all(
-      blockedUserIds.map(async (userId: string) => {
+      pageUserIds.map(async (userId: string) => {
         try {
           const blockedUserDoc = await getDoc(doc(db, 'users', userId));
           if (blockedUserDoc.exists()) {
@@ -94,10 +112,25 @@ export async function getBlockedUsers(blockerId: string): Promise<BlockedUser[]>
       })
     );
     
-    return blockedUsersData.filter(Boolean) as BlockedUser[];
+    const users = blockedUsersData.filter(Boolean) as BlockedUser[];
+    return { users, hasMore, lastUserId };
   } catch (error) {
     console.error('Error getting blocked users:', error);
     throw new Error('Failed to get blocked users');
+  }
+}
+
+/**
+ * Check if current user's content should be hidden from a viewer (one-way blocking)
+ * Returns true if the viewer blocked the current user
+ */
+export async function isContentHiddenFromViewer(contentCreatorId: string, viewerId: string): Promise<boolean> {
+  try {
+    // Check if the viewer blocked the content creator
+    return await isUserBlocked(viewerId, contentCreatorId);
+  } catch (error) {
+    console.error('Error checking if content is hidden from viewer:', error);
+    return false;
   }
 }
 

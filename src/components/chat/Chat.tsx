@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical } from 'lucide-react';
+import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical, UserX } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 // Firebase Storage imports removed - now using AWS S3
 import { ImageUploadPreview } from './ImageUploadPreview';
@@ -95,7 +95,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingBlock, setCheckingBlock] = useState(true);
 
-  // Check if user is blocked (bidirectional)
+  // Check if either user blocked the other (bidirectional for chat)
   useEffect(() => {
     const checkBlockStatus = async () => {
       if (!user?.uid || !recipientId) {
@@ -655,6 +655,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const handleImageClick = () => {
+    if (isBlocked) return; // Don't allow image upload if blocked
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
@@ -748,6 +750,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const handleVideoClick = () => {
+    if (isBlocked) return; // Don't allow video upload if blocked
+    
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'video/*';
@@ -1256,13 +1260,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     );
   }
 
-  // Show blocked message if user is blocked
+  // Hide chat completely if either user blocked the other
   if (isBlocked) {
     return (
       <div className="flex flex-col h-full w-full relative chat-container items-center justify-center">
-        <div className="text-center text-gray-500">
-          <Lock className="h-8 w-8 mx-auto mb-2" />
-          <div>This conversation is not available</div>
+        <div className="text-gray-500 text-center">
+          <UserX className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <p className="text-lg font-medium mb-2">Chat Not Available</p>
+          <p className="text-sm">This conversation is not available.</p>
         </div>
       </div>
     );
@@ -2219,7 +2224,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       )}
 
       {/* Emoji Picker Modal */}
-      {showEmojiPicker && (
+      {showEmojiPicker && !isBlocked && (
         <EmojiPicker
           onEmojiSelect={handleEmojiSelect}
           onClose={() => setShowEmojiPicker(false)}
@@ -2227,7 +2232,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       )}
 
       {/* Voice Recorder Modal */}
-      {showVoiceRecorder && (
+      {showVoiceRecorder && !isBlocked && (
         <VoiceRecorder
           onUpload={handleVoiceUpload}
           onCancel={() => setShowVoiceRecorder(false)}
@@ -2381,18 +2386,18 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           {/* Dropdown for Media & Emoji Buttons */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 text-blue-400">
+              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 text-blue-400" disabled={isBlocked}>
                 <Plus className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="bg-white">
-              <DropdownMenuItem onClick={handleImageClick} className="flex items-center gap-2">
+              <DropdownMenuItem onClick={handleImageClick} className="flex items-center gap-2" disabled={isBlocked}>
                 <ImageIcon className="h-4 w-4 text-blue-400" /> Image
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleVideoClick} className="flex items-center gap-2">
+              <DropdownMenuItem onClick={handleVideoClick} className="flex items-center gap-2" disabled={isBlocked}>
                 <Video className="h-4 w-4 text-blue-400" /> Video
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setShowEmojiPicker(true)} className="flex items-center gap-2">
+              <DropdownMenuItem onClick={() => setShowEmojiPicker(true)} className="flex items-center gap-2" disabled={isBlocked}>
                 <Smile className="h-4 w-4 text-yellow-500" /> Emoji
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -2407,7 +2412,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               handleVideoUpload(files.map(file => ({ file, locked: false })));
             }}
             style={{ display: 'none' }}
-            disabled={uploading}
+            disabled={uploading || isBlocked}
           />
           {/* Message Input */}
           <div style={{ flex: 1, display: 'flex' }}>
@@ -2415,7 +2420,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               ref={messageInputRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
+              placeholder={isBlocked ? "You cannot send messages to this user" : "Type a message..."}
               className="w-full chat-message-input text-[#1A1A1A] placeholder:text-blue-400 bg-white/90 border border-blue-200 focus:ring-2 focus:ring-[#6B3BFF] focus:border-[#2B55FF] rounded-xl px-4"
               style={{
                 height: '40px',
@@ -2424,11 +2429,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 fontSize: '14px',
                 lineHeight: '1.5',
               }}
-              disabled={uploading || isRecording}
+              disabled={uploading || isRecording || isBlocked}
             />
           </div>
           {(newMessage.trim() || selectedFiles.length > 0) ? (
-            <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200" disabled={uploading}>
+            <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200" disabled={uploading || isBlocked}>
               <Send className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           ) : (
@@ -2464,7 +2469,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       isolation: 'isolate'
                     } as any}
                   onClick={startRecording}
-                  disabled={uploading}
+                  disabled={uploading || isBlocked}
                 >
                   <Mic className="h-3 w-3 md:h-4 md:w-4" />
                 </Button>

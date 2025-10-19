@@ -32,7 +32,9 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [showWatermark, setShowWatermark] = useState(true);
-  const [accessLevel, setAccessLevel] = useState<'free' | 'free_subscriber' | 'paid_subscriber'>('free');
+  const [accessLevel, setAccessLevel] = useState<'free' | 'free_subscriber' | 'paid_subscriber' | 'ppv'>('free');
+  const [ppvPrice, setPpvPrice] = useState<number>(0);
+  const [ppvEveryonePays, setPpvEveryonePays] = useState<boolean>(true);
   const [postType, setPostType] = useState<'text' | 'image' | 'video' | 'image360' | 'video360'>('text');
   const [step, setStep] = useState(1);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
@@ -197,8 +199,14 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
     if (!content.trim() && !file) return;
 
     // Prevent non-creators from uploading paid content
-    if (accessLevel === 'paid_subscriber' && !isVerified) {
+    if ((accessLevel === 'paid_subscriber' || accessLevel === 'ppv') && !isVerified) {
       alert('⚠️ Only verified creators can upload paid content. Please become a verified creator first, or set the post to Free.');
+      return;
+    }
+
+    // Validate PPV price
+    if (accessLevel === 'ppv' && (ppvPrice <= 0 || ppvPrice > 50)) {
+      alert('⚠️ PPV price must be between $1 and $50.');
       return;
     }
 
@@ -231,6 +239,8 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
         isPublic: accessLevel === 'free',
         accessSettings: {
           accessLevel: accessLevel,
+          ppvPrice: accessLevel === 'ppv' ? ppvPrice : null,
+          ppvEveryonePays: accessLevel === 'ppv' ? ppvEveryonePays : null,
         },
         showWatermark: showWatermark,
         likes: 0,
@@ -329,10 +339,10 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
                   />
                   <label
                     htmlFor="file-upload"
-                  className="cursor-pointer flex flex-col items-center justify-center py-2"
+                  className="cursor-pointer flex flex-col items-center justify-center py-0.5"
                 >
-                  <Upload className="h-6 w-6 text-blue-500 mb-1" />
-                  <span className="drop-text text-sm">Drop media here or click to upload</span>
+                  <Upload className="h-4 w-4 text-blue-500 mb-1" />
+                  <span className="drop-text text-xs">Drop media here or click to upload</span>
                   </label>
                 </div>
               )}
@@ -401,7 +411,6 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
             <div className="setting-row">
               <div className="setting-info">
                 <div className="setting-label">360° Mode</div>
-                <div className="setting-description">Enable 360° content viewing</div>
               </div>
               <div className="setting-control">
                 <label className="flex items-center cursor-pointer">
@@ -419,92 +428,9 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
               </div>
             </div>
 
-            {/* Post Visibility - Only show to creators */}
-            {isCreatorRole && (
-              <div className="setting-row">
-                <div className="setting-info">
-                  <div className="setting-label">Post Visibility</div>
-                  <div className="setting-description">
-                    {!isVerified ? (
-                      <span className="text-amber-600">⚠️ Creator verification required to monetize content. Currently: Free only</span>
-                    ) : (
-                      accessLevel === 'free' ? 'Everyone can see this content' : 
-                      accessLevel === 'free_subscriber' ? 'Free + Paid subscribers can see this content' :
-                      accessLevel === 'paid_subscriber' ? 'Only paid subscribers can see this content' : 'Unknown'
-                    )}
-                  </div>
-                </div>
-                <div className="setting-control">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        disabled={!isVerified}
-                        className="w-fit px-3 py-2 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none hover:shadow-lg hover:scale-[1.02] focus:shadow-lg focus:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none flex items-center gap-2"
-                        style={{
-                          borderRadius: '8px',
-                          border: '1px solid #e5e7eb',
-                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                          boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-                        }}
-                        title={!isVerified ? 'Complete creator verification to enable paid content' : ''}
-                      >
-                        <span>
-                          {accessLevel === 'free' ? 'Everyone' :
-                           accessLevel === 'free_subscriber' ? 'Free + Paid Subscribers' :
-                           accessLevel === 'paid_subscriber' ? 'Paid Subscribers Only' : 'Select visibility'}
-                        </span>
-                        <ChevronDown className="h-3 w-3 text-gray-600" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent 
-                      align="start" 
-                      className="w-48 bg-white border-0 overflow-hidden p-0"
-                      style={{
-                        borderRadius: '8px',
-                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
-                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                      }}
-                    >
-                      <DropdownMenuItem
-                        onClick={() => isVerified && setAccessLevel('free')}
-                        className="text-xs py-2 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
-                        style={{
-                          background: accessLevel === 'free' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
-                          color: accessLevel === 'free' ? 'white' : 'inherit',
-                        }}
-                      >
-                        Everyone
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => isVerified && setAccessLevel('free_subscriber')}
-                        className="text-xs py-2 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
-                        style={{
-                          background: accessLevel === 'free_subscriber' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
-                          color: accessLevel === 'free_subscriber' ? 'white' : 'inherit',
-                        }}
-                      >
-                        Free + Paid Subscribers
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => isVerified && setAccessLevel('paid_subscriber')}
-                        className="text-xs py-2 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
-                        style={{
-                          background: accessLevel === 'paid_subscriber' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
-                          color: accessLevel === 'paid_subscriber' ? 'white' : 'inherit',
-                        }}
-                      >
-                        Paid Subscribers Only
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            )}
-
             <div className="setting-row">
               <div className="setting-info">
                 <div className="setting-label">Show Watermark on Media</div>
-                <div className="setting-description">Add watermark to protect your content</div>
               </div>
               <div className="setting-control">
                 <label className="flex items-center cursor-pointer">
@@ -521,6 +447,158 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
                 </label>
               </div>
             </div>
+
+            {/* Post Visibility - Only show to creators */}
+            {isCreatorRole && (
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-label">Post Visibility</div>
+                </div>
+                <div className="setting-control">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        disabled={!isVerified}
+                        className="w-fit px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none hover:shadow-lg hover:scale-[1.02] focus:shadow-lg focus:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none flex items-center gap-2"
+                        style={{
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                        }}
+                        title={!isVerified ? 'Complete creator verification to enable paid content' : ''}
+                      >
+                        <span>
+                          {accessLevel === 'free' ? 'Everyone' :
+                           accessLevel === 'free_subscriber' ? 'Free + Paid Subscribers' :
+                           accessLevel === 'paid_subscriber' ? 'Paid Subscribers Only' :
+                           accessLevel === 'ppv' ? 'Pay-Per-View' : 'Select visibility'}
+                        </span>
+                        <ChevronDown className="h-3 w-3 text-gray-600" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="start" 
+                      className="w-48 bg-white border-0 p-0 max-h-48 overflow-y-auto"
+                      style={{
+                        borderRadius: '8px',
+                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        maxHeight: '192px', // 12rem = 192px
+                        overflowY: 'auto'
+                      }}
+                    >
+                      <DropdownMenuItem
+                        onClick={() => isVerified && setAccessLevel('free')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: accessLevel === 'free' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: accessLevel === 'free' ? 'white' : 'inherit',
+                        }}
+                      >
+                        Everyone
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => isVerified && setAccessLevel('free_subscriber')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: accessLevel === 'free_subscriber' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: accessLevel === 'free_subscriber' ? 'white' : 'inherit',
+                        }}
+                      >
+                        Free + Paid Subscribers
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => isVerified && setAccessLevel('paid_subscriber')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: accessLevel === 'paid_subscriber' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: accessLevel === 'paid_subscriber' ? 'white' : 'inherit',
+                        }}
+                      >
+                        Paid Subscribers Only
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => isVerified && setAccessLevel('ppv')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: accessLevel === 'ppv' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: accessLevel === 'ppv' ? 'white' : 'inherit',
+                        }}
+                      >
+                        Pay-Per-View
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            )}
+
+            {/* PPV Price Input - Only show when PPV is selected */}
+            {isCreatorRole && isVerified && accessLevel === 'ppv' && (
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-label">PPV Price</div>
+                </div>
+                <div className="setting-control">
+                  <div className="relative w-24">
+                    <span className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">$</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max="50"
+                      step="0.01"
+                      value={ppvPrice || ''}
+                      onChange={(e) => setPpvPrice(Number(e.target.value) || 0)}
+                      placeholder="0.00"
+                      className="w-full pl-7 pr-2 py-0.5 text-xs border-0 rounded-lg focus:ring-0 focus:outline-none"
+                      style={{
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.1)',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        appearance: 'none',
+                        MozAppearance: 'textfield',
+                        height: '28px'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PPV Payment Rules - Only show when PPV is selected */}
+            {isCreatorRole && isVerified && accessLevel === 'ppv' && (
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="space-y-2">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={ppvEveryonePays}
+                        onChange={(e) => setPpvEveryonePays(e.target.checked)}
+                        className="checkbox"
+                      />
+                      <span className="slider"></span>
+                      <span className="ml-3 text-sm text-gray-700">Everyone pays</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!ppvEveryonePays}
+                        onChange={(e) => setPpvEveryonePays(!e.target.checked)}
+                        className="checkbox"
+                      />
+                      <span className="slider"></span>
+                      <span className="ml-3 text-sm text-gray-700">Only free subscribers & non-subscribers pay</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="setting-control">
+                  <div></div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

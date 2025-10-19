@@ -160,12 +160,15 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   const [userPlan, setUserPlan] = useState<any>(null)
   const [canInteract, setCanInteract] = useState(true) // Added state for interaction permissions
 
+  // Normalize access level (handle both new and legacy values)
+  const accessLevel = (currentPost as any).accessSettings?.accessLevel as 'free' | 'premium' | 'exclusive' | 'followers' | 'free_subscriber' | 'paid_subscriber' | 'ppv' | undefined;
+
   // Debug logging for canInteract changes
   useEffect(() => {
     console.log('[CompactPost] canInteract changed to:', canInteract, 'for post:', currentPost.id);
   }, [canInteract, currentPost.id]);
 
-  // Check if user is blocked (bidirectional)
+  // Check if current user is blocked by the post author (one-way blocking)
   useEffect(() => {
     const checkBlockStatus = async () => {
       if (!user?.uid || !post.authorId || isOwnPost) {
@@ -176,18 +179,13 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       
       setCheckingBlock(true);
       try {
-        // Check both directions: if current user blocked author OR if author blocked current user
-        const [userBlockedAuthor, authorBlockedUser] = await Promise.all([
-          isUserBlocked(user.uid, post.authorId),
-          isUserBlocked(post.authorId, user.uid)
-        ]);
+        // Only check if author blocked current user (one-way blocking)
+        const authorBlockedUser = await isUserBlocked(post.authorId, user.uid);
         
-        const blocked = userBlockedAuthor || authorBlockedUser;
-        setIsBlocked(blocked);
+        setIsBlocked(authorBlockedUser);
         console.log('[CompactPost] Block status:', { 
-          userBlockedAuthor, 
           authorBlockedUser, 
-          blocked, 
+          blocked: authorBlockedUser, 
           viewer: user.uid, 
           author: post.authorId 
         });
@@ -698,9 +696,6 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     // If post is public, allow everyone to view
     if (post.isPublic) return true;
     
-    // Normalize access level (handle both new and legacy values)
-    const accessLevel = (post as any).accessSettings?.accessLevel as 'free' | 'premium' | 'exclusive' | 'followers' | 'free_subscriber' | 'paid_subscriber' | undefined;
-    
     // If no access level is set, treat as free content
     if (!accessLevel || accessLevel === 'free') return true;
     
@@ -729,6 +724,41 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       const isPaidSubscription = userPlan.price > 0;
       
       return hasValidSubscription && isPaidSubscription;
+    }
+    
+    if (accessLevel === 'ppv') {
+      // PPV posts - check payment rules
+      if (!user) return false;
+      
+      const ppvEveryonePays = (post as any).accessSettings?.ppvEveryonePays;
+      
+      if (ppvEveryonePays) {
+        // Everyone pays - check if user has purchased this specific post
+        // TODO: Implement PPV purchase tracking
+        // For now, deny access (they will show unlock button)
+        return false;
+      } else {
+        // Only free subscribers & non-subscribers pay - check if user has paid subscription
+        if (userSubscription && userPlan) {
+          const isActive = userSubscription.status === 'active';
+          const isCancelledButValid = userSubscription.status === 'cancelled' &&
+            userSubscription.endDate &&
+            (userSubscription.endDate.toDate ? userSubscription.endDate.toDate() : new Date(userSubscription.endDate)).getTime() > Date.now();
+          
+          const hasValidSubscription = isActive || isCancelledButValid;
+          const isPaidSubscription = userPlan.price > 0;
+          
+          // If user has paid subscription, they get it for free
+          if (hasValidSubscription && isPaidSubscription) {
+            return true;
+          }
+        }
+        
+        // For non-subscribers or free subscribers, require PPV purchase
+        // TODO: Implement PPV purchase tracking
+        // For now, deny access (they will show unlock button)
+        return false;
+      }
     }
     
     // If access level is not recognized, deny access
@@ -819,19 +849,48 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
                 </div>
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-400/80 via-gray-300/40 to-transparent" />
-                {/* Lock icon */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
-                  <div className="bg-gradient-to-br from-white/90 via-gray-100/80 to-fuchsia-100/60 rounded-full p-1.5 shadow-md mb-1 flex items-center justify-center border border-fuchsia-100">
-                    <Lock size={20} strokeWidth={1.5} className="text-[#6437ff] drop-shadow-sm" />
+                
+                {/* Different content based on access level */}
+                {accessLevel === 'ppv' ? (
+                  // PPV Post - Show unlock button with price and payment rules
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
+                    <div className="bg-gradient-to-br from-white/90 via-gray-100/80 to-fuchsia-100/60 rounded-full p-1.5 shadow-md mb-1 flex items-center justify-center border border-fuchsia-100">
+                      <Lock size={20} strokeWidth={1.5} className="text-[#6437ff] drop-shadow-sm" />
+                    </div>
+                    <div className="text-center mb-2">
+                      <div className="text-white text-sm font-semibold drop-shadow-lg">
+                        ${(post as any).accessSettings?.ppvPrice || 0}
+                      </div>
+                      <div className="text-white/80 text-xs drop-shadow-lg">
+                        {(post as any).accessSettings?.ppvEveryonePays ? 'Pay to unlock' : 'Free for subscribers'}
+                      </div>
+                    </div>
+                    <button
+                      className="profile-btn subscribe text-xs px-3 py-1"
+                      onClick={() => {
+                        // TODO: Implement PPV purchase
+                        toast.error('PPV purchase not yet implemented');
+                      }}
+                    >
+                      UNLOCK
+                    </button>
                   </div>
-                  <button
-                    className="profile-btn subscribe text-xs px-3 py-1"
-                    onClick={() => setShowPlansModal(true)}
-                    disabled={plansLoading || plans.length === 0}
-                  >
-                    {plansLoading ? 'Loading...' : 'SUBSCRIBE'}
-                  </button>
-                </div>
+                ) : (
+                  // Subscription Post - Show subscribe button
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
+                    <div className="bg-gradient-to-br from-white/90 via-gray-100/80 to-fuchsia-100/60 rounded-full p-1.5 shadow-md mb-1 flex items-center justify-center border border-fuchsia-100">
+                      <Lock size={20} strokeWidth={1.5} className="text-[#6437ff] drop-shadow-sm" />
+                    </div>
+                    <button
+                      className="profile-btn subscribe text-xs px-3 py-1"
+                      onClick={() => setShowPlansModal(true)}
+                      disabled={plansLoading || plans.length === 0}
+                    >
+                      {plansLoading ? 'Loading...' : 'SUBSCRIBE'}
+                    </button>
+                  </div>
+                )}
+                
                 {/* Plans Modal for subscribing */}
                 <PlansModal
                   open={showPlansModal}
@@ -1017,16 +1076,9 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       );
     }
 
-    // Show blocked message if user is blocked
+    // Completely hide blocked content - no message shown
     if (isBlocked) {
-      return (
-        <div className="relative w-full mb-2 p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
-          <div className="flex items-center justify-center gap-2">
-            <Lock className="h-4 w-4" />
-            <span>This content is not available</span>
-          </div>
-        </div>
-      );
+      return null;
     }
 
     return (
@@ -1206,19 +1258,46 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
               </div>
               {/* Gradient overlay for contrast */}
               <div className="absolute inset-0 bg-gradient-to-t from-gray-400/80 via-gray-300/40 to-transparent" />
-              {/* Lock icon with circular background */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
-                <div className="bg-gradient-to-br from-white/90 via-gray-100/80 to-fuchsia-100/60 rounded-full p-2 shadow-md mb-1 flex items-center justify-center border border-fuchsia-100">
-                  <Lock size={26} strokeWidth={1.5} className="text-[#6437ff] drop-shadow-sm" />
+              {/* Different content based on access level */}
+              {accessLevel === 'ppv' ? (
+                // PPV Post - Show unlock button with price and payment rules
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
+                  <div className="bg-gradient-to-br from-white/90 via-gray-100/80 to-fuchsia-100/60 rounded-full p-2 shadow-md mb-1 flex items-center justify-center border border-fuchsia-100">
+                    <Lock size={26} strokeWidth={1.5} className="text-[#6437ff] drop-shadow-sm" />
+                  </div>
+                  <div className="text-center mb-2">
+                    <div className="text-white text-lg font-semibold drop-shadow-lg">
+                      ${(post as any).accessSettings?.ppvPrice || 0}
+                    </div>
+                    <div className="text-white/80 text-sm drop-shadow-lg">
+                      {(post as any).accessSettings?.ppvEveryonePays ? 'Pay to unlock' : 'Free for subscribers'}
+                    </div>
+                  </div>
+                  <button
+                    className="profile-btn subscribe"
+                    onClick={() => {
+                      // TODO: Implement PPV purchase
+                      toast.error('PPV purchase not yet implemented');
+                    }}
+                  >
+                    UNLOCK
+                  </button>
                 </div>
-                <button
-                  className="profile-btn subscribe"
-                  onClick={() => setShowPlansModal(true)}
-                  disabled={plansLoading || plans.length === 0}
-                >
-                  {plansLoading ? 'Loading...' : 'SUBSCRIBE'}
-                </button>
-              </div>
+              ) : (
+                // Subscription Post - Show subscribe button
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20">
+                  <div className="bg-gradient-to-br from-white/90 via-gray-100/80 to-fuchsia-100/60 rounded-full p-2 shadow-md mb-1 flex items-center justify-center border border-fuchsia-100">
+                    <Lock size={26} strokeWidth={1.5} className="text-[#6437ff] drop-shadow-sm" />
+                  </div>
+                  <button
+                    className="profile-btn subscribe"
+                    onClick={() => setShowPlansModal(true)}
+                    disabled={plansLoading || plans.length === 0}
+                  >
+                    {plansLoading ? 'Loading...' : 'SUBSCRIBE'}
+                  </button>
+                </div>
+              )}
               {/* Plans Modal for subscribing */}
               <PlansModal
                 open={showPlansModal}

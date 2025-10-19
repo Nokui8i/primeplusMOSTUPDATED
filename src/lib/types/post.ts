@@ -162,8 +162,10 @@ export interface Post {
     isPremium: boolean;
     subscriptionTier?: string;
     price?: number;
+    ppvPrice?: number;
+    ppvEveryonePays?: boolean;
     promoCode?: string;
-    accessLevel?: 'free' | 'free_subscriber' | 'paid_subscriber' | 'premium' | 'exclusive' | 'followers';
+    accessLevel?: 'free' | 'free_subscriber' | 'paid_subscriber' | 'ppv' | 'premium' | 'exclusive' | 'followers';
     availableFrom?: Timestamp;
     availableUntil?: Timestamp;
     geoRestrictions?: string[];
@@ -238,8 +240,10 @@ export interface PostWithAuthor extends Omit<PostData, 'comments'> {
     isPremium: boolean;
     subscriptionTier?: string;
     price?: number;
+    ppvPrice?: number;
+    ppvEveryonePays?: boolean;
     promoCode?: string;
-    accessLevel?: 'free' | 'free_subscriber' | 'paid_subscriber' | 'premium' | 'exclusive' | 'followers';
+    accessLevel?: 'free' | 'free_subscriber' | 'paid_subscriber' | 'ppv' | 'premium' | 'exclusive' | 'followers';
     availableFrom?: Timestamp;
     availableUntil?: Timestamp;
     geoRestrictions?: string[];

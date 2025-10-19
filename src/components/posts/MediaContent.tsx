@@ -379,7 +379,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       {type === 'image' && isMounted && (
         <Dialog open={showLightbox} onOpenChange={setShowLightbox}>
           <DialogContent 
-            className="max-w-[95vw] max-h-[95vh] p-0 bg-black/90 border-none"
+            className="max-w-[95vw] max-h-[95vh] w-auto h-auto p-0 bg-transparent border-none shadow-none"
           >
             <DialogTitle className="sr-only">Image Viewer</DialogTitle>
             <DialogDescription className="sr-only">
@@ -387,7 +387,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
             </DialogDescription>
             <div 
               ref={containerRef} 
-              className="relative w-full h-full flex items-center justify-center overflow-hidden"
+              className="relative w-auto h-auto flex items-center justify-center overflow-hidden"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -400,11 +400,11 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
               >
                 <X className="w-6 h-6" />
               </button>
-              <div className="relative w-full h-full">
+              <div className="relative w-auto h-auto">
                 <img
                   src={correctedUrl || url}
                   alt="Full size image"
-                  className="max-w-full max-h-[90vh] object-contain"
+                  className="max-w-[95vw] max-h-[95vh] object-contain"
                   style={{
                     transform: `translate(${position.x}px, ${position.y}px)`,
                     transition: isDragging ? 'none' : 'transform 0.3s'
