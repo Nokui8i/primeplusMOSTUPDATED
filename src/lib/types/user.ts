@@ -42,6 +42,7 @@ export interface UserProfile {
   website?: string;
   defaultSubscriptionPlanId?: string | null;
   defaultSubscriptionType?: 'free' | 'paid' | null;
+  blockedUsers?: string[]; // Array of blocked user IDs
   socialLinks?: {
     twitter?: string;
     instagram?: string;

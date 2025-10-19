@@ -4,11 +4,23 @@ import { useState, useEffect } from 'react';
 
 export interface Notification {
   id: string;
-  type: 'follow' | 'like' | 'comment';
+  type: 'follow' | 'like' | 'comment' | 'tag' | 'mention' | 'subscription_expiring' | 'subscription_expired';
   fromUserId: string;
   toUserId: string;
   read: boolean;
   createdAt: Date;
+  message?: string;
+  data?: {
+    message?: string;
+    text?: string;
+    postId?: string;
+    subscriptionId?: string;
+    creatorId?: string;
+    creatorName?: string;
+    expiresAt?: any;
+    expiredAt?: any;
+    [key: string]: any;
+  };
   fromUser?: {
     displayName: string;
     photoURL?: string;

@@ -18,6 +18,7 @@ export interface UserProfile {
 
 export interface CreatorProfile extends UserProfile {
   bio?: string;
+  welcomeMessage?: string;
   socialLinks?: {
     twitter?: string;
     instagram?: string;

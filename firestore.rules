@@ -100,7 +100,7 @@ service cloud.firestore {
       let hasValidTypes = 
         data.content is string &&
         data.authorId is string &&
-        data.type in ['image', 'video', 'vr', '360', 'text', 'story', 'live_stream'] &&
+        data.type in ['image', 'video', 'vr', '360', 'text', 'story'] &&
         data.isPublic is bool &&
         data.createdAt is timestamp &&
         (data.mediaUrl == null || data.mediaUrl is string) &&
@@ -364,49 +364,6 @@ service cloud.firestore {
       }
     }
 
-    // Streams collection rules
-    match /streams/{streamId} {
-      allow read: if true; // Anyone can read stream data
-      allow create: if isAuthenticated() && 
-        request.resource.data.userId == request.auth.uid &&
-        request.resource.data.keys().hasAll(['userId', 'title', 'description', 'status', 'startedAt']);
-      allow update: if (
-        // Allow updating viewer count by any user (even unauthenticated)
-        request.resource.data.diff(resource.data).affectedKeys().hasAny(['viewerCount']) ||
-        // Allow updating viewer count and updatedAt together
-        request.resource.data.diff(resource.data).affectedKeys().hasAll(['viewerCount', 'updatedAt']) ||
-        // Allow updating thumbnail and status
-        request.resource.data.diff(resource.data).affectedKeys().hasAll(['thumbnailUrl', 'status']) ||
-        // Allow full update by stream owner
-        (isAuthenticated() && resource.data.userId == request.auth.uid)
-      );
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-
-      // Viewers subcollection rules
-      match /viewers/{userId} {
-        allow read: if true;
-        allow write: if isAuthenticated();
-      }
-
-      // Chat subcollection
-      match /chat/{messageId} {
-        allow read: if true;
-        allow create: if isAuthenticated();
-        allow update: if isAuthenticated() && (
-          // Allow updating likes count by any authenticated user
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'updatedAt']) ||
-          // Allow full update by message owner or stream owner
-          resource.data.userId == request.auth.uid ||
-          get(/databases/$(database)/documents/streams/$(streamId)).data.userId == request.auth.uid
-        );
-        allow delete: if isAuthenticated() && (
-          // Allow deletion by message author
-          resource.data.userId == request.auth.uid ||
-          // Allow deletion by stream owner
-          get(/databases/$(database)/documents/streams/$(streamId)).data.userId == request.auth.uid
-        );
-      }
-    }
 
     // Content collection rules
     match /content/{contentId} {
@@ -415,27 +372,6 @@ service cloud.firestore {
         || isActiveSubscriber(resource.data.authorId);
 
       allow write: if request.auth.uid == request.resource.data.authorId;
-    }
-
-    // Tips collection rules
-    match /tips/{tipId} {
-      // Anyone can read their own tips (sent or received)
-      allow read: if isAuthenticated() &&
-                     (request.auth.uid == resource.data.tipperId ||
-                      request.auth.uid == resource.data.creatorId);
-      
-      // Only authenticated users can create tips
-      allow create: if isAuthenticated() &&
-                      request.resource.data.tipperId == request.auth.uid && // Tipper must be authenticated user
-                      request.resource.data.status == 'completed' && // Status must be completed (no payment processing)
-                      request.resource.data.amount is number && request.resource.data.amount > 0 && // Amount must be positive
-                      request.resource.data.currency is string && // Currency must be provided
-                      request.resource.data.creatorId is string && // Creator ID must be provided
-                      request.resource.data.createdAt == request.time && // Enforce server timestamp
-                      request.resource.data.updatedAt == request.time; // Enforce server timestamp
-      
-      // Tips cannot be updated or deleted (immutable once created)
-      allow update, delete: if false;
     }
 
     // Follows collection rules

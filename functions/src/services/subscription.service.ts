@@ -75,6 +75,11 @@ export async function createSubscription(
     throw new Error('The selected plan is not active.');
   }
   
+  // OnlyFans-style price validation for paid plans
+  if (plan.price > 0 && (plan.price < 4.99 || plan.price > 50.00)) {
+    throw new Error('Subscription price must be between $4.99 and $50.00 for paid plans.');
+  }
+  
   if (subscriberId === creatorId) {
     throw new Error('Cannot subscribe to your own plan.');
   }
@@ -156,6 +161,15 @@ export async function createSubscription(
     ...(appliedPromo && { promoCode: appliedPromo.code, promoDiscountPercent: appliedPromo.discountPercent, promoId: appliedPromo.promoId, finalPrice }),
   };
   await newSubscriptionRef.set(newSubscriptionData);
+
+  // Send welcome message to new subscriber via chat
+  try {
+    await sendWelcomeMessage(creatorId, subscriberId);
+  } catch (error) {
+    console.error('Error sending welcome message:', error);
+    // Don't fail the subscription creation if welcome message fails
+  }
+
   return newSubscriptionData;
 }
 
@@ -358,6 +372,51 @@ export async function getLatestSubscriptionToCreator(
     return null;
   }
   return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as UserSubscription;
+}
+
+/**
+ * Sends a welcome message to a new subscriber via chat
+ * @param creatorId The UID of the creator
+ * @param subscriberId The UID of the subscriber
+ */
+async function sendWelcomeMessage(creatorId: string, subscriberId: string): Promise<void> {
+  try {
+    // Get creator's welcome message
+    const creatorDoc = await usersCollection().doc(creatorId).get();
+    if (!creatorDoc.exists) {
+      console.log('Creator not found, skipping welcome message');
+      return;
+    }
+
+    const creatorData = creatorDoc.data();
+    const welcomeMessage = creatorData?.welcomeMessage;
+
+    if (!welcomeMessage || welcomeMessage.trim() === '') {
+      console.log('No welcome message set, skipping');
+      return;
+    }
+
+    // Get creator's display name
+    const creatorName = creatorData?.displayName || creatorData?.username || 'A creator';
+
+    // Create a chat message in the messages collection
+      await db.collection('messages').add({
+        senderId: creatorId,
+        receiverId: subscriberId,
+        content: welcomeMessage,
+        type: 'text',
+        timestamp: admin.firestore.Timestamp.now(),
+        isWelcomeMessage: true, // Flag to identify welcome messages
+        senderName: creatorName,
+        senderPhotoURL: creatorData?.photoURL,
+        imageUrl: creatorData?.welcomeImage || null, // Include welcome image if available
+      });
+
+    console.log(`Welcome message sent via chat to subscriber ${subscriberId} from creator ${creatorId}`);
+  } catch (error) {
+    console.error('Error sending welcome message:', error);
+    throw error;
+  }
 }
 
 export {}; // To make it a module 

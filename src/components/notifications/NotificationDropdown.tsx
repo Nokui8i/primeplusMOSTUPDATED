@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useNotifications } from '@/lib/notifications';
+import { useNotificationsDropdown, markNotificationAsRead, markAllNotificationsAsRead } from '@/lib/notifications';
 import { FiBell } from 'react-icons/fi';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -10,18 +10,19 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { notifications, unreadCount, markAsRead, markAllAsRead, loading } = useNotifications();
   const { user } = useAuth();
+  const { notifications, loading } = useNotificationsDropdown(user?.uid || null, 5);
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   if (!user) return null;
 
   const handleMarkAllRead = async () => {
-    await markAllAsRead();
+    await markAllNotificationsAsRead(user.uid);
     setIsOpen(false);
   };
 
   const handleNotificationClick = async (notificationId: string) => {
-    await markAsRead(notificationId);
+    await markNotificationAsRead(notificationId);
   };
 
   const renderNotificationContent = (notification: any) => {

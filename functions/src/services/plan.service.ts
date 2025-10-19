@@ -25,6 +25,11 @@ export async function createPlan(
   creatorId: string,
   planData: Omit<Plan, 'id' | 'creatorId' | 'createdAt' | 'updatedAt'>
 ): Promise<Plan> {
+  // OnlyFans-style price validation for paid plans
+  if (planData.price > 0 && (planData.price < 4.99 || planData.price > 50.00)) {
+    throw new Error('Subscription price must be between $4.99 and $50.00 for paid plans.');
+  }
+  
   const now = admin.firestore.Timestamp.now(); // Timestamp can be accessed directly
   const newPlanRef = plansCollection().doc();
   const newPlan: Plan = {
@@ -87,6 +92,11 @@ export async function updatePlan(
   const currentPlan = { id: planDoc.id, ...planDoc.data() } as Plan;
   if (currentPlan.creatorId !== creatorId) {
     throw new Error('User is not authorized to update this plan.');
+  }
+
+  // OnlyFans-style price validation for paid plans
+  if (planUpdateData.price !== undefined && planUpdateData.price > 0 && (planUpdateData.price < 4.99 || planUpdateData.price > 50.00)) {
+    throw new Error('Subscription price must be between $4.99 and $50.00 for paid plans.');
   }
 
   const updatePayload = {

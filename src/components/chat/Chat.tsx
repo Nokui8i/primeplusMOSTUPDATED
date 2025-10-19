@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/contexts/ChatContext';
 import { FiMessageSquare } from 'react-icons/fi';
+import { isUserBlocked } from '@/lib/services/block.service';
 import { themeColors } from '@/styles/colors';
 import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
@@ -40,6 +41,8 @@ interface Message {
   locked?: boolean;
   price?: number;
   attachments?: MessageAttachment[];
+  edited?: boolean;
+  isWelcomeMessage?: boolean;
 }
 
 interface ChatProps {
@@ -88,6 +91,47 @@ if (typeof window !== 'undefined') {
 }
 
 export function Chat({ recipientId, recipientName, hideHeader = false, customWidth }: ChatProps) {
+  const { user } = useAuth();
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [checkingBlock, setCheckingBlock] = useState(true);
+
+  // Check if user is blocked (bidirectional)
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!user?.uid || !recipientId) {
+        setIsBlocked(false);
+        setCheckingBlock(false);
+        return;
+      }
+      
+      setCheckingBlock(true);
+      try {
+        // Check both directions: if current user blocked recipient OR if recipient blocked current user
+        const [userBlockedRecipient, recipientBlockedUser] = await Promise.all([
+          isUserBlocked(user.uid, recipientId),
+          isUserBlocked(recipientId, user.uid)
+        ]);
+        
+        const blocked = userBlockedRecipient || recipientBlockedUser;
+        setIsBlocked(blocked);
+        console.log('[Chat] Block status:', { 
+          userBlockedRecipient, 
+          recipientBlockedUser, 
+          blocked, 
+          sender: user.uid, 
+          recipient: recipientId 
+        });
+      } catch (error) {
+        console.error('Error checking block status:', error);
+        setIsBlocked(false);
+      } finally {
+        setCheckingBlock(false);
+      }
+    };
+    
+    checkBlockStatus();
+  }, [user?.uid, recipientId]);
+
   // Inject critical CSS immediately to prevent layout shift
   useEffect(() => {
     const styleId = 'chat-critical-styles';
@@ -113,8 +157,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       document.head.insertBefore(style, document.head.firstChild);
     }
   }, []);
-
-  const { user } = useAuth();
   const router = useRouter();
   const { openChat } = useChat();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1205,6 +1247,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     return lastSeen?.id || null;
   })();
 
+  // Show loading state while checking block status
+  if (checkingBlock) {
+    return (
+      <div className="flex flex-col h-full w-full relative chat-container items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show blocked message if user is blocked
+  if (isBlocked) {
+    return (
+      <div className="flex flex-col h-full w-full relative chat-container items-center justify-center">
+        <div className="text-center text-gray-500">
+          <Lock className="h-8 w-8 mx-auto mb-2" />
+          <div>This conversation is not available</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full w-full relative chat-container" style={{ width: '100%' }}>
       {/* Chat Title Bar */}
@@ -1260,20 +1323,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               className="ml-auto p-1.5 rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
               style={{
                 backgroundColor: '#0F77FF',
-                color: 'white',
-                focusRingColor: '#0F77FF'
+                color: 'white'
               }}
             onClick={async (e) => {
               e.stopPropagation();
               // Create a minimal user profile for openChat
               const userProfile = {
+                id: recipientId,
                 uid: recipientId,
                 displayName: recipientProfile?.displayName || recipientName,
                 username: recipientProfile?.username || recipientName,
                 photoURL: recipientProfile?.photoURL || '',
                 email: '',
-                createdAt: new Date(),
-                updatedAt: new Date(),
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now(),
                 isAgeVerified: false,
                 isVerified: false,
                 role: 'user' as const,
@@ -1343,7 +1406,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMessageToDelete({ id: message.id, type: message.type });
+                        setMessageToDelete({ id: message.id, type: message.type || 'text' });
                       }}
                       className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
                       title="Delete message"
@@ -1549,7 +1612,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMessageToDelete({ id: message.id, type: message.type });
+                        setMessageToDelete({ id: message.id, type: message.type || 'text' });
                       }}
                       className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
                       title="Delete message"
@@ -1760,7 +1823,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMessageToDelete({ id: message.id, type: message.type });
+                        setMessageToDelete({ id: message.id, type: message.type || 'text' });
                       }}
                       className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
                       title="Delete message"
@@ -1853,7 +1916,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMessageToDelete({ id: message.id, type: message.type });
+                        setMessageToDelete({ id: message.id, type: message.type || 'text' });
                       }}
                       className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
                       title="Delete message"
@@ -1903,12 +1966,29 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </div>
                   ) : (
                     <div className="text-left">
-                      <p className="text-xs md:text-sm break-words whitespace-normal">
-                        {message.text}
-                        {message.edited && (
-                          <span className="text-xs text-gray-400 ml-1">(edited)</span>
-                        )}
-                      </p>
+                      {/* Welcome message with image support */}
+                      {message.isWelcomeMessage && message.imageUrl ? (
+                        <div className="space-y-2">
+                          <img
+                            src={message.imageUrl}
+                            alt="Welcome image"
+                            className="w-full max-w-sm h-48 object-cover rounded-lg border border-gray-200"
+                          />
+                          <p className="text-xs md:text-sm break-words whitespace-normal">
+                            {message.text}
+                            {message.edited && (
+                              <span className="text-xs text-gray-400 ml-1">(edited)</span>
+                            )}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs md:text-sm break-words whitespace-normal">
+                          {message.text}
+                          {message.edited && (
+                            <span className="text-xs text-gray-400 ml-1">(edited)</span>
+                          )}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2376,13 +2456,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       WebkitAnimation: 'none !important',
                       MozAnimation: 'none !important',
                       OAnimation: 'none !important',
-                      msAnimation: 'none !important',
+                      MsAnimation: 'none !important',
                       filter: 'none !important',
                       backdropFilter: 'none !important',
                       outline: 'none !important',
                       textShadow: 'none !important',
                       isolation: 'isolate'
-                    }}
+                    } as any}
                   onClick={startRecording}
                   disabled={uploading}
                 >
@@ -2403,13 +2483,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       WebkitAnimation: 'none !important',
                       MozAnimation: 'none !important',
                       OAnimation: 'none !important',
-                      msAnimation: 'none !important',
+                      MsAnimation: 'none !important',
                       filter: 'none !important',
                       backdropFilter: 'none !important',
                       outline: 'none !important',
                       textShadow: 'none !important',
                       border: 'none !important'
-                    }}
+                    } as any}
                     onClick={cancelRecording}
                   >
                     <X className="h-3 w-3 md:h-4 md:w-4" />
@@ -2426,13 +2506,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       WebkitAnimation: 'none !important',
                       MozAnimation: 'none !important',
                       OAnimation: 'none !important',
-                      msAnimation: 'none !important',
+                      MsAnimation: 'none !important',
                       filter: 'none !important',
                       backdropFilter: 'none !important',
                       outline: 'none !important',
                       textShadow: 'none !important',
                       border: 'none !important'
-                    }}
+                    } as any}
                     onClick={stopRecording}
                   >
                     <Send className="h-3 w-3 md:h-4 md:w-4" />

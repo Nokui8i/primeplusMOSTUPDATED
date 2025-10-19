@@ -1,6 +1,7 @@
 import { db, auth } from '../firebase';
 import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy, limit, serverTimestamp, increment, addDoc } from 'firebase/firestore';
-import type { UserProfile, Post, Comment, Subscription, Like } from '@/types/user';
+import type { UserProfile, Comment, Subscription, Like } from '@/types/user';
+import type { Post } from '@/lib/types/post';
 
 // User Functions
 export async function createUserProfile(userData: Omit<UserProfile, 'uid' | 'createdAt' | 'updatedAt'>) {
@@ -26,10 +27,17 @@ export async function createPost(content: string, mediaUrl?: string) {
 
   const now = new Date();
   const postData: Omit<Post, 'id'> = {
-    userId: user.uid,
+    authorId: user.uid,
     content,
     mediaUrl,
     createdAt: now,
+    type: 'text',
+    isPublic: true,
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    tags: [],
+    taggedUsers: []
   };
 
   const postRef = doc(collection(db, 'posts'));
@@ -306,7 +314,7 @@ export async function deletePost(postId: string, userId?: string) {
   }
 }
 
-export async function updatePost(postId: string, updates: Partial<Pick<Post, 'content' | 'mediaUrl'>>) {
+export async function updatePost(postId: string, updates: Partial<Pick<Post, 'content' | 'mediaUrl' | 'isPublic' | 'accessSettings'>>) {
   const user = auth.currentUser;
   if (!user) throw new Error('Must be logged in to update posts');
 

@@ -238,7 +238,7 @@ export function UploadContent({ onUploadComplete, defaultVisibility = 'public', 
         
         try {
           // Upload the file (already converted if needed)
-          const mediaUrl = await uploadMedia(file, (progress) => {
+          const mediaUrl = await uploadMedia(file, `content/${file.type.startsWith('image/') ? 'images' : 'videos'}/${user.uid}/${Date.now()}_${file.name}`, (progress) => {
             setUploadProgress(prev => ({
               ...prev,
               [fileKey]: progress

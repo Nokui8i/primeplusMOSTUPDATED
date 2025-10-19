@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ArrowUpDown } from 'lucide-react'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
+import { isUserBlocked } from '@/lib/services/block.service'
 
 interface CommentsProps {
   postId: string
@@ -31,6 +32,8 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [canViewComments, setCanViewComments] = useState(true)
   const [refreshKey, setRefreshKey] = useState(0) // Added refresh key
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [checkingBlock, setCheckingBlock] = useState(true)
 
   // Check if user can view comments on this post
   const checkCommentAccess = async () => {
@@ -118,6 +121,43 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
     checkCommentAccess();
   }, [user, post]);
 
+  // Check if user is blocked (bidirectional)
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!user?.uid || !postAuthorId) {
+        setIsBlocked(false);
+        setCheckingBlock(false);
+        return;
+      }
+      
+      setCheckingBlock(true);
+      try {
+        // Check both directions: if current user blocked author OR if author blocked current user
+        const [userBlockedAuthor, authorBlockedUser] = await Promise.all([
+          isUserBlocked(user.uid, postAuthorId),
+          isUserBlocked(postAuthorId, user.uid)
+        ]);
+        
+        const blocked = userBlockedAuthor || authorBlockedUser;
+        setIsBlocked(blocked);
+        console.log('[Comments] Block status:', { 
+          userBlockedAuthor, 
+          authorBlockedUser, 
+          blocked, 
+          viewer: user.uid, 
+          author: postAuthorId 
+        });
+      } catch (error) {
+        console.error('Error checking block status:', error);
+        setIsBlocked(false);
+      } finally {
+        setCheckingBlock(false);
+      }
+    };
+    
+    checkBlockStatus();
+  }, [user?.uid, postAuthorId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -149,6 +189,27 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // Show loading state while checking block status
+  if (checkingBlock) {
+    return (
+      <div className="comments-bubble-container p-4 text-center text-gray-500">
+        Loading...
+      </div>
+    );
+  }
+
+  // Show blocked message if user is blocked
+  if (isBlocked) {
+    return (
+      <div className="comments-bubble-container p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
+        <div className="flex items-center justify-center gap-2">
+          <Lock className="h-4 w-4" />
+          <span>Comments are not available</span>
+        </div>
+      </div>
+    );
   }
 
   return (

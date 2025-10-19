@@ -34,12 +34,7 @@ export function CommandLikeButton({ postId, initialLikes = 0, initialIsLiked = f
       const userData = userDoc.data()
       const displayName = userData?.displayName || 'Anonymous'
 
-      const result = await toggleLike(
-        `posts/${postId}`,
-        user.uid,
-        displayName,
-        user.photoURL || ''
-      )
+      const result = await toggleLike(postId)
       
       setIsLiked(result)
       setLikes(prev => result ? prev + 1 : prev - 1)

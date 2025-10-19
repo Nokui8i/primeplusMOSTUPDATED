@@ -25,11 +25,10 @@ interface RootLayoutContentProps {
 export function RootLayoutContent({ children }: RootLayoutContentProps) {
   const pathname = usePathname() || '';
   // Check for streamer dynamic route
-  const isStreamerPage = pathname.startsWith('/streamer/');
-  const shouldUseMainLayout = !pagesWithoutLayout.includes(pathname) && !isStreamerPage;
+  const shouldUseMainLayout = !pagesWithoutLayout.includes(pathname);
 
   return (
-    <main className={`min-h-screen ${isStreamerPage ? 'bg-black' : shouldUseMainLayout ? 'bg-[#F8FAFC]' : 'bg-white'}`}>
+    <main className={`min-h-screen ${shouldUseMainLayout ? 'bg-[#F8FAFC]' : 'bg-white'}`}>
       {shouldUseMainLayout ? <MainLayout>{children}</MainLayout> : children}
     </main>
   );

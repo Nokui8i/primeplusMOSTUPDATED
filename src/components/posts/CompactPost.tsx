@@ -37,6 +37,7 @@ import { EditPostDialog } from '@/components/posts/EditPostDialog'
 import { Comments } from '@/components/posts/Comments'
 import { toast } from 'react-hot-toast'
 import { deletePost, toggleLike, getUserProfile, createComment } from '@/lib/firebase/db'
+import { isUserBlocked } from '@/lib/services/block.service'
 import { LikesList } from '@/components/posts/LikesList'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
@@ -50,7 +51,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LiveStreamPost } from '@/components/posts/LiveStreamPost'
 import PlansModal from '@/components/creator/PlansModal'
 import { FiEye } from 'react-icons/fi'
 
@@ -119,6 +119,8 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   const { user } = useAuth()
   const { commentCount, loading: commentCountLoading } = useCommentCount(post.id)
   const isOwnPost = user?.uid === post.authorId
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [checkingBlock, setCheckingBlock] = useState(true)
   
   const [currentPost, setCurrentPost] = useState<PostWithAuthor>(() => {
     const correctedPost = {
@@ -162,6 +164,43 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   useEffect(() => {
     console.log('[CompactPost] canInteract changed to:', canInteract, 'for post:', currentPost.id);
   }, [canInteract, currentPost.id]);
+
+  // Check if user is blocked (bidirectional)
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (!user?.uid || !post.authorId || isOwnPost) {
+        setIsBlocked(false);
+        setCheckingBlock(false);
+        return;
+      }
+      
+      setCheckingBlock(true);
+      try {
+        // Check both directions: if current user blocked author OR if author blocked current user
+        const [userBlockedAuthor, authorBlockedUser] = await Promise.all([
+          isUserBlocked(user.uid, post.authorId),
+          isUserBlocked(post.authorId, user.uid)
+        ]);
+        
+        const blocked = userBlockedAuthor || authorBlockedUser;
+        setIsBlocked(blocked);
+        console.log('[CompactPost] Block status:', { 
+          userBlockedAuthor, 
+          authorBlockedUser, 
+          blocked, 
+          viewer: user.uid, 
+          author: post.authorId 
+        });
+      } catch (error) {
+        console.error('Error checking block status:', error);
+        setIsBlocked(false);
+      } finally {
+        setCheckingBlock(false);
+      }
+    };
+    
+    checkBlockStatus();
+  }, [user?.uid, post.authorId, isOwnPost]);
 
   // Listen for post updates including comment count and likes
   useEffect(() => {
@@ -220,8 +259,9 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
 
   useEffect(() => {
     const fetchAuthorDisplayName = async () => {
-      if (currentPost.authorId) {
-        const userDoc = await getDoc(doc(db, 'users', currentPost.authorId))
+      const authorId = currentPost.authorId;
+      if (authorId) {
+        const userDoc = await getDoc(doc(db, 'users', authorId))
         const userData = userDoc.data()
         setAuthorDisplayName(userData?.displayName || 'Anonymous')
       }
@@ -243,9 +283,9 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       
       if (!user) {
         // For public posts, allow interaction even without login
-        if (currentPost.isPublic !== false) {
+        if (currentPost.isPublic) {
           console.log('[CompactPost] No user but post is public, allowing interaction');
-          console.log('[CompactPost] isPublic check result:', currentPost.isPublic !== false);
+          console.log('[CompactPost] isPublic check result:', currentPost.isPublic);
           setIsSubscriber(false);
           setCanInteract(true);
           setUserSubscription(null);
@@ -278,7 +318,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       if (currentPost.isPublic !== false) {
         console.log('[CompactPost] Post is public (or undefined), allowing interaction');
         console.log('[CompactPost] isPublic value:', currentPost.isPublic);
-        console.log('[CompactPost] isPublic !== false result:', currentPost.isPublic !== false);
+        console.log('[CompactPost] isPublic result:', currentPost.isPublic);
         setIsSubscriber(true);
         setCanInteract(true);
         setUserSubscription(null);
@@ -364,7 +404,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     const likesRef = collection(db, `posts/${currentPost.id}/likes`);
     const unsubscribe = onSnapshot(likesRef, (snapshot) => {
       const likesCount = snapshot.docs.length;
-      setCurrentPost(prev => prev ? { ...prev, likes: likesCount } : null);
+      setCurrentPost(prev => prev ? { ...prev, likes: likesCount } : prev);
     });
 
     return () => unsubscribe();
@@ -666,7 +706,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     
     // For locked content, check subscription status
     if (accessLevel === 'free_subscriber' || accessLevel === 'followers') {
-      // Any valid subscription (active or cancelled but not expired)
+      // Any valid subscription (active or cancelled but not expired) - both free and paid
       if (!userSubscription) return false;
       const isActive = userSubscription.status === 'active';
       const isCancelledButValid = userSubscription.status === 'cancelled' &&
@@ -675,14 +715,20 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       return isActive || isCancelledButValid;
     }
     
+    
     if (accessLevel === 'paid_subscriber' || accessLevel === 'premium' || accessLevel === 'exclusive') {
-      // Only valid paid subscriptions (active or cancelled but not expired, and plan.price > 0)
+      // Only valid PAID subscriptions (active or cancelled but not expired, and plan.price > 0)
       if (!userSubscription || !userPlan) return false;
       const isActive = userSubscription.status === 'active';
       const isCancelledButValid = userSubscription.status === 'cancelled' &&
         userSubscription.endDate &&
         (userSubscription.endDate.toDate ? userSubscription.endDate.toDate() : new Date(userSubscription.endDate)).getTime() > Date.now();
-      return (isActive || isCancelledButValid) && userPlan.price > 0;
+      
+      // OnlyFans-style: Free subscribers ($0) cannot access paid content
+      const hasValidSubscription = isActive || isCancelledButValid;
+      const isPaidSubscription = userPlan.price > 0;
+      
+      return hasValidSubscription && isPaidSubscription;
     }
     
     // If access level is not recognized, deny access
@@ -806,36 +852,6 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     );
   }
 
-  // Render live stream post if type is 'video' and streamId exists
-  if (post.type === 'video' && post.streamId) {
-    try {
-      return (
-        <LiveStreamPost
-          streamId={post.streamId}
-          title={post.title || ''}
-          description={post.content}
-          author={{
-            id: post.author.id,
-            displayName: post.author.displayName || 'Anonymous',
-            photoURL: post.author.photoURL || undefined,
-            username: post.author.username
-          }}
-          viewerCount={post.viewerCount || 0}
-          createdAt={post.createdAt instanceof Date ? post.createdAt : post.createdAt?.toDate?.() || new Date()}
-          thumbnailUrl={post.thumbnailUrl}
-        />
-      );
-    } catch (err) {
-      console.error('[LIVE_STREAM_POST_RENDER_ERROR]', err, post);
-      return (
-        <div style={{border: '2px solid red', padding: 16, background: '#fff0f0'}}>
-          <strong>Live Stream Post Render Error</strong>
-          <pre style={{fontSize: 12, whiteSpace: 'pre-wrap'}}>{JSON.stringify(post, null, 2)}</pre>
-          <pre style={{fontSize: 12, color: 'red'}}>{String(err)}</pre>
-        </div>
-      );
-    }
-  }
 
   // Render gallery-only mode if showAsGalleryOnly is true
   if (showAsGalleryOnly) {
@@ -991,6 +1007,27 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     
     return parts;
   }
+
+    // Show loading state while checking block status
+    if (checkingBlock) {
+      return (
+        <div className="relative w-full mb-2 p-4 text-center text-gray-500">
+          Loading...
+        </div>
+      );
+    }
+
+    // Show blocked message if user is blocked
+    if (isBlocked) {
+      return (
+        <div className="relative w-full mb-2 p-4 text-center text-gray-500 bg-gray-50 rounded-lg">
+          <div className="flex items-center justify-center gap-2">
+            <Lock className="h-4 w-4" />
+            <span>This content is not available</span>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="relative w-full mb-2" style={{

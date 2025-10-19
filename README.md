@@ -109,8 +109,8 @@ A next-generation content creator platform built to revolutionize the creator ec
     - Search functionality
 
 ### Real-time Features
-- [x] Live Updates
-  - Live notifications
+- [x] Real-time Features
+  - Real-time notifications
   - Real-time chat updates
   - Typing indicators
   - Online status

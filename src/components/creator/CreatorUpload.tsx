@@ -34,26 +34,14 @@ export default function CreatorUpload({ onUploadComplete }: CreatorUploadProps) 
 
     try {
       setIsUploading(true);
-      const mediaUrl = await uploadMedia(file, (progress) => {
+      const mediaUrl = await uploadMedia(file, `content/${file.type.startsWith('image/') ? 'images' : 'videos'}/${user.uid}/${Date.now()}_${file.name}`, (progress) => {
         setUploadProgress(progress);
       });
 
       // Get storage path for cleanup
       const storagePath = `content/${file.type.startsWith('image/') ? 'images' : 'videos'}/${user.uid}/${Date.now()}_${file.name}`;
 
-      await createPost({
-        title,
-        content: description,
-        mediaUrl,
-        authorId: user.uid,
-        type: file.type.startsWith('image/') ? 'image' as PostType : 'video' as PostType,
-        isPublic: true,
-        tags: [],
-        likes: 0,
-        comments: 0,
-        shares: 0,
-        taggedUsers: []
-      });
+      await createPost(description, mediaUrl);
 
       toast.success('Post created successfully!');
       setTitle('');

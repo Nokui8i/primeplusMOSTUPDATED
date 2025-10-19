@@ -1,15 +1,9 @@
 'use client';
 
-import { LiveIcon } from '@/components/icons/LiveIcon';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 
-const navigationItems = [
-  {
-    name: 'Live Show',
-    href: '/live',
-    icon: LiveIcon,
-  }
+const navigationItems: any[] = [
 ];
 
 export function LeftSidebar() {

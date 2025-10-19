@@ -100,7 +100,7 @@ service cloud.firestore {
       let hasValidTypes = 
         data.content is string &&
         data.authorId is string &&
-        data.type in ['image', 'video', 'vr', '360', 'text', 'story', 'live_stream'] &&
+        data.type in ['image', 'video', 'vr', '360', 'text', 'story'] &&
         data.isPublic is bool &&
         data.createdAt is timestamp &&
         (data.mediaUrl == null || data.mediaUrl is string) &&

@@ -125,7 +125,12 @@ export default function SubscriptionsPage() {
         const postsList: PostType[] = await Promise.all(postsSnapshot.docs.map(async docSnap => {
           const postData = docSnap.data();
           // Fetch author data
-          const authorRef = doc(db, 'users', postData.authorId);
+          const authorId = postData.authorId || postData.userId;
+          if (!authorId) {
+            console.error(`No author ID found for post ${docSnap.id}`);
+            return null;
+          }
+          const authorRef = doc(db, 'users', authorId);
           const authorSnap = await getDoc(authorRef);
           let author = null;
           if (authorSnap.exists()) {
@@ -150,7 +155,7 @@ export default function SubscriptionsPage() {
           }
           return { ...postData, id: docSnap.id, author } as any;
         }));
-        setPosts(postsList);
+        setPosts(postsList.filter(post => post !== null));
       } catch (error) {
         console.error('Error fetching posts:', error);
         setPosts([]);

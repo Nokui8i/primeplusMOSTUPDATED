@@ -29,7 +29,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { cn } from '@/lib/utils'
 import { TextPost } from './TextPost'
 import { CommentInput } from '@/components/posts/CommentInput'
-import { LiveStreamPost } from '@/components/posts/LiveStreamPost'
 import { PostData, PostProps, Comment } from '../types'
 
 export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onDelete }, ref) => {
@@ -237,25 +236,6 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
     return null // Or return a loading state
   }
 
-  // Add this check before the return statement
-  if (currentPost.type === 'live_stream' && currentPost.streamId) {
-    return (
-      <LiveStreamPost
-        streamId={currentPost.streamId}
-        title={currentPost.title || ''}
-        description={currentPost.content}
-        author={{
-          id: currentPost.author.id,
-          displayName: currentPost.author.displayName || 'Anonymous',
-          photoURL: currentPost.author.photoURL || undefined,
-          username: currentPost.author.username
-        }}
-        viewerCount={currentPost.viewerCount || 0}
-        createdAt={getCreatedAtDate(currentPost.createdAt)}
-        thumbnailUrl={currentPost.thumbnailUrl}
-      />
-    );
-  }
 
   useEffect(() => {
     // Increment views only once per session per post

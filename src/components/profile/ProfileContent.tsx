@@ -11,10 +11,7 @@ import { ContentUploadDialog } from '@/components/creator/ContentUploadDialog';
 import { CompactPost } from '@/components/posts/CompactPost';
 import { db } from '@/lib/firebase/config';
 import { calculatePostScore, updatePostScore } from '@/lib/utils/postScore';
-import { LiveStreamFeedCard } from '@/components/posts/LiveStreamFeedCard';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import LiveKitStream from '@/components/live/LiveKitStream';
-import LiveChat from '@/components/live/LiveChat';
 import { User } from '@/lib/types/user';
 import { Timestamp } from 'firebase/firestore';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -48,9 +45,6 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
   const { user } = useAuth();
   const PAGE_SIZE = 20;
-  const [showStreamModal, setShowStreamModal] = useState(false);
-  const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
-  const [liveViewerCounts, setLiveViewerCounts] = useState<Record<string, number>>({});
   const [selectedPost, setSelectedPost] = useState<PostWithAuthor | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
@@ -287,55 +281,8 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
     return user?.uid && profileId && user.uid === profileId;
   }, [user?.uid, profileId]);
 
-  useEffect(() => {
-    if (!showStreamModal || !activeStreamId) return;
-    // Listen to the stream document for status changes
-    const unsub = onDocSnapshot(docRef(db, 'streams', activeStreamId), (docSnap) => {
-      const data = docSnap.data();
-      if (data && data.status === 'ended') {
-        setShowStreamModal(false);
-        setActiveStreamId(null);
-      }
-    });
-    return () => unsub();
-  }, [showStreamModal, activeStreamId]);
 
-  useEffect(() => {
-    // Set up real-time listeners for all live stream posts
-    const unsubscribes: (() => void)[] = [];
-    posts.forEach(post => {
-      if (post.type === 'live_stream') {
-        const unsub = onDocSnapshot(docRef(db, 'streams', post.id), (docSnap) => {
-          const data = docSnap.data();
-          if (data && typeof data.viewerCount === 'number') {
-            setLiveViewerCounts(prev => ({ ...prev, [post.id]: data.viewerCount }));
-          }
-        });
-        unsubscribes.push(unsub);
-      }
-    });
-    return () => {
-      unsubscribes.forEach(unsub => unsub());
-    };
-  }, [posts]);
 
-  const handleEndStream = async (streamId: string) => {
-    if (!streamId) return;
-    try {
-      await updateDoc(docRef(db, 'streams', streamId), {
-        status: 'ended',
-        endedAt: new Date(),
-        updatedAt: new Date()
-      });
-      await updateDoc(docRef(db, 'posts', streamId), {
-        status: 'ended',
-        updatedAt: new Date()
-      });
-    } catch (error) {
-      alert('Failed to end stream. Please try again.');
-      console.error('Error ending stream:', error);
-    }
-  };
 
   // Helper: get filtered posts for the current tab
   const filteredPosts = useMemo(() => {
@@ -446,24 +393,11 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
             <div className="space-y-3">
               {filteredPosts.map((post) => (
                 <div key={post.id}>
-                  {post.type === 'live_stream' ? (
-                    <LiveStreamFeedCard
-                      streamId={post.id}
-                      title={post.title}
-                      description={post.content}
-                      author={post.author}
-                      createdAt={post.createdAt}
-                      thumbnailUrl={post.thumbnailUrl}
-                      onEndStream={() => handleEndStream(post.id)}
-                      onClick={() => openModal(post)}
-                    />
-                  ) : (
-                    <CompactPost
-                      post={post}
-                      currentUserId={profile.id}
-                      onPostDeleted={handlePostDeleted}
-                    />
-                  )}
+                  <CompactPost
+                    post={post}
+                    currentUserId={profile.id}
+                    onPostDeleted={handlePostDeleted}
+                  />
                 </div>
               ))}
             </div>

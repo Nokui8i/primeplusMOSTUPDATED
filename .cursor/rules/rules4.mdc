@@ -1,0 +1,695 @@
+---
+alwaysApply: true
+---
+
+# PrimePlus+ Platform Implementation Rules
+
+## Core Requirements
+1. ENGLISH ONLY - No non-English text anywhere in the application
+2. PRODUCTION READY - No placeholder or demo content
+3. SINGLE IMPLEMENTATION - No duplicate functionality
+4. TYPE SAFETY - Use TypeScript with proper type definitions
+5. COMPLETE FEATURES - Fully implement features before marking as done
+6. PROPER TESTING - Include unit and integration tests
+7. SECURITY FIRST - Implement proper authentication and authorization
+
+## UI/UX Modification Rules
+1. **SAFE UI CHANGES** - UI modifications are allowed and encouraged
+   - Visual design changes (colors, layouts, animations, typography)
+   - Component styling and CSS modifications
+   - User interface improvements and redesigns
+   - Responsive design updates
+   - Animation and transition enhancements
+
+2. **BACKEND PROTECTION** - Never damage backend functionality
+   - **NEVER** modify API routes (`src/app/api/`)
+   - **NEVER** change Firebase/AWS configuration (`src/lib/firebase/`, `src/lib/aws/`)
+   - **NEVER** alter database operations (`src/lib/firebase/db.ts`)
+   - **NEVER** modify authentication logic (`src/contexts/AuthContext.tsx`)
+   - **NEVER** change business logic or data flow
+   - **NEVER** break existing TypeScript interfaces (unless adding new UI props)
+   - **NEVER** modify `.env.local` file - only provide updated code for manual copy/paste
+
+3. **UI MODIFICATION GUIDELINES**
+   - Preserve all existing props and component interfaces
+   - Maintain all event handlers and callbacks
+   - Keep all data fetching and state management intact
+   - Preserve all form validations and error handling
+   - Maintain all existing functionality while improving visuals
+   - Update styling, colors, layouts, and animations freely
+   - Improve user experience without breaking core features
+
+4. **SAFE MODIFICATION AREAS**
+   - `src/components/` - All UI components
+   - `src/app/globals.css` - Global styles
+   - `tailwind.config.js` - Design system configuration
+   - `src/styles/` - Style files
+   - Visual assets and icons
+   - Layout components and navigation
+   - Form styling and validation UI
+   - Loading states and animations
+
+## Content Access Implementation
+1. Individual Purchase Options
+   - Minimum price of $0.99
+   - Clear price display
+   - Proper validation
+   - Secure payment handling
+
+2. Subscription Integration
+   - Multiple subscription packs
+   - Clear pack selection
+   - Feature-based differentiation
+   - Mixed access modes
+
+3. Free Content
+   - Clear free content marking
+   - Proper access control
+   - Conversion handling
+   - Access tracking
+
+## User Interface Guidelines
+1. Modern Design
+   - Clean, professional appearance
+   - Consistent spacing
+   - Clear typography
+   - Proper color contrast
+
+2. Responsive Layout
+   - Mobile-first approach
+   - Tablet optimization
+   - Desktop enhancement
+   - Proper breakpoints
+
+3. User Experience
+   - Clear navigation
+   - Intuitive controls
+   - Proper feedback
+   - Loading states
+
+4. Accessibility
+   - ARIA labels
+   - Keyboard navigation
+   - Screen reader support
+   - Color contrast compliance
+
+## Code Structure
+1. Component Organization
+   - Logical grouping
+   - Clear naming
+   - Proper documentation
+   - Reusable patterns
+
+2. State Management
+   - Clear data flow
+   - Proper caching
+   - Error handling
+   - Loading states
+
+3. API Integration
+   - RESTful design
+   - Proper error handling
+   - Data validation
+   - Security measures
+
+4. File Structure
+   - Clear organization
+   - Proper imports
+   - Module separation
+   - Resource management
+
+## Performance Guidelines
+1. Image Optimization
+   - Proper formats
+   - Size optimization
+   - Lazy loading
+   - Placeholder handling
+
+2. Code Optimization
+   - Bundle size management
+   - Code splitting
+   - Tree shaking
+   - Performance monitoring
+
+3. API Efficiency
+   - Request batching
+   - Response caching
+   - Error recovery
+   - Rate limiting
+
+## Security Requirements
+1. Authentication
+   - Secure login
+   - Token management
+   - Session handling
+   - Password security
+
+2. Authorization
+   - Role-based access
+   - Permission checking
+   - Content protection
+   - API security
+
+3. Data Protection
+   - Input validation
+   - XSS prevention
+   - CSRF protection
+   - SQL injection prevention
+
+## Testing Requirements
+1. Unit Testing
+   - Component testing
+   - Function testing
+   - State testing
+   - Error testing
+
+2. Integration Testing
+   - API testing
+   - Flow testing
+   - Authentication testing
+   - Payment testing
+
+3. End-to-End Testing
+   - User flows
+   - Content creation
+   - Payment processing
+   - Error handling
+
+## Documentation Requirements
+1. Code Documentation
+   - Clear comments
+   - Type definitions
+   - Function documentation
+   - Component documentation
+
+2. API Documentation
+   - Endpoint documentation
+   - Request/response formats
+   - Error codes
+   - Authentication requirements
+
+3. User Documentation
+   - Feature guides
+   - Setup instructions
+   - Troubleshooting
+   - FAQs
+
+## Deployment Guidelines
+1. Environment Setup
+   - Development
+   - Staging
+   - Production
+   - Testing
+
+2. Build Process
+   - Optimization
+   - Minification
+   - Asset handling
+   - Environment variables
+
+3. Monitoring
+   - Error tracking
+   - Performance monitoring
+   - Usage analytics
+   - Security monitoring
+
+## Maintenance Requirements
+1. Code Updates
+   - Regular updates
+   - Dependency management
+   - Security patches
+   - Performance optimization
+
+2. Content Management
+   - Regular audits
+   - Content cleanup
+   - Storage optimization
+   - Access verification
+
+3. User Support
+   - Issue tracking
+   - Response handling
+   - Documentation updates
+   - Feature requests
+
+## AWS & Infrastructure Integration Rules
+
+### AWS Resource Utilization
+1. **AWS Account Access**
+   - **Account ID:** 178647778303
+   - **Region:** us-east-1
+   - **Working CLI Credentials:** Use AKIASTGB4YP72IPCO7G6 for all AWS operations
+   - **Application Credentials:** Use AKIASTGB4YP76TWQXSOX for application-level AWS SDK integration
+
+2. **S3 Storage Integration**
+   - **Primary Bucket:** primeplus-firebase-hybrid-storage
+   - **Secondary Bucket:** primeplus-m
+   - **CloudFront Domains:** 
+     - doelz7dqz8shj.cloudfront.net (Main media)
+     - dlgxva7l693ng.cloudfront.net (VR content)
+     - d22y4ecnrac9qg.cloudfront.net (Secondary)
+
+3. **AWS IVS Live Streaming**
+   - **Channel ARN:** arn:aws:ivs:us-east-1:178647778303:channel/LJBOeQ7diNEx
+   - **Stream Key:** sk_us-east-1_aTcHGKkB9Ytt_SSFiqAKVusC6OVKNCgJGtncxOfWsYa
+   - **Playback URL:** https://92bc21887d7d.us-east-1.playback.live-video.net/api/video/v1/us-east-1.178647778303.channel.LJBOeQ7diNEx.m3u8
+   - **Ingest Endpoint:** 92bc21887d7d.global-contribute.live-video.net
+
+4. **Lambda Functions Integration**
+   - **primeplus-upload** - File upload handling
+   - **primeplus-posts** - Post management
+   - **primeplus-comments** - Comment system
+   - **primeplus-auth** - Authentication services
+   - **primeplus-notifications** - Push notifications
+
+5. **API Gateway Endpoints**
+   - **PrimePlus-API** (ID: bno0f7vtfh) - Main API gateway
+   - Use existing API Gateway for all AWS service integrations
+
+### Firebase Integration
+1. **Firebase Project:** primeplus-11a85
+2. **Authentication Domain:** primeplus-11a85.firebaseapp.com
+3. **Storage Bucket:** primeplus-11a85.firebasestorage.app
+4. **Database URL:** https://primeplus-11a85-default-rtdb.firebaseio.com/
+
+### Development Environment Variables
+1. **Always use the provided .env.local configuration**
+2. **AWS credentials must match the working CLI credentials**
+3. **Firebase configuration must use the exact project details provided**
+4. **API endpoints must point to the correct Cloud Functions URLs**
+
+### Environment File Management
+1. **NEVER modify .env.local directly** - This file is protected and should not be edited by the AI
+2. **Provide updated environment code** - When environment variables need updates, provide the complete updated code block
+3. **Manual copy/paste only** - User will manually copy and paste the provided environment configuration
+4. **Preserve existing structure** - Maintain the same format and organization when providing updates
+5. **Include all required variables** - Always provide complete environment configuration, not partial updates
+
+### Infrastructure Development Guidelines
+1. **AWS SDK Integration**
+   - Use AWS SDK v3 for all AWS service integrations
+   - Implement proper error handling for AWS service calls
+   - Use the correct region (us-east-1) for all AWS operations
+   - Implement retry logic for transient AWS service failures
+
+2. **S3 Operations**
+   - Use the primary bucket (primeplus-firebase-hybrid-storage) for main storage
+   - Implement proper CORS configuration for web uploads
+   - Use CloudFront URLs for serving media content
+   - Implement proper file lifecycle management
+
+3. **Live Streaming Implementation**
+   - Use AWS IVS for all live streaming functionality
+   - Implement proper stream key management
+   - Use HLS for playback and RTMP for ingestion
+   - Implement proper stream recording and playback
+
+4. **Lambda Function Development**
+   - Use Node.js 18.x runtime for all Lambda functions
+   - Implement proper IAM role permissions
+   - Use DynamoDB for data persistence where needed
+   - Implement proper error handling and logging
+
+5. **API Gateway Integration**
+   - Use existing API Gateway for all external API calls
+   - Implement proper CORS configuration
+   - Use API Gateway for rate limiting and authentication
+   - Implement proper request/response validation
+
+### Security and Access Control
+1. **AWS IAM Policies**
+   - Use PrimePlus-Lambda-DynamoDB-Policy for Lambda functions
+   - Implement least privilege access for all AWS resources
+   - Use proper IAM roles for service-to-service communication
+
+2. **Environment Security**
+   - Never commit AWS credentials to version control
+   - Use environment variables for all sensitive configuration
+   - Implement proper secret management for production
+
+3. **API Security**
+   - Use Firebase Authentication for user authentication
+   - Implement proper API key management
+   - Use HTTPS for all API communications
+
+### Monitoring and Maintenance
+1. **AWS CloudWatch Integration**
+   - Implement proper logging for all AWS services
+   - Set up monitoring and alerting for critical services
+   - Use CloudWatch metrics for performance monitoring
+
+2. **Error Handling**
+   - Implement comprehensive error handling for all AWS operations
+   - Use proper retry logic for transient failures
+   - Implement proper fallback mechanisms
+
+3. **Performance Optimization**
+   - Use CloudFront for content delivery
+   - Implement proper caching strategies
+   - Optimize Lambda function performance
+   - Use DynamoDB efficiently for data operations# PrimePlus+ Platform Implementation Rules
+
+## Core Requirements
+1. ENGLISH ONLY - No non-English text anywhere in the application
+2. PRODUCTION READY - No placeholder or demo content
+3. SINGLE IMPLEMENTATION - No duplicate functionality
+4. TYPE SAFETY - Use TypeScript with proper type definitions
+5. COMPLETE FEATURES - Fully implement features before marking as done
+6. PROPER TESTING - Include unit and integration tests
+7. SECURITY FIRST - Implement proper authentication and authorization
+
+## UI/UX Modification Rules
+1. **SAFE UI CHANGES** - UI modifications are allowed and encouraged
+   - Visual design changes (colors, layouts, animations, typography)
+   - Component styling and CSS modifications
+   - User interface improvements and redesigns
+   - Responsive design updates
+   - Animation and transition enhancements
+
+2. **BACKEND PROTECTION** - Never damage backend functionality
+   - **NEVER** modify API routes (`src/app/api/`)
+   - **NEVER** change Firebase/AWS configuration (`src/lib/firebase/`, `src/lib/aws/`)
+   - **NEVER** alter database operations (`src/lib/firebase/db.ts`)
+   - **NEVER** modify authentication logic (`src/contexts/AuthContext.tsx`)
+   - **NEVER** change business logic or data flow
+   - **NEVER** break existing TypeScript interfaces (unless adding new UI props)
+   - **NEVER** modify `.env.local` file - only provide updated code for manual copy/paste
+
+3. **UI MODIFICATION GUIDELINES**
+   - Preserve all existing props and component interfaces
+   - Maintain all event handlers and callbacks
+   - Keep all data fetching and state management intact
+   - Preserve all form validations and error handling
+   - Maintain all existing functionality while improving visuals
+   - Update styling, colors, layouts, and animations freely
+   - Improve user experience without breaking core features
+
+4. **SAFE MODIFICATION AREAS**
+   - `src/components/` - All UI components
+   - `src/app/globals.css` - Global styles
+   - `tailwind.config.js` - Design system configuration
+   - `src/styles/` - Style files
+   - Visual assets and icons
+   - Layout components and navigation
+   - Form styling and validation UI
+   - Loading states and animations
+
+## Content Access Implementation
+1. Individual Purchase Options
+   - Minimum price of $0.99
+   - Clear price display
+   - Proper validation
+   - Secure payment handling
+
+2. Subscription Integration
+   - Multiple subscription packs
+   - Clear pack selection
+   - Feature-based differentiation
+   - Mixed access modes
+
+3. Free Content
+   - Clear free content marking
+   - Proper access control
+   - Conversion handling
+   - Access tracking
+
+## User Interface Guidelines
+1. Modern Design
+   - Clean, professional appearance
+   - Consistent spacing
+   - Clear typography
+   - Proper color contrast
+
+2. Responsive Layout
+   - Mobile-first approach
+   - Tablet optimization
+   - Desktop enhancement
+   - Proper breakpoints
+
+3. User Experience
+   - Clear navigation
+   - Intuitive controls
+   - Proper feedback
+   - Loading states
+
+4. Accessibility
+   - ARIA labels
+   - Keyboard navigation
+   - Screen reader support
+   - Color contrast compliance
+
+## Code Structure
+1. Component Organization
+   - Logical grouping
+   - Clear naming
+   - Proper documentation
+   - Reusable patterns
+
+2. State Management
+   - Clear data flow
+   - Proper caching
+   - Error handling
+   - Loading states
+
+3. API Integration
+   - RESTful design
+   - Proper error handling
+   - Data validation
+   - Security measures
+
+4. File Structure
+   - Clear organization
+   - Proper imports
+   - Module separation
+   - Resource management
+
+## Performance Guidelines
+1. Image Optimization
+   - Proper formats
+   - Size optimization
+   - Lazy loading
+   - Placeholder handling
+
+2. Code Optimization
+   - Bundle size management
+   - Code splitting
+   - Tree shaking
+   - Performance monitoring
+
+3. API Efficiency
+   - Request batching
+   - Response caching
+   - Error recovery
+   - Rate limiting
+
+## Security Requirements
+1. Authentication
+   - Secure login
+   - Token management
+   - Session handling
+   - Password security
+
+2. Authorization
+   - Role-based access
+   - Permission checking
+   - Content protection
+   - API security
+
+3. Data Protection
+   - Input validation
+   - XSS prevention
+   - CSRF protection
+   - SQL injection prevention
+
+## Testing Requirements
+1. Unit Testing
+   - Component testing
+   - Function testing
+   - State testing
+   - Error testing
+
+2. Integration Testing
+   - API testing
+   - Flow testing
+   - Authentication testing
+   - Payment testing
+
+3. End-to-End Testing
+   - User flows
+   - Content creation
+   - Payment processing
+   - Error handling
+
+## Documentation Requirements
+1. Code Documentation
+   - Clear comments
+   - Type definitions
+   - Function documentation
+   - Component documentation
+
+2. API Documentation
+   - Endpoint documentation
+   - Request/response formats
+   - Error codes
+   - Authentication requirements
+
+3. User Documentation
+   - Feature guides
+   - Setup instructions
+   - Troubleshooting
+   - FAQs
+
+## Deployment Guidelines
+1. Environment Setup
+   - Development
+   - Staging
+   - Production
+   - Testing
+
+2. Build Process
+   - Optimization
+   - Minification
+   - Asset handling
+   - Environment variables
+
+3. Monitoring
+   - Error tracking
+   - Performance monitoring
+   - Usage analytics
+   - Security monitoring
+
+## Maintenance Requirements
+1. Code Updates
+   - Regular updates
+   - Dependency management
+   - Security patches
+   - Performance optimization
+
+2. Content Management
+   - Regular audits
+   - Content cleanup
+   - Storage optimization
+   - Access verification
+
+3. User Support
+   - Issue tracking
+   - Response handling
+   - Documentation updates
+   - Feature requests
+
+## AWS & Infrastructure Integration Rules
+
+### AWS Resource Utilization
+1. **AWS Account Access**
+   - **Account ID:** 178647778303
+   - **Region:** us-east-1
+   - **Working CLI Credentials:** Use AKIASTGB4YP72IPCO7G6 for all AWS operations
+   - **Application Credentials:** Use AKIASTGB4YP76TWQXSOX for application-level AWS SDK integration
+
+2. **S3 Storage Integration**
+   - **Primary Bucket:** primeplus-firebase-hybrid-storage
+   - **Secondary Bucket:** primeplus-m
+   - **CloudFront Domains:** 
+     - doelz7dqz8shj.cloudfront.net (Main media)
+     - dlgxva7l693ng.cloudfront.net (VR content)
+     - d22y4ecnrac9qg.cloudfront.net (Secondary)
+
+3. **AWS IVS Live Streaming**
+   - **Channel ARN:** arn:aws:ivs:us-east-1:178647778303:channel/LJBOeQ7diNEx
+   - **Stream Key:** sk_us-east-1_aTcHGKkB9Ytt_SSFiqAKVusC6OVKNCgJGtncxOfWsYa
+   - **Playback URL:** https://92bc21887d7d.us-east-1.playback.live-video.net/api/video/v1/us-east-1.178647778303.channel.LJBOeQ7diNEx.m3u8
+   - **Ingest Endpoint:** 92bc21887d7d.global-contribute.live-video.net
+
+4. **Lambda Functions Integration**
+   - **primeplus-upload** - File upload handling
+   - **primeplus-posts** - Post management
+   - **primeplus-comments** - Comment system
+   - **primeplus-auth** - Authentication services
+   - **primeplus-notifications** - Push notifications
+
+5. **API Gateway Endpoints**
+   - **PrimePlus-API** (ID: bno0f7vtfh) - Main API gateway
+   - Use existing API Gateway for all AWS service integrations
+
+### Firebase Integration
+1. **Firebase Project:** primeplus-11a85
+2. **Authentication Domain:** primeplus-11a85.firebaseapp.com
+3. **Storage Bucket:** primeplus-11a85.firebasestorage.app
+4. **Database URL:** https://primeplus-11a85-default-rtdb.firebaseio.com/
+
+### Development Environment Variables
+1. **Always use the provided .env.local configuration**
+2. **AWS credentials must match the working CLI credentials**
+3. **Firebase configuration must use the exact project details provided**
+4. **API endpoints must point to the correct Cloud Functions URLs**
+
+### Environment File Management
+1. **NEVER modify .env.local directly** - This file is protected and should not be edited by the AI
+2. **Provide updated environment code** - When environment variables need updates, provide the complete updated code block
+3. **Manual copy/paste only** - User will manually copy and paste the provided environment configuration
+4. **Preserve existing structure** - Maintain the same format and organization when providing updates
+5. **Include all required variables** - Always provide complete environment configuration, not partial updates
+
+### Infrastructure Development Guidelines
+1. **AWS SDK Integration**
+   - Use AWS SDK v3 for all AWS service integrations
+   - Implement proper error handling for AWS service calls
+   - Use the correct region (us-east-1) for all AWS operations
+   - Implement retry logic for transient AWS service failures
+
+2. **S3 Operations**
+   - Use the primary bucket (primeplus-firebase-hybrid-storage) for main storage
+   - Implement proper CORS configuration for web uploads
+   - Use CloudFront URLs for serving media content
+   - Implement proper file lifecycle management
+
+3. **Live Streaming Implementation**
+   - Use AWS IVS for all live streaming functionality
+   - Implement proper stream key management
+   - Use HLS for playback and RTMP for ingestion
+   - Implement proper stream recording and playback
+
+4. **Lambda Function Development**
+   - Use Node.js 18.x runtime for all Lambda functions
+   - Implement proper IAM role permissions
+   - Use DynamoDB for data persistence where needed
+   - Implement proper error handling and logging
+
+5. **API Gateway Integration**
+   - Use existing API Gateway for all external API calls
+   - Implement proper CORS configuration
+   - Use API Gateway for rate limiting and authentication
+   - Implement proper request/response validation
+
+### Security and Access Control
+1. **AWS IAM Policies**
+   - Use PrimePlus-Lambda-DynamoDB-Policy for Lambda functions
+   - Implement least privilege access for all AWS resources
+   - Use proper IAM roles for service-to-service communication
+
+2. **Environment Security**
+   - Never commit AWS credentials to version control
+   - Use environment variables for all sensitive configuration
+   - Implement proper secret management for production
+
+3. **API Security**
+   - Use Firebase Authentication for user authentication
+   - Implement proper API key management
+   - Use HTTPS for all API communications
+
+### Monitoring and Maintenance
+1. **AWS CloudWatch Integration**
+   - Implement proper logging for all AWS services
+   - Set up monitoring and alerting for critical services
+   - Use CloudWatch metrics for performance monitoring
+
+2. **Error Handling**
+   - Implement comprehensive error handling for all AWS operations
+   - Use proper retry logic for transient failures
+   - Implement proper fallback mechanisms
+
+3. **Performance Optimization**
+   - Use CloudFront for content delivery
+   - Implement proper caching strategies
+   - Optimize Lambda function performance
+   - Use DynamoDB efficiently for data operations

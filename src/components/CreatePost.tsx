@@ -135,7 +135,10 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
 
     try {
       const mediaUrls = await Promise.all(
-        selectedFiles.map(file => uploadMedia(file))
+        selectedFiles.map(file => uploadMedia(file, `posts/${Date.now()}_${file.name}`, (progress) => {
+          // Handle upload progress if needed
+          console.log(`Upload progress: ${progress}%`);
+        }))
       );
 
       const postData = {

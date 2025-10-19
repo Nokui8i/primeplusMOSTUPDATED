@@ -11,12 +11,10 @@ Building a next-generation content creator platform that revolutionizes the crea
    - Independent artists
    - Digital content producers
    - VR/360° content creators
-   - Live streamers
 
 2. **Users/Subscribers**
    - Content consumers
    - VR/360° content enthusiasts
-   - Live streaming viewers
    - Interactive content lovers
 
 ### Key Differentiators
@@ -200,7 +198,6 @@ glow: {
    - Video content
    - VR experiences
    - 360° room tours
-   - Live streaming access
    - Direct messaging
    - Custom requests
    - Special events

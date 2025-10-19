@@ -52,7 +52,13 @@ export default function PostPage() {
         return;
       }
       const postData = postSnap.data();
-      const authorRef = doc(db, 'users', postData.authorId);
+      const authorId = postData.authorId || postData.userId;
+      if (!authorId) {
+        setError('Post author not found');
+        setLoading(false);
+        return;
+      }
+      const authorRef = doc(db, 'users', authorId);
       const authorSnap = await getDoc(authorRef);
       const authorData = authorSnap.data();
       setPost({

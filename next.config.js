@@ -11,9 +11,9 @@ const nextConfig = {
     memoryBasedWorkersCount: true,
     // Enable faster page transitions
     optimizePackageImports: ['@/components', '@/lib', '@/hooks'],
-    // Enable static optimization
-    staticPageGenerationTimeout: 1000,
   },
+  // Exclude firebase-admin from Edge Runtime
+  serverComponentsExternalPackages: ['firebase-admin', '@google-cloud/firestore', 'google-gax'],
   // Enable compression and optimization
   compress: true,
   poweredByHeader: false,

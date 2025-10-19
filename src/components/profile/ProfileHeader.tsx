@@ -5,6 +5,7 @@ import '@/styles/tab-navigation.css';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { UserProfile } from '@/lib/types/user';
+import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { FiTwitter, FiInstagram, FiYoutube } from 'react-icons/fi';
 import { HiOutlineChatBubbleLeftRight } from 'react-icons/hi2';
@@ -15,22 +16,25 @@ import { db } from '@/lib/firebase/config';
 import { useChat } from '@/contexts/ChatContext';
 import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
 import clsx from 'clsx';
-import { GoLiveButton } from '@/components/live/GoLiveButton';
-import { LiveStreamDialog } from '@/components/live/LiveStreamDialog';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 const SUBSCRIPTIONS_API_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_API_URL || '';
-import LiveKitStream from '@/components/live/LiveKitStream';
-import LiveChat from '@/components/live/LiveChat';
 import { Users, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
-import LiveStreamPopup from '@/components/live/LiveStreamPopup';
 import { UserAvatar } from '@/components/user/UserAvatar';
 import { FollowButton, useFollowStats } from '@/components/FollowButton';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'sonner';
-import { Share2 } from 'lucide-react';
+import { Share2, UserX, MoreVertical } from 'lucide-react';
 import { SocialLinksDisplay, SocialLink } from './SocialLinksDisplay';
+import { blockUser, unblockUser, isUserBlocked } from '@/lib/services/block.service';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Plan {
   id: string;
@@ -69,6 +73,7 @@ export function ProfileHeader({
   onTabChange,
 }: ProfileHeaderProps) {
   console.log('🔍 ProfileHeader: isOwnProfile:', isOwnProfile);
+  const { user } = useAuth();
   const { openChat } = useChat();
   const [editingBio, setEditingBio] = useState(false);
   const [bioValue, setBioValue] = useState(profile.bio || '');
@@ -79,10 +84,6 @@ export function ProfileHeader({
   const bioRef = useRef<HTMLSpanElement>(null);
   const router = useRouter();
   
-  const [showLiveDialog, setShowLiveDialog] = useState(false);
-  const [showLiveStreamPopup, setShowLiveStreamPopup] = useState(false);
-  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
-  const [hasUnfinishedStream, setHasUnfinishedStream] = useState(false);
   const { stats, isLoading: isFollowStatsLoading } = useFollowStats(profile.id);
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -90,6 +91,10 @@ export function ProfileHeader({
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [checkingSubscription, setCheckingSubscription] = useState(false);
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blocking, setBlocking] = useState(false);
+  const [checkingBlockStatus, setCheckingBlockStatus] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   // Fixed button position - no more dragging
   const buttonsPosition = { x: 0, y: 0 };
@@ -126,17 +131,6 @@ export function ProfileHeader({
     return () => unsubscribe();
   }, [profile.id]);
 
-  useEffect(() => {
-    if (!profile.id) return;
-    // Listen for any running stream for this user
-    const unsub = onSnapshot(
-      query(collection(db, 'streams'), where('userId', '==', profile.id), where('status', '==', 'live')),
-      (snapshot) => {
-        setHasUnfinishedStream(!snapshot.empty);
-      }
-    );
-    return () => unsub();
-  }, [profile.id, showLiveStreamPopup]);
 
 
   // Check subscription status
@@ -206,6 +200,57 @@ export function ProfileHeader({
     checkSubscriptionStatus();
   }, [profile?.id, isOwnProfile]);
 
+  // Check if user is blocked (bidirectional)
+  useEffect(() => {
+    const checkBlockStatus = async () => {
+      if (isOwnProfile || !user?.uid || !profile?.uid) return;
+      
+      setCheckingBlockStatus(true);
+      try {
+        // Check both directions: if current user blocked profile OR if profile blocked current user
+        const [userBlockedProfile, profileBlockedUser] = await Promise.all([
+          isUserBlocked(user.uid, profile.uid),
+          isUserBlocked(profile.uid, user.uid)
+        ]);
+        
+        const blocked = userBlockedProfile || profileBlockedUser;
+        setIsBlocked(blocked);
+        console.log('[ProfileHeader] Block status:', { 
+          userBlockedProfile, 
+          profileBlockedUser, 
+          blocked, 
+          viewer: user.uid, 
+          profile: profile.uid 
+        });
+      } catch (error) {
+        console.error('Error checking block status:', error);
+        setIsBlocked(false);
+      } finally {
+        setCheckingBlockStatus(false);
+      }
+    };
+    
+    checkBlockStatus();
+  }, [user?.uid, profile?.uid, isOwnProfile]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isDropdownOpen) {
+        const target = event.target as Element;
+        if (!target.closest('.dropdown-container')) {
+          setIsDropdownOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
+
   const handleMessageClick = async () => {
     if (profile?.uid) {
       await openChat(profile);
@@ -214,30 +259,6 @@ export function ProfileHeader({
     }
   };
 
-  const handleEndStream = async () => {
-    if (!currentStreamId) return;
-
-    try {
-      // Update the stream status
-      await updateDoc(doc(db, 'streams', currentStreamId), {
-        status: 'ended',
-        endedAt: new Date(),
-        updatedAt: new Date()
-      });
-
-      // Update the associated post status directly by ID
-      await updateDoc(doc(db, 'posts', currentStreamId), {
-        status: 'ended',
-        updatedAt: new Date()
-      });
-
-      setShowLiveStreamPopup(false);
-      setCurrentStreamId(null);
-    } catch (error) {
-      alert('Failed to end stream. Please try again.');
-      console.error('Error ending stream:', error);
-    }
-  };
 
   const handleTabClick = useCallback((tab: string) => {
     console.log('🔄 Tab click:', { tab, currentActiveTab: activeTab });
@@ -260,6 +281,38 @@ export function ProfileHeader({
       toast.success('Profile link copied to clipboard!');
     } catch (err) {
       toast.error('Failed to copy link');
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!user?.uid || !profile?.uid) return;
+
+    setBlocking(true);
+    try {
+      await blockUser(user.uid, profile.uid);
+      setIsBlocked(true);
+      toast.success(`${profile.displayName} has been blocked`);
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      toast.error('Failed to block user');
+    } finally {
+      setBlocking(false);
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!user?.uid || !profile?.uid) return;
+
+    setBlocking(true);
+    try {
+      await unblockUser(user.uid, profile.uid);
+      setIsBlocked(false);
+      toast.success(`${profile.displayName} has been unblocked`);
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      toast.error('Failed to unblock user');
+    } finally {
+      setBlocking(false);
     }
   };
 
@@ -300,60 +353,10 @@ export function ProfileHeader({
             {/* Action Buttons - Fixed Position */}
             <div className="inline-flex flex-wrap gap-3">
               {isOwnProfile && (
-              <>
+                profile.bio ? (
                   <button
-                  className="profile-btn go-live"
-                    onClick={() => setShowLiveDialog(true)}
-                  style={{
-                    border: 'none',
-                    color: '#fff',
-                    backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-                    backgroundColor: 'transparent',
-                    borderRadius: '20px',
-                    backgroundSize: '100% auto',
-                    fontFamily: 'inherit',
-                    fontSize: '11px',
-                    padding: '0.3em 0.6em',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    transition: 'all 0.3s ease-in-out',
-                    boxShadow: 'none',
-                    margin: '0',
-                    width: 'auto',
-                    height: 'auto',
-                    minWidth: 'auto',
-                    minHeight: 'auto',
-                    maxWidth: 'none',
-                    maxHeight: 'none',
-                    flexShrink: '0',
-                    textDecoration: 'none',
-                    fontWeight: 'normal',
-                    textTransform: 'none',
-                    letterSpacing: 'normal',
-                    whiteSpace: 'nowrap',
-                    verticalAlign: 'middle',
-                    userSelect: 'none',
-                    WebkitUserSelect: 'none',
-                    MozUserSelect: 'none',
-                    msUserSelect: 'none',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'none',
-                    appearance: 'none',
-                    backgroundOrigin: 'padding-box',
-                    backgroundClip: 'padding-box',
-                    position: 'relative'
-                  }}
-                >
-                  <span>GO LIVE</span>
-                  </button>
-                  {profile.bio ? (
-                    <button
                     className="profile-btn edit-bio"
-                      onClick={() => setEditingBio(true)}
+                    onClick={() => setEditingBio(true)}
                     style={{
                       border: 'none',
                       color: '#fff',
@@ -399,11 +402,11 @@ export function ProfileHeader({
                     }}
                   >
                     <span>EDIT BIO</span>
-                    </button>
-                  ) : (
-                    <button
+                  </button>
+                ) : (
+                  <button
                     className="profile-btn edit-bio"
-                      onClick={() => setEditingBio(true)}
+                    onClick={() => setEditingBio(true)}
                     style={{
                       border: 'none',
                       color: '#fff',
@@ -449,10 +452,9 @@ export function ProfileHeader({
                     }}
                   >
                     <span>ADD BIO</span>
-                    </button>
-                  )}
-              </>
-            )}
+                  </button>
+                )
+              )}
             
             <button
               onClick={handleShare}
@@ -482,10 +484,9 @@ export function ProfileHeader({
                 minHeight: 'auto',
                 maxWidth: 'none',
                 maxHeight: 'none',
-                flexShrink: '0',
                 textDecoration: 'none',
-                fontWeight: 'normal',
-                textTransform: 'none',
+                fontWeight: '600',
+                textTransform: 'uppercase',
                 letterSpacing: 'normal',
                 whiteSpace: 'nowrap',
                 verticalAlign: 'middle',
@@ -505,7 +506,7 @@ export function ProfileHeader({
               <span>SHARE</span>
             </button>
             
-            {!isOwnProfile && (
+            {!isOwnProfile && !isBlocked && (
               <>
                 <button
                   onClick={handleMessageClick}
@@ -535,10 +536,9 @@ export function ProfileHeader({
                     minHeight: 'auto',
                     maxWidth: 'none',
                     maxHeight: 'none',
-                    flexShrink: '0',
                     textDecoration: 'none',
-                    fontWeight: 'normal',
-                    textTransform: 'none',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
                     letterSpacing: 'normal',
                     whiteSpace: 'nowrap',
                     verticalAlign: 'middle',
@@ -590,10 +590,9 @@ export function ProfileHeader({
                     minHeight: 'auto',
                     maxWidth: 'none',
                     maxHeight: 'none',
-                    flexShrink: '0',
                     textDecoration: 'none',
-                    fontWeight: 'normal',
-                    textTransform: 'none',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
                     letterSpacing: 'normal',
                     whiteSpace: 'nowrap',
                     verticalAlign: 'middle',
@@ -611,6 +610,93 @@ export function ProfileHeader({
                 >
                   <span>SUBSCRIBE</span>
                 </button>
+              </>
+            )}
+            
+            {!isOwnProfile && (
+              <>
+                {/* 3 Dots Dropdown Menu - Always visible for block/unblock */}
+                <div className="relative dropdown-container">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      console.log('🔍 3 dots clicked!');
+                      setIsDropdownOpen(!isDropdownOpen);
+                    }}
+                    className={`h-8 w-8 p-0 opacity-100 transition-colors flex items-center justify-center rounded ${
+                      isDropdownOpen 
+                        ? 'text-blue-600' 
+                        : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                  
+                  {isDropdownOpen && (
+                    <div 
+                      className="absolute right-0 top-full mt-1 w-32 z-50"
+                      style={{
+                        borderRadius: '12px',
+                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        overflow: 'hidden',
+                        pointerEvents: 'auto',
+                        zIndex: 99999
+                      }}
+                    >
+                      {isBlocked ? (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleUnblockUser();
+                            setIsDropdownOpen(false);
+                          }}
+                          disabled={blocking || checkingBlockStatus}
+                          className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
+                          style={{ 
+                            fontWeight: '500', 
+                            fontSize: '12px',
+                            pointerEvents: 'auto',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {blocking ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
+                          ) : (
+                            <UserX className="mr-2 h-3 w-3" />
+                          )}
+                          Unblock
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleBlockUser();
+                            setIsDropdownOpen(false);
+                          }}
+                          disabled={blocking || checkingBlockStatus}
+                          className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
+                          style={{ 
+                            fontWeight: '500', 
+                            fontSize: '12px',
+                            pointerEvents: 'auto',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {blocking ? (
+                            <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
+                          ) : (
+                            <UserX className="mr-2 h-3 w-3" />
+                          )}
+                          Block
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </>
             )}
             </div>
@@ -659,11 +745,11 @@ export function ProfileHeader({
                 disabled={saving}
                 placeholder="Write your bio here..."
                 style={{
-                  minHeight: '150px !important',
-                  height: 'auto !important',
-                  maxHeight: 'none !important',
-                  resize: 'vertical !important'
-                } as React.CSSProperties}
+                  minHeight: '150px',
+                  height: 'auto',
+                  maxHeight: 'none',
+                  resize: 'vertical'
+                } as any}
               />
               <div className={`text-xs text-right ${
                 bioValue.length > 1950 ? 'text-red-500' :
@@ -803,14 +889,6 @@ export function ProfileHeader({
           <div className="indicator"></div>
         </div>
       </div>
-      <LiveStreamDialog
-        isOpen={showLiveDialog}
-        onClose={() => setShowLiveDialog(false)}
-        onStreamStart={(streamId) => {
-          setShowLiveDialog(false);
-          router.push(`/streamer/${streamId}`);
-        }}
-      />
     </div>
   );
 } 

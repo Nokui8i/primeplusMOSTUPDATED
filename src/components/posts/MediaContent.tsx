@@ -361,7 +361,6 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
         )
 
       case 'text':
-      case 'live_stream':
       default:
         return (
           <div className="relative flex items-center justify-center p-4 bg-gray-100 rounded-lg">

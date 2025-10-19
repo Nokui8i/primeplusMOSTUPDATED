@@ -463,11 +463,11 @@ export default function AccountSettings() {
                   maxLength={2000}
                   className="settings-bio-field border rounded p-3 w-full text-gray-900"
                   style={{
-                    minHeight: '150px !important',
-                    height: 'auto !important',
-                    maxHeight: 'none !important',
-                    resize: 'vertical !important'
-                  } as React.CSSProperties}
+                    minHeight: '150px',
+                    height: 'auto',
+                    maxHeight: 'none',
+                    resize: 'vertical'
+                  }}
                 />
                 <div className="text-xs text-right text-gray-500">
                   {formData.bio?.length || 0}/2000

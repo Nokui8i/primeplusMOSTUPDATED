@@ -28,7 +28,7 @@ export interface User {
   username?: string
 }
 
-export type PostType = 'text' | 'image' | 'video' | 'live_stream' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'
+export type PostType = 'text' | 'image' | 'video' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'
 
 export interface Post {
   // =============================================
@@ -163,7 +163,7 @@ export interface Post {
     subscriptionTier?: string;
     price?: number;
     promoCode?: string;
-    accessLevel?: 'free' | 'premium' | 'exclusive' | 'followers';
+    accessLevel?: 'free' | 'free_subscriber' | 'paid_subscriber' | 'premium' | 'exclusive' | 'followers';
     availableFrom?: Timestamp;
     availableUntil?: Timestamp;
     geoRestrictions?: string[];
@@ -189,11 +189,7 @@ export interface Post {
     };
   };
 
-  // Live stream specific fields
-  streamId?: string;
   title?: string;
-  viewerCount?: number;
-  status?: 'live' | 'ended';
 
   showWatermark?: boolean;
 }
@@ -243,7 +239,7 @@ export interface PostWithAuthor extends Omit<PostData, 'comments'> {
     subscriptionTier?: string;
     price?: number;
     promoCode?: string;
-    accessLevel?: 'free' | 'premium' | 'exclusive' | 'followers';
+    accessLevel?: 'free' | 'free_subscriber' | 'paid_subscriber' | 'premium' | 'exclusive' | 'followers';
     availableFrom?: Timestamp;
     availableUntil?: Timestamp;
     geoRestrictions?: string[];

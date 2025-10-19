@@ -66,7 +66,6 @@ This document tracks the implementation progress of the creator verification sys
 
 - [x] Tipping System (FULLY IMPLEMENTED - TRACKING ONLY, NO PAYMENT GATEWAY)
   - [x] Tip buttons on posts
-  - [x] Tip buttons on live streams
   - [x] Tip buttons on chat messages (images/videos)
   - [x] Custom tip amounts ($1-$100 quick select + custom input)
   - [x] Tip messages (200 char limit)
@@ -74,7 +73,7 @@ This document tracks the implementation progress of the creator verification sys
   - [x] Top tippers leaderboard
   - [x] Tip notifications (real-time + push)
   - [x] Earnings tracking in creator dashboard
-  - [x] Context-aware tipping (post, live, message)
+  - [x] Context-aware tipping (post, message)
   - [x] Cloud Functions for tip triggers
   - [x] Firestore security rules for tips
   - [ ] Payment gateway integration (future - required for real money)

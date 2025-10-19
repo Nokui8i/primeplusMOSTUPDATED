@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import OverviewTab from './components/OverviewTab';
 import SubscribersTab from './components/SubscribersTab';
 import SubscriptionsTab from './components/SubscriptionsTab';
+import SettingsTab from './components/SettingsTab';
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, getCountFromServer, Timestamp, getDocs } from 'firebase/firestore';
 import '@/styles/tab-navigation.css';
@@ -181,6 +182,16 @@ export default function CreatorDashboard() {
           />
           <label className="tab_label" htmlFor="tab3">Subscribers</label>
 
+          <input 
+            type="radio" 
+            name="dashboard-tab" 
+            id="tab4" 
+            className="tab tab--4" 
+            checked={activeTab === 'settings'}
+            onChange={() => setActiveTab('settings')}
+          />
+          <label className="tab_label" htmlFor="tab4">Settings</label>
+
           <div className="indicator"></div>
         </div>
       </div>
@@ -190,6 +201,7 @@ export default function CreatorDashboard() {
         {activeTab === 'overview' && <OverviewTab stats={stats} />}
         {activeTab === 'subscriptions' && <SubscriptionsTab />}
         {activeTab === 'subscribers' && <SubscribersTab />}
+        {activeTab === 'settings' && <SettingsTab />}
       </div>
     </div>
   );

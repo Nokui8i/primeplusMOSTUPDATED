@@ -23,7 +23,7 @@ const storage = getStorage(app);
 const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 
 // Initialize messaging with proper checks
-let messaging = null;
+let messaging: any = null;
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   try {
     messaging = getMessaging(app);

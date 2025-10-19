@@ -10,11 +10,11 @@ export interface PostData {
   comments: Comment[]
   tags: string[]
   imageUrl?: string
-  type?: 'text' | 'image' | 'video' | 'live_stream' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'
+  type?: 'text' | 'image' | 'video' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'
   isPublic?: boolean
   shares?: number
   taggedUsers?: string[]
-  status?: 'ended' | 'live'
+  status?: 'ended'
   metadata?: {
     width?: number
     height?: number
@@ -56,7 +56,7 @@ export interface PostData {
     username?: string
   }
   mediaUrl?: string
-  mediaType?: 'text' | 'image' | 'video' | 'live_stream' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'
+  mediaType?: 'text' | 'image' | 'video' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'
   thumbnailUrl?: string
   background?: string
   location?: string
@@ -68,8 +68,6 @@ export interface PostData {
   storySettings?: any
   analytics?: any
   showWatermark?: boolean
-  streamId?: string
-  viewerCount?: number
 }
 
 export interface Comment {
@@ -86,4 +84,4 @@ export interface PostProps {
   onUpdate?: (post: PostData) => void
   onDelete?: (postId: string) => void
   ref?: React.Ref<HTMLDivElement>
-} 
+}

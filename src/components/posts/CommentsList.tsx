@@ -112,8 +112,13 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
         
         if (data.authorId) {
           try {
-            console.log('[CommentsList] Fetching user profile for authorId:', data.authorId);
-            const userProfileDoc = await getDoc(doc(db, 'users', data.authorId));
+            const authorId = data.authorId || data.userId;
+            if (!authorId) {
+              console.error('[CommentsList] No author ID found for comment:', data.id);
+              return;
+            }
+            console.log('[CommentsList] Fetching user profile for authorId:', authorId);
+            const userProfileDoc = await getDoc(doc(db, 'users', authorId));
             userProfile = userProfileDoc.data();
             console.log('[CommentsList] User profile data:', userProfile);
             photoURL = userProfile?.photoURL || data.authorPhotoURL || undefined;
@@ -171,13 +176,14 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
         return commentData;
       }))
 
-      // Filter out null values (comments with no data)
-      const validComments = commentsData.filter(comment => comment !== null);
+      // Filter out null and undefined values (comments with no data)
+      const validComments = commentsData.filter(comment => comment !== null && comment !== undefined);
       
       // Sort comments client-side since we removed orderBy from query
       const sortedComments = validComments.sort((a, b) => {
-        const aTime = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-        const bTime = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        if (!a || !b) return 0;
+        const aTime = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+        const bTime = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
         
         if (sortBy === 'newest') {
           return bTime.getTime() - aTime.getTime(); // Newest first

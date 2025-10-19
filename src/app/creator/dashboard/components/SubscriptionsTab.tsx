@@ -185,6 +185,13 @@ export default function SubscriptionsTab() {
       alert('Missing required fields');
       return;
     }
+
+    // Validate price range for paid plans
+    if (form.price > 0 && (form.price < 4.99 || form.price > 50.00)) {
+      alert('Price must be between $4.99 and $50.00 for paid plans.');
+      return;
+    }
+
     setSaving(true);
     try {
       const planData: any = {
@@ -226,7 +233,14 @@ export default function SubscriptionsTab() {
   };
 
   const handleUpdate = async () => {
-    if (!form.name || !form.price || !form.intervalCount || !editingId) return;
+    if (!form.name || form.price == null || !form.intervalCount || !editingId) return;
+
+    // Validate price range for paid plans
+    if (form.price > 0 && (form.price < 4.99 || form.price > 50.00)) {
+      alert('Price must be between $4.99 and $50.00 for paid plans.');
+      return;
+    }
+
     setSaving(true);
     try {
       await updateDoc(doc(db, 'plans', editingId), {
@@ -412,7 +426,7 @@ export default function SubscriptionsTab() {
                       name="name" 
                       value={form.name || ''} 
                       onChange={handleInput} 
-                      placeholder="e.g., Basic Plan" 
+                      placeholder="" 
                       className="w-full"
                       autoComplete="off"
                       style={{
@@ -448,10 +462,10 @@ export default function SubscriptionsTab() {
                           id="plan-type-paid"
                           name="planType"
                           checked={typeof form.price === 'number' && form.price > 0}
-                          onChange={() => setForm(prev => ({ ...prev, price: undefined }))}
+                          onChange={() => setForm(prev => ({ ...prev, price: 4.99 }))}
                           className="accent-blue-500 w-3 h-3"
                         />
-                        <label htmlFor="plan-type-paid" className="text-[10px]">Paid</label>
+                        <label htmlFor="plan-type-paid" className="text-[10px]">Paid ($4.99-$50.00)</label>
                       </div>
                       <Input
                         name="price"
@@ -459,10 +473,16 @@ export default function SubscriptionsTab() {
                         value={typeof form.price === 'number' && form.price > 0 ? form.price : ''}
                         onChange={e => {
                           const value = e.target.value;
-                          setForm(prev => ({ ...prev, price: value === '' ? undefined : Number(value) }));
+                          const numValue = value === '' ? undefined : Number(value);
+                          // Validate price range
+                          if (numValue !== undefined && (numValue < 4.99 || numValue > 50.00)) {
+                            return; // Don't update if out of range
+                          }
+                          setForm(prev => ({ ...prev, price: numValue }));
                         }}
-                        placeholder="0.00"
-                        min="0"
+                        placeholder=""
+                        min="4.99"
+                        max="50.00"
                         step="0.01"
                         className="w-20"
                         disabled={form.price === 0}
@@ -477,6 +497,11 @@ export default function SubscriptionsTab() {
                         }}
                       />
                     </div>
+                    {form.price > 0 && (form.price < 4.99 || form.price > 50.00) && (
+                      <p className="text-[9px] text-red-500 mt-1">
+                        Price must be between $4.99 and $50.00
+                      </p>
+                    )}
                   </div>
 
                   {/* Duration */}
@@ -488,7 +513,7 @@ export default function SubscriptionsTab() {
                         type="number" 
                         value={form.intervalCount || ''} 
                         onChange={handleInput} 
-                        placeholder="30" 
+                        placeholder="" 
                         min="1" 
                         className="flex-1"
                         style={{
@@ -672,7 +697,7 @@ export default function SubscriptionsTab() {
                     name="code"
                     value={promoForm.code}
                     onChange={handlePromoInput}
-                    placeholder="e.g., WELCOME20"
+                    placeholder=""
                     className="w-full"
                     autoComplete="off"
                     style={{
@@ -693,7 +718,7 @@ export default function SubscriptionsTab() {
                     type="number"
                     value={promoForm.discountPercent}
                     onChange={handlePromoInput}
-                    placeholder="20"
+                    placeholder=""
                     min="1"
                     max="100"
                     className="w-full"

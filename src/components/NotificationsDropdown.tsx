@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, Heart, Users, Image, MessageSquare, FileText, Clock, BellRing, Trash2, Terminal, MessageCircle, UserPlus, AtSign } from 'lucide-react';
+import { Bell, Heart, Users, Image, MessageSquare, FileText, Clock, BellRing, Trash2, Terminal, MessageCircle, UserPlus, AtSign, XCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,6 +107,10 @@ export function NotificationsDropdown() {
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
         );
+        case 'subscription_expiring':
+          return <AlertTriangle className="w-3 h-3 text-white" />;
+        case 'subscription_expired':
+          return <XCircle className="w-3 h-3 text-white" />;
       default:
         return (
           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -124,6 +128,10 @@ export function NotificationsDropdown() {
         return 'commented on your post';
       case 'follow':
         return 'started following you';
+        case 'subscription_expiring':
+          return notification.message || 'Your subscription expires in 24 hours';
+        case 'subscription_expired':
+          return notification.message || 'Your subscription has expired';
       default:
         return 'sent you a notification';
     }
@@ -180,7 +188,18 @@ export function NotificationsDropdown() {
         url = `/profile/${notification.fromUserId}`;
         router.push(url);
       }
-    }
+        } else if (notification.type === 'subscription_expiring' || notification.type === 'subscription_expired') {
+          // Navigate to creator's profile to resubscribe
+          const creatorId = notification.data?.creatorId;
+          if (creatorId) {
+            url = `/profile/${creatorId}`;
+            router.push(url);
+          } else {
+            // Fallback to subscriptions page
+            url = '/subscriptions';
+            router.push(url);
+          }
+        }
     setIsOpen(false); // Close the dropdown after navigation
   };
 
@@ -275,6 +294,7 @@ export function NotificationsDropdown() {
   };
 
 
+
   return (
     <>
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -302,7 +322,7 @@ export function NotificationsDropdown() {
         </DropdownMenuTrigger>
         <DropdownMenuContent 
           align="end" 
-          className="w-72 max-h-[350px] bg-white border-0 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200 rounded-2xl overflow-hidden"
+          className="w-80 max-h-[600px] bg-white border-0 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200 rounded-2xl overflow-hidden"
           style={{
             boxShadow: `
               0 20px 25px -5px rgba(0, 0, 0, 0.1),
@@ -410,7 +430,7 @@ export function NotificationsDropdown() {
           ) : (
             <div 
               ref={scrollContainerRef}
-              className="max-h-[300px] overflow-y-auto p-1 pb-4 invisible-scrollbar" 
+              className="max-h-[550px] overflow-y-auto p-1 pb-6 invisible-scrollbar" 
               onWheel={(e) => {
                 e.stopPropagation();
                 // Allow the scroll to work normally within this container

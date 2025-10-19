@@ -50,6 +50,10 @@ const BENEFITS = [
   'Cancel your subscription at any time',
 ];
 
+// OnlyFans-style pricing limits
+const MIN_SUBSCRIPTION_PRICE = 4.99;
+const MAX_SUBSCRIPTION_PRICE = 50.00;
+
 const SUBSCRIPTIONS_API_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_API_URL || '';
 
 export default function PlansModal({ open, onClose, plans, onSelectPlan, creatorId, onSubscriptionCancelled }: PlansModalProps) {
@@ -248,6 +252,14 @@ export default function PlansModal({ open, onClose, plans, onSelectPlan, creator
     setLoading(true);
     setError(null);
     setSuccess(false);
+    
+    // Validate price range for paid plans
+    if (selectedPlan && selectedPlan.price > 0 && (selectedPlan.price < MIN_SUBSCRIPTION_PRICE || selectedPlan.price > MAX_SUBSCRIPTION_PRICE)) {
+      setError(`Price must be between $${MIN_SUBSCRIPTION_PRICE} and $${MAX_SUBSCRIPTION_PRICE} for paid plans.`);
+      setLoading(false);
+      return;
+    }
+    
     try {
       const auth = getAuth();
       const user = auth.currentUser;
@@ -385,7 +397,12 @@ export default function PlansModal({ open, onClose, plans, onSelectPlan, creator
                     className="accent-fuchsia-500"
                   />
                   <span className="font-bold text-gray-900">{plan.name}</span>
-                  <span className="text-xs text-gray-500">{plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)}`} / {plan.duration} {plan.durationUnit || 'days'}</span>
+                  <span className="text-xs text-gray-500">
+                    {plan.price === 0 ? 'Free' : `$${plan.price.toFixed(2)}`} / {plan.duration} {plan.durationUnit || 'days'}
+                    {plan.price > 0 && (plan.price < MIN_SUBSCRIPTION_PRICE || plan.price > MAX_SUBSCRIPTION_PRICE) && (
+                      <span className="text-red-500 ml-1">⚠️ Invalid price</span>
+                    )}
+                  </span>
                   {plan.description && <span className="text-xs text-gray-400 ml-2">{plan.description}</span>}
                 </label>
               ))}

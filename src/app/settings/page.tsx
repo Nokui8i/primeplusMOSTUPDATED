@@ -12,6 +12,7 @@ import NotificationSettings from './components/NotificationSettings';
 // import PaymentSettings from './components/PaymentSettings'; // REMOVED - No payment system implemented
 import SecuritySettings from './components/SecuritySettings';
 import CreatorVerificationSettings from './components/CreatorVerificationSettings';
+import BlockSettingsTab from '../creator/dashboard/components/BlockSettingsTab';
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -102,6 +103,16 @@ export default function SettingsPage() {
             />
             <label className="tab_label" htmlFor="tab5">Creator</label>
 
+            <input 
+              type="radio" 
+              name="tab" 
+              id="tab6" 
+              className="tab tab--6" 
+              checked={activeTab === 'block'}
+              onChange={() => setActiveTab('block')}
+            />
+            <label className="tab_label" htmlFor="tab6">Block</label>
+
             <div className="indicator"></div>
           </div>
         </div>
@@ -134,6 +145,12 @@ export default function SettingsPage() {
         {activeTab === 'creator' && (
           <Card className="p-6">
             <CreatorVerificationSettings />
+          </Card>
+        )}
+
+        {activeTab === 'block' && (
+          <Card className="p-6">
+            <BlockSettingsTab />
           </Card>
         )}
       </div>

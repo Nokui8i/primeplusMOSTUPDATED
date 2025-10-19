@@ -14,7 +14,7 @@ interface TipModalProps {
   creatorId: string;
   creatorName: string;
   context?: {
-    type: 'post' | 'live' | 'message' | 'profile';
+    type: 'post' | 'message' | 'profile';
     id?: string;
     mediaType?: 'image' | 'video';
   };
