@@ -24,19 +24,14 @@ export function ContentWatermark({ username, className = '' }: ContentWatermarkP
       style={{ zIndex: 10 }}
     >
       <div 
-        className="absolute bottom-2 right-2 text-white text-sm font-medium opacity-80"
+        className="absolute bottom-3 right-3 text-white text-base font-medium opacity-70"
         style={{
-          textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.25)',
           fontFamily: 'inherit',
           letterSpacing: '0.01em',
-          padding: '4px 8px',
+          padding: 0,
           margin: 0,
           zIndex: 11,
-          backgroundColor: 'rgba(0,0,0,0.3)',
-          borderRadius: '4px',
-          fontSize: 'clamp(10px, 2vw, 14px)',
-          maxWidth: '90%',
-          wordBreak: 'break-all'
         }}
       >
         {profileUrl}

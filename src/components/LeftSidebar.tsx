@@ -14,21 +14,12 @@ import { useTotalUnreadMessagesCount } from '@/lib/messages'
 import { useAuth } from '@/hooks/useAuth';
 import { useRoutePrefetch } from './common/RoutePrefetcher'
 import { ContentUploadDialog } from '@/components/creator/ContentUploadDialog';
-import { 
-  HomeIcon, 
-  ChatBubbleLeftRightIcon, 
-  UserGroupIcon, 
-  UserIcon, 
-  Cog6ToothIcon,
-  ChartBarIcon
-} from '@heroicons/react/24/outline';
 
 interface NavItem {
   label: string
   path: string
   ariaLabel?: string
   showForRoles?: string[]
-  icon: React.ComponentType<{ className?: string }>
 }
 
 interface LeftSidebarProps {
@@ -39,39 +30,33 @@ const navItems: NavItem[] = [
   {
     label: 'Home',
     path: '/home',
-    ariaLabel: 'Go to home page',
-    icon: HomeIcon
+    ariaLabel: 'Go to home page'
   },
   {
     label: 'Messages',
     path: '/messages',
-    ariaLabel: 'View your messages',
-    icon: ChatBubbleLeftRightIcon
+    ariaLabel: 'View your messages'
   },
   {
     label: 'Subscriptions',
     path: '/subscriptions',
-    ariaLabel: 'View your subscribed creators',
-    icon: UserGroupIcon
+    ariaLabel: 'View your subscribed creators'
   },
   {
     label: 'Profile',
     path: '/profile',
-    ariaLabel: 'View your profile',
-    icon: UserIcon
+    ariaLabel: 'View your profile'
   },
   {
     label: 'Creator Dashboard',
     path: '/creator/dashboard',
     ariaLabel: 'Manage your creator content and subscribers',
-    showForRoles: ['creator', 'admin', 'superadmin', 'owner'],
-    icon: ChartBarIcon
+    showForRoles: ['creator', 'admin', 'superadmin', 'owner']
   },
   {
     label: 'Settings',
     path: '/settings',
-    ariaLabel: 'Manage your settings',
-    icon: Cog6ToothIcon
+    ariaLabel: 'Manage your settings'
   }
 ];
 
@@ -126,7 +111,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
   });
 
   return (
-    <aside className="w-16 sm:w-32 md:w-48 lg:w-64 h-screen sticky top-0 bg-white px-0 -pt-8 pb-8 flex flex-col relative z-20" role="navigation" aria-label="Main navigation" style={{ pointerEvents: 'auto' }}>
+    <aside className="w-64 h-screen sticky top-0 bg-white px-0 -pt-8 pb-8 flex flex-col relative z-20" role="navigation" aria-label="Main navigation" style={{ pointerEvents: 'auto' }}>
       {/* Logo */}
       <div className="mb-0 -ml-4 -mt-24 p-0 m-0">
         <NewLogo size="xxxl" showText={false} />
@@ -156,7 +141,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     onMouseEnter={() => prefetchOnHover(item.path)}
                     onKeyDown={(e) => handleKeyPress(e, item.path)}
                     className={cn(
-                      "w-full text-left px-2 sm:px-4 py-3 rounded-lg transition-all duration-200 text-xs sm:text-sm",
+                      "w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm",
                       "focus:outline-none",
                       "relative z-10 cursor-pointer",
                       pathname === item.path
@@ -168,10 +153,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     style={{ pointerEvents: 'auto' }}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <item.icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                        <span className="hidden sm:inline">{item.label}</span>
-                      </div>
+                      <span>{item.label}</span>
                       {item.label === 'Messages' && unreadCount > 0 && (
                         <div className="w-3 h-3 rounded-full shadow-lg" style={{
                           background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)',
@@ -189,7 +171,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     onClick={() => router.push('/admin')}
                     onKeyDown={(e) => handleKeyPress(e, '/admin')}
                     className={cn(
-                      "w-full text-left px-2 sm:px-4 py-3 rounded-lg transition-all duration-200 text-xs sm:text-sm",
+                      "w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm",
                       "focus:outline-none",
                       pathname === '/admin'
                         ? "text-blue-600 bg-blue-50 font-medium"
@@ -198,10 +180,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     aria-label="Go to admin dashboard"
                     aria-current={pathname === '/admin' ? 'page' : undefined}
                   >
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <ChartBarIcon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
-                      <span className="hidden sm:inline">Admin Dashboard</span>
-                    </div>
+                    Admin Dashboard
                   </button>
                 </li>
               )}
