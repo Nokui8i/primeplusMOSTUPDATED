@@ -148,6 +148,9 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [showResults, setShowResults] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  
+  // Normalize access level (handle both new and legacy values)
+  const accessLevel = (post as any).accessSettings?.accessLevel as 'free' | 'premium' | 'exclusive' | 'followers' | 'free_subscriber' | 'paid_subscriber' | 'ppv' | undefined;
   const [cursorPosition, setCursorPosition] = useState(0)
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -159,9 +162,6 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   const [userSubscription, setUserSubscription] = useState<any>(null)
   const [userPlan, setUserPlan] = useState<any>(null)
   const [canInteract, setCanInteract] = useState(true) // Added state for interaction permissions
-
-  // Normalize access level (handle both new and legacy values)
-  const accessLevel = (currentPost as any).accessSettings?.accessLevel as 'free' | 'premium' | 'exclusive' | 'followers' | 'free_subscriber' | 'paid_subscriber' | 'ppv' | undefined;
 
   // Debug logging for canInteract changes
   useEffect(() => {
