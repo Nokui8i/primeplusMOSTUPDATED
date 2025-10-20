@@ -229,7 +229,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
         });
       }
 
-      const postRef = await addDoc(collection(db, 'posts'), {
+      const newPostData = {
         content: content.trim(),
         authorId: userId,
         createdAt: new Date(),
@@ -255,7 +255,19 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
           reportCount: 0,
           viewsByDay: {}
         },
-      });
+      }
+
+      const postRef = await addDoc(collection(db, 'posts'), newPostData);
+
+      // Dispatch a client-side event so feeds can prepend without a hard refresh
+      try {
+        const event = new CustomEvent('post:created', {
+          detail: { id: postRef.id, ...newPostData }
+        })
+        window.dispatchEvent(event)
+      } catch (e) {
+        // no-op if CustomEvent unavailable
+      }
 
       console.log('Post created with ID:', postRef.id);
       onUploadComplete?.();

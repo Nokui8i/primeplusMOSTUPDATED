@@ -1,5 +1,5 @@
 import Image from 'next/image'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { PostType } from '@/lib/types/post'
 import { Video } from '@/components/ui/video'
 import dynamic from 'next/dynamic'
@@ -82,11 +82,86 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
   const [isMounted, setIsMounted] = useState(false)
   const videoContainerRef = useRef<HTMLDivElement>(null)
   const [isVideoFullscreen, setIsVideoFullscreen] = useState(false)
+  // Interaction toggle: set to false to disable zoom/pan
+  const imageInteractive = false
+  // Intrinsic media dimensions (lightbox sizing)
+  const [intrinsicW, setIntrinsicW] = useState<number | null>(null)
+  const [intrinsicH, setIntrinsicH] = useState<number | null>(null)
+  const [viewportW, setViewportW] = useState<number>(typeof window !== 'undefined' ? window.innerWidth : 0)
+  const [viewportH, setViewportH] = useState<number>(typeof window !== 'undefined' ? window.innerHeight : 0)
 
   useEffect(() => {
     setIsMounted(true)
     return () => setIsMounted(false)
   }, [])
+
+  // Lock background scroll when lightbox is open
+  useEffect(() => {
+    if (showLightbox) {
+      const previousBodyOverflow = document.body.style.overflow
+      const previousHtmlOverflow = document.documentElement.style.overflow
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = previousBodyOverflow
+        document.documentElement.style.overflow = previousHtmlOverflow
+      }
+    }
+  }, [showLightbox])
+
+  // Seed intrinsic size from known metadata when opening lightbox (faster sizing)
+  useEffect(() => {
+    if (!showLightbox) return
+    // Reset interactions each open
+    setScale(1)
+    setPosition({ x: 0, y: 0 })
+    const w = dimensions?.width || metadata?.width || null
+    const h = dimensions?.height || metadata?.height || null
+    if (w && h) {
+      setIntrinsicW(w)
+      setIntrinsicH(h)
+    }
+  }, [showLightbox, dimensions?.width, dimensions?.height, metadata?.width, metadata?.height])
+
+  // Track viewport size for accurate scale-to-fit
+  useEffect(() => {
+    function onResize() {
+      setViewportW(window.innerWidth)
+      setViewportH(window.innerHeight)
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', onResize)
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', onResize)
+      }
+    }
+  }, [])
+
+  // Compute scaled size for lightbox based on intrinsic media size and viewport
+  const lightboxSize = useMemo(() => {
+    if (!intrinsicW || !intrinsicH) return { width: 'auto', height: 'auto' }
+    const maxW = viewportW * 0.95
+    const maxH = viewportH * 0.95
+    const scale = Math.min(maxW / intrinsicW, maxH / intrinsicH)
+    const w = Math.max(1, Math.floor(intrinsicW * scale))
+    const h = Math.max(1, Math.floor(intrinsicH * scale))
+    return { width: `${w}px`, height: `${h}px` }
+  }, [intrinsicW, intrinsicH, viewportW, viewportH])
+
+  // Numeric base size for bounds
+  const baseW = useMemo(() => (typeof lightboxSize.width === 'string' ? parseInt(lightboxSize.width) : 0), [lightboxSize.width])
+  const baseH = useMemo(() => (typeof lightboxSize.height === 'string' ? parseInt(lightboxSize.height) : 0), [lightboxSize.height])
+
+  const clampPosition = (x: number, y: number) => {
+    const maxX = Math.max(0, (baseW * scale - baseW) / 2)
+    const maxY = Math.max(0, (baseH * scale - baseH) / 2)
+    return {
+      x: Math.min(maxX, Math.max(-maxX, x)),
+      y: Math.min(maxY, Math.max(-maxY, y)),
+    }
+  }
 
   useEffect(() => {
     if (type === 'image' && url) {
@@ -137,12 +212,14 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
   }
 
   const handleWheel = (e: React.WheelEvent) => {
+    if (!imageInteractive) return
     e.preventDefault()
     const newScale = scale + (e.deltaY > 0 ? -0.1 : 0.1)
     setScale(Math.min(Math.max(1, newScale), 3))
   }
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (!imageInteractive) return
     setIsDragging(true)
     setDragStart({
       x: e.clientX - position.x,
@@ -151,18 +228,23 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
   }
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (!imageInteractive) return
     if (!isDragging) return
-    setPosition({
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    })
+    const newX = e.clientX - dragStart.x
+    const newY = e.clientY - dragStart.y
+    const clamped = clampPosition(newX, newY)
+    setPosition(clamped)
   }
 
   const handleMouseUp = () => {
+    if (!imageInteractive) return
     setIsDragging(false)
+    // Snap back inside bounds if released outside
+    setPosition((prev) => clampPosition(prev.x, prev.y))
   }
 
   const handleMouseLeave = () => {
+    if (!imageInteractive) return
     setIsDragging(false)
   }
 
@@ -379,7 +461,8 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       {type === 'image' && isMounted && (
         <Dialog open={showLightbox} onOpenChange={setShowLightbox}>
           <DialogContent 
-            className="max-w-[60vw] max-h-[60vh] w-auto h-auto p-0 bg-transparent border-none shadow-none [&>button]:hidden"
+            className="w-auto max-w-none gap-0 p-0 bg-transparent border-none shadow-none outline-none ring-0 rounded-none [&>button]:hidden inline-block"
+            style={{ border: 'none', outline: 'none', boxShadow: 'none', background: 'transparent' }}
           >
             <DialogTitle className="sr-only">Image Viewer</DialogTitle>
             <DialogDescription className="sr-only">
@@ -387,32 +470,48 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
             </DialogDescription>
             <div 
               ref={containerRef} 
-              className="relative w-auto h-auto flex items-center justify-center overflow-hidden"
+              className="relative inline-block overflow-hidden"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseLeave}
+              onWheel={(e) => { e.preventDefault(); e.stopPropagation(); handleWheel(e) }}
+              style={{ cursor: imageInteractive ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
             >
-              <button
-                onClick={() => setShowLightbox(false)}
-                className="absolute top-4 right-4 z-50 p-2 rounded-full bg-transparent text-white hover:bg-black/20 transition-colors"
-                aria-label="Close full size image viewer"
+              <div
+                className="relative inline-block align-middle"
+                style={{
+                  width: lightboxSize.width,
+                  height: lightboxSize.height,
+                  maxWidth: '95vw',
+                  maxHeight: '95vh',
+                  transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                  transformOrigin: 'center center',
+                  transition: isDragging ? 'none' : 'transform 0.2s ease-out'
+                }}
+                aria-label={`Lightbox image container ${intrinsicW || ''}x${intrinsicH || ''}`}
+                role="img"
               >
-                <X className="w-6 h-6" />
-              </button>
-              <div className="relative w-auto h-auto">
                 <img
                   src={correctedUrl || url}
                   alt="Full size image"
-                  className="max-w-[50vw] max-h-[50vh] object-contain"
-                  style={{
-                    transform: `translate(${position.x}px, ${position.y}px)`,
-                    transition: isDragging ? 'none' : 'transform 0.3s'
+                  className="w-full h-full object-contain select-none"
+                  onLoad={(e) => {
+                    const el = e.currentTarget as HTMLImageElement
+                    setIntrinsicW(el.naturalWidth)
+                    setIntrinsicH(el.naturalHeight)
                   }}
-                  onWheel={handleWheel}
                   draggable={false}
                 />
                 {username && showWatermark && <ContentWatermark username={username} />}
+                {/* Close inside the image wrapper so it hugs the image bounds */}
+                <button
+                  onClick={() => setShowLightbox(false)}
+                  className="absolute top-2 right-2 z-50 p-1.5 rounded-full bg-transparent text-white hover:bg-black/20 transition-colors"
+                  aria-label="Close full size image viewer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </DialogContent>

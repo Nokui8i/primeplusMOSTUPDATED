@@ -97,6 +97,24 @@ export function Feed() {
     fetchPosts(true)
   }, [fetchPosts])
 
+  // Listen for newly created posts and prepend without refresh
+  useEffect(() => {
+    function onPostCreated(e: any) {
+      const newPost = e?.detail
+      if (!newPost) return
+      setPosts(prev => [{ id: newPost.id, ...newPost } as any, ...prev])
+    }
+    function onSoftRefresh() {
+      fetchPosts(true)
+    }
+    window.addEventListener('post:created', onPostCreated)
+    window.addEventListener('feed:refresh-soft', onSoftRefresh)
+    return () => {
+      window.removeEventListener('post:created', onPostCreated)
+      window.removeEventListener('feed:refresh-soft', onSoftRefresh)
+    }
+  }, [])
+
   const handleLoadMore = useCallback(() => fetchPosts(false), [fetchPosts])
 
   const { loadMoreRef, loadMore } = useInfiniteScroll({

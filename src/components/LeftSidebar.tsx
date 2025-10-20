@@ -189,8 +189,11 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
               <li key="upload" role="menuitem">
                 <ContentUploadDialog 
                   onUploadComplete={() => {
-                    // Refresh the page or trigger a re-render
-                    window.location.reload();
+                    // Broadcast event; Feed listens and prepends new post
+                    try {
+                      const ev = new CustomEvent('feed:refresh-soft')
+                      window.dispatchEvent(ev)
+                    } catch {}
                   }}
                 />
               </li>
