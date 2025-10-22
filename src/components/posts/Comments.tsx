@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { formatDistanceToNow } from 'date-fns'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/lib/firebase/auth'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { CommentsList } from './CommentsList'
 import { createComment } from '@/lib/firebase/db'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { ArrowUpDown } from 'lucide-react'
-import { collection, query, where, getDocs } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
+import { ArrowUpDown } from 'lucide-react'
 import { isUserBlocked } from '@/lib/services/block.service'
 
 interface CommentsProps {
@@ -50,6 +50,44 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
       console.log('[Comments] User is creator, allowing access');
       setCanViewComments(true);
       return;
+    }
+    
+    // Check if comments are disabled for this specific post
+    if (post.allowComments === false) {
+      console.log('[Comments] Comments disabled for this post');
+      setCanViewComments(false);
+      return;
+    }
+    
+    // If post has allowComments set to true, allow viewing comments
+    if (post.allowComments === true) {
+      console.log('[Comments] Comments enabled for this post');
+      setCanViewComments(true);
+      return;
+    }
+    
+    // If allowComments is null (use global setting), check user's privacy settings
+    if (post.allowComments === null || post.allowComments === undefined) {
+      try {
+        const postAuthorDoc = await getDoc(doc(db, 'users', post.authorId));
+        if (postAuthorDoc.exists()) {
+          const postAuthorData = postAuthorDoc.data();
+          const globalAllowComments = postAuthorData.privacy?.allowComments;
+          
+          // If global setting is false, deny viewing comments
+          if (globalAllowComments === false) {
+            console.log('[Comments] Global comments disabled');
+            setCanViewComments(false);
+            return;
+          }
+          
+          // If global setting is true or undefined, continue with access level checks
+          console.log('[Comments] Global comments enabled, checking access level');
+        }
+      } catch (error) {
+        console.error('Error checking global comment settings:', error);
+        // If we can't check global settings, continue with access level checks
+      }
     }
     
     // If post is public, allow everyone to view comments
@@ -202,45 +240,58 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
 
   return (
     <div className="comments-bubble-container">
-      {/* Sort Filter - Inside comments window */}
-      {onSortChange && (
-        <div className="px-2 py-1 border-b border-gray-100 dark:border-gray-700/50">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
-                <ArrowUpDown className="h-3 w-3" />
-                <span className="text-xs font-medium">
-                  {sortBy === 'newest' ? 'Newest' : 'Oldest'}
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent 
-              align="start" 
-              className="w-28 bg-white border-0 overflow-hidden p-0"
-              style={{
-                borderRadius: '12px',
-                boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
-                background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-              }}
-            >
-              <DropdownMenuItem 
-                onClick={() => onSortChange('newest')}
-                className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
-                style={{ fontWeight: '500', fontSize: '12px' }}
-              >
-                Newest First
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => onSortChange('oldest')}
-                className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
-                style={{ fontWeight: '500', fontSize: '12px' }}
-              >
-                Oldest First
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      )}
+      {/* Sort Filter and Locked Message - Inside comments window */}
+      <div className="px-2 py-1 border-b border-gray-100 dark:border-gray-700/50">
+         <div className="flex items-center justify-center gap-2">
+           {/* Sort Filter - Only show when comments are accessible */}
+           {onSortChange && canViewComments && (
+             <DropdownMenu>
+               <DropdownMenuTrigger asChild>
+                 <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
+                   <ArrowUpDown className="h-3 w-3" />
+                   <span className="text-xs font-medium">
+                     {sortBy === 'newest' ? 'Newest' : 'Oldest'}
+                   </span>
+                 </button>
+               </DropdownMenuTrigger>
+               <DropdownMenuContent 
+                 align="start" 
+                 className="w-28 bg-white border-0 overflow-hidden p-0"
+                 style={{
+                   borderRadius: '12px',
+                   boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                   background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                 }}
+               >
+                 <DropdownMenuItem 
+                   onClick={() => onSortChange('newest')}
+                   className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                   style={{ fontWeight: '500', fontSize: '12px' }}
+                 >
+                   Newest First
+                 </DropdownMenuItem>
+                 <DropdownMenuItem 
+                   onClick={() => onSortChange('oldest')}
+                   className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                   style={{ fontWeight: '500', fontSize: '12px' }}
+                 >
+                   Oldest First
+                 </DropdownMenuItem>
+               </DropdownMenuContent>
+             </DropdownMenu>
+           )}
+           
+           {/* Comments Locked Message - Only show when comments are locked */}
+           {!canViewComments && (
+             <div className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 shadow-sm">
+               <span className="text-xs font-medium">🔒</span>
+               <span className="text-xs font-medium">
+                 Comments are locked
+               </span>
+             </div>
+           )}
+         </div>
+      </div>
 
       {/* Comments List */}
       {canViewComments ? (
@@ -256,18 +307,7 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
             highlight={highlight}
           />
         </div>
-      ) : (
-        <div className="comments-locked-message">
-          <div className="text-center py-8">
-            <div className="text-gray-500 text-sm mb-2">
-              🔒 Comments are locked for subscribers only
-            </div>
-            <div className="text-gray-400 text-xs">
-              Subscribe to this creator to view and participate in comments
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
       
       {/* Comment Input Form */}
       {user && canViewComments && (

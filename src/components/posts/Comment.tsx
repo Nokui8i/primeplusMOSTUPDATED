@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical, Edit2, Trash2, ThumbsUp, Heart, MessageSquare, MoreHorizontal, X } from 'lucide-react';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/firebase/auth';
 import { Textarea } from '@/components/ui/textarea';
 import { toggleLike, deleteComment, createComment } from '@/lib/firebase/db';
 import { FaHeart, FaRegHeart, FaReply, FaTrash, FaEdit } from 'react-icons/fa';

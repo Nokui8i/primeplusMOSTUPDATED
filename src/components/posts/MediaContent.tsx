@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/compone
 import { X, Maximize2, Minimize2 } from 'lucide-react'
 import { loadImage } from '@/lib/utils/imageUtils'
 import { useAuth } from '@/lib/firebase/auth'
-import { ErrorBoundary } from 'react-error-boundary'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ContentWatermark } from '@/components/media/ContentWatermark'
 
 const GoogleVRImageView = dynamic(() => import('@/components/media/GoogleVRImageView'), { 
@@ -461,7 +461,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       {type === 'image' && isMounted && (
         <Dialog open={showLightbox} onOpenChange={setShowLightbox}>
           <DialogContent 
-            className="w-auto max-w-none gap-0 p-0 bg-transparent border-none shadow-none outline-none ring-0 rounded-none [&>button]:hidden inline-block"
+            className="w-auto max-w-none gap-0 p-0 bg-transparent border-none shadow-none outline-none ring-0 rounded-none [&>button]:hidden flex items-center justify-center"
             style={{ border: 'none', outline: 'none', boxShadow: 'none', background: 'transparent' }}
           >
             <DialogTitle className="sr-only">Image Viewer</DialogTitle>
@@ -470,7 +470,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
             </DialogDescription>
             <div 
               ref={containerRef} 
-              className="relative inline-block overflow-hidden"
+              className="relative flex items-center justify-center overflow-hidden"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
@@ -479,7 +479,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
               style={{ cursor: imageInteractive ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
             >
               <div
-                className="relative inline-block align-middle"
+                className="relative block"
                 style={{
                   width: lightboxSize.width,
                   height: lightboxSize.height,

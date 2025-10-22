@@ -11,7 +11,6 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { ImageUploadPreview } from './ImageUploadPreview';
 import { toast } from 'sonner';
 import { VideoUploadPreview } from './VideoUploadPreview';
-import { EmojiPicker } from './EmojiPicker';
 import { VoiceRecorder } from './VoiceRecorder';
 import { TipButton } from '@/components/tips/TipButton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -2223,13 +2222,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         />
       )}
 
-      {/* Emoji Picker Modal */}
-      {showEmojiPicker && !isBlocked && (
-        <EmojiPicker
-          onEmojiSelect={handleEmojiSelect}
-          onClose={() => setShowEmojiPicker(false)}
-        />
-      )}
 
       {/* Voice Recorder Modal */}
       {showVoiceRecorder && !isBlocked && (
@@ -2271,8 +2263,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         </DialogContent>
       </Dialog>
 
-      <form onSubmit={handleSendMessage} className="p-1 md:p-2 border-t bg-white/80" style={{ 
-        borderColor: themeColors.brand.blue.deep,
+      <form onSubmit={handleSendMessage} className="p-1 md:p-2 bg-white/80" style={{ 
         backdropFilter: 'none !important',
         filter: 'none !important',
         boxShadow: 'none !important'
@@ -2386,11 +2377,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           {/* Dropdown for Media & Emoji Buttons */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 text-blue-400" disabled={isBlocked}>
+              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 text-blue-400 hover:text-blue-400 hover:bg-transparent" disabled={isBlocked}>
                 <Plus className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="bg-white">
+            <DropdownMenuContent align="start" className="bg-white p-2">
               <DropdownMenuItem onClick={handleImageClick} className="flex items-center gap-2" disabled={isBlocked}>
                 <ImageIcon className="h-4 w-4 text-blue-400" /> Image
               </DropdownMenuItem>
@@ -2400,6 +2391,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               <DropdownMenuItem onClick={() => setShowEmojiPicker(true)} className="flex items-center gap-2" disabled={isBlocked}>
                 <Smile className="h-4 w-4 text-yellow-500" /> Emoji
               </DropdownMenuItem>
+              
+              {/* Emoji Picker in Dropdown */}
+              {showEmojiPicker && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="grid grid-cols-8 gap-1 max-h-32 overflow-y-auto">
+                    {['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃', '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => {
+                          setNewMessage(prev => prev + emoji);
+                          setShowEmojiPicker(false);
+                        }}
+                        className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md text-lg"
+                        disabled={isBlocked}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
           {/* Video upload input */}
@@ -2420,21 +2432,50 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               ref={messageInputRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={isBlocked ? "You cannot send messages to this user" : "Type a message..."}
-              className="w-full chat-message-input text-[#1A1A1A] placeholder:text-blue-400 bg-white/90 border border-blue-200 focus:ring-2 focus:ring-[#6B3BFF] focus:border-[#2B55FF] rounded-xl px-4"
+              placeholder={isBlocked ? "You cannot send messages to this user" : "Aa"}
+              className="w-full chat-message-input text-black placeholder:text-gray-400 bg-gray-100 focus:ring-0 focus:border-0 px-4 shadow-sm"
               style={{
                 height: '40px',
                 minHeight: '40px',
                 maxHeight: '40px',
                 fontSize: '14px',
                 lineHeight: '1.5',
+                border: 'none !important',
+                outline: 'none !important',
+                backgroundColor: '#f3f4f6 !important',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1) !important',
+                borderRadius: '20px !important',
               }}
               disabled={uploading || isRecording || isBlocked}
             />
           </div>
           {(newMessage.trim() || selectedFiles.length > 0) ? (
-            <Button type="submit" size="icon" className="bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 shadow hover:bg-[#6B3BFF]/10 focus:outline-none border border-blue-200" disabled={uploading || isBlocked}>
-              <Send className="h-3 w-3 md:h-4 md:w-4" />
+            <Button 
+              type="submit" 
+              size="icon" 
+              className="h-6 w-6 md:h-7 md:w-7 rounded-full border-none focus:outline-none send-button-animated" 
+              style={{
+                backgroundColor: '#2389e9',
+                color: 'white',
+                border: 'none',
+                transition: 'all 0.5s ease-in-out',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderRadius = '50%';
+                e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderRadius = '50%';
+                e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+              }}
+              disabled={uploading || isBlocked}
+            >
+              <Send className="h-2 w-2 md:h-3 md:w-3" style={{ opacity: 0 }} />
             </Button>
           ) : (
             <div className="relative" style={{

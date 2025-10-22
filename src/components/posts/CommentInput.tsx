@@ -48,6 +48,37 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId, p
     // Always allow the creator to comment on their own post
     if (user.uid === post.authorId) return true;
     
+    // Check if comments are disabled for this specific post
+    if (post.allowComments === false) {
+      return false;
+    }
+    
+    // If post has allowComments set to true, allow commenting
+    if (post.allowComments === true) {
+      return true;
+    }
+    
+    // If allowComments is null (use global setting), check user's privacy settings
+    if (post.allowComments === null || post.allowComments === undefined) {
+      try {
+        const postAuthorDoc = await getDoc(doc(db, 'users', post.authorId));
+        if (postAuthorDoc.exists()) {
+          const postAuthorData = postAuthorDoc.data();
+          const globalAllowComments = postAuthorData.privacy?.allowComments;
+          
+          // If global setting is false, deny commenting
+          if (globalAllowComments === false) {
+            return false;
+          }
+          
+          // If global setting is true or undefined, continue with access level checks
+        }
+      } catch (error) {
+        console.error('Error checking global comment settings:', error);
+        // If we can't check global settings, continue with access level checks
+      }
+    }
+    
     // If post is public, allow everyone to comment
     if (post.isPublic) return true;
     

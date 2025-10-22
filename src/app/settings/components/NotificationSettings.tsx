@@ -51,10 +51,17 @@ export default function NotificationSettings() {
   ) => {
     if (!user) return;
     
-    setIsLoading(true);
+    // Update UI immediately for instant feedback
+    setNotificationSettings(prev => ({
+      ...prev,
+      push: {
+        ...prev.push,
+        [type]: value,
+      },
+    }));
+    
+    // Save to database in background
     try {
-      
-      // Update Firestore
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
@@ -69,18 +76,17 @@ export default function NotificationSettings() {
         });
       }
 
-      // Update local state
+      toast.success('Notification settings updated');
+    } catch (error) {
+      console.error('[ERROR] Failed to update notification settings:', error);
+      // Revert the UI change on error
       setNotificationSettings(prev => ({
         ...prev,
         push: {
           ...prev.push,
-          [type]: value,
+          [type]: !value,
         },
       }));
-
-      toast.success('Notification settings updated');
-    } catch (error) {
-      console.error('[ERROR] Failed to update notification settings:', error);
       toast.error('Failed to update notification settings');
     } finally {
       setIsLoading(false);
@@ -98,8 +104,8 @@ export default function NotificationSettings() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}>
             <div className="space-y-0.5">
-              <div className="font-medium text-gray-800">Likes</div>
-              <p className="text-sm text-gray-600">
+              <div className="font-normal text-gray-800 text-sm">Likes</div>
+              <p className="text-xs text-gray-600">
                 Get notified when someone likes your posts
               </p>
             </div>
@@ -123,8 +129,8 @@ export default function NotificationSettings() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}>
             <div className="space-y-0.5">
-              <div className="font-medium text-gray-800">Comments</div>
-              <p className="text-sm text-gray-600">
+              <div className="font-normal text-gray-800 text-sm">Comments</div>
+              <p className="text-xs text-gray-600">
                 Get notified when someone comments on your posts
               </p>
             </div>
@@ -148,8 +154,8 @@ export default function NotificationSettings() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}>
             <div className="space-y-0.5">
-              <div className="font-medium text-gray-800">Mentions</div>
-              <p className="text-sm text-gray-600">
+              <div className="font-normal text-gray-800 text-sm">Mentions</div>
+              <p className="text-xs text-gray-600">
                 Get notified when someone mentions you
               </p>
             </div>

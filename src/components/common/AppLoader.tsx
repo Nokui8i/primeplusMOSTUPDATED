@@ -2,6 +2,7 @@ import NewLogo from './NewLogo';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AppLoader({ isVisible = true }: { isVisible?: boolean }) {
+  console.log('🔄 AppLoader rendering:', { isVisible })
   return (
     <AnimatePresence>
       {isVisible && (

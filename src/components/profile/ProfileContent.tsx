@@ -135,6 +135,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
 
           const postWithAuthor: PostWithAuthor = {
             ...postData,
+            createdAt: postData.createdAt instanceof Timestamp ? postData.createdAt : Timestamp.fromDate(postData.createdAt),
             id: doc.id,
             title: postData.title || postData.content || '',
             authorName: String(authorData.displayName || authorData.username || ''),
@@ -143,7 +144,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
             shares: postData.shares || 0,
             taggedUsers: postData.taggedUsers || [],
             comments: postData.comments || 0,
-            updatedAt: postData.updatedAt || postData.createdAt || new Date(),
+            updatedAt: (postData.updatedAt instanceof Timestamp ? postData.updatedAt : postData.createdAt instanceof Timestamp ? postData.createdAt : Timestamp.now()),
             author: {
               id: postData.authorId,
               displayName: String(authorData.displayName || ''),
@@ -206,6 +207,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
 
           const postWithAuthor: PostWithAuthor = {
             ...postData,
+            createdAt: postData.createdAt instanceof Timestamp ? postData.createdAt : Timestamp.fromDate(postData.createdAt),
             id: doc.id,
             title: postData.title || postData.content || '',
             authorName: String(authorData.displayName || authorData.username || ''),
@@ -214,7 +216,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
             shares: postData.shares || 0,
             taggedUsers: postData.taggedUsers || [],
             comments: postData.comments || 0,
-            updatedAt: postData.updatedAt || postData.createdAt || new Date(),
+            updatedAt: (postData.updatedAt instanceof Timestamp ? postData.updatedAt : postData.createdAt instanceof Timestamp ? postData.createdAt : Timestamp.now()),
             author: {
               id: postData.authorId,
               displayName: String(authorData.displayName || ''),

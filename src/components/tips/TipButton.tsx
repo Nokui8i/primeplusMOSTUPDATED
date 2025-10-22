@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { createTip } from '@/lib/services/tip.service';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/firebase/auth';
 import { Sparkles, Zap, DollarSign } from 'lucide-react';
 
 interface TipButtonProps {

@@ -12,6 +12,7 @@ export interface PostData {
   imageUrl?: string
   type?: 'text' | 'image' | 'video' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'
   isPublic?: boolean
+  allowComments?: boolean | null
   shares?: number
   taggedUsers?: string[]
   status?: 'ended'

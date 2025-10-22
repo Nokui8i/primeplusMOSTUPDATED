@@ -15,7 +15,7 @@ import { updatePost } from '@/lib/firebase/db'
 import { toast } from 'react-hot-toast'
 import { Label } from '@/components/ui/label'
 import MediaContent from '@/components/posts/MediaContent'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/lib/firebase/auth'
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface EditPostDialogProps {

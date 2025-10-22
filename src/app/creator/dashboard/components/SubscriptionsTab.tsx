@@ -421,7 +421,7 @@ export default function SubscriptionsTab() {
                 <div className="space-y-2 mt-4">
                   {/* Plan Name */}
                   <div>
-                    <label className="block text-[10px] font-medium text-gray-700 mb-1">Plan Name</label>
+                    <label className="block text-[12px] font-medium text-gray-700 mb-1">Plan Name</label>
                     <Input 
                       name="name" 
                       value={form.name || ''} 
@@ -434,7 +434,7 @@ export default function SubscriptionsTab() {
                         border: '1px solid rgba(0, 0, 0, 0.1)',
                         borderRadius: '10px',
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                        fontSize: '11px',
+                        fontSize: '13px',
                         padding: '6px 10px',
                         height: '28px',
                       }}
@@ -443,7 +443,7 @@ export default function SubscriptionsTab() {
 
                   {/* Price */}
                   <div>
-                    <label className="block text-[10px] font-medium text-gray-700 mb-1">Price (USD)</label>
+                    <label className="block text-[12px] font-medium text-gray-700 mb-1">Price (USD)</label>
                     <div className="flex items-center gap-1.5">
                       <div className="flex items-center gap-1">
                         <input
@@ -454,7 +454,7 @@ export default function SubscriptionsTab() {
                           onChange={() => setForm(prev => ({ ...prev, price: 0 }))}
                           className="accent-blue-500 w-3 h-3"
                         />
-                        <label htmlFor="plan-type-free" className="text-[10px]">Free</label>
+                        <label htmlFor="plan-type-free" className="text-[12px]">Free</label>
                       </div>
                       <div className="flex items-center gap-1">
                         <input
@@ -465,7 +465,7 @@ export default function SubscriptionsTab() {
                           onChange={() => setForm(prev => ({ ...prev, price: 4.99 }))}
                           className="accent-blue-500 w-3 h-3"
                         />
-                        <label htmlFor="plan-type-paid" className="text-[10px]">Paid ($4.99-$50.00)</label>
+                        <label htmlFor="plan-type-paid" className="text-[12px]">Paid ($4.99-$50.00)</label>
                       </div>
                       <Input
                         name="price"
@@ -491,14 +491,14 @@ export default function SubscriptionsTab() {
                           border: '1px solid rgba(0, 0, 0, 0.1)',
                           borderRadius: '10px',
                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                          fontSize: '11px',
+                          fontSize: '13px',
                           padding: '6px 10px',
                           height: '28px',
                         }}
                       />
                     </div>
-                    {form.price > 0 && (form.price < 4.99 || form.price > 50.00) && (
-                      <p className="text-[9px] text-red-500 mt-1">
+                    {form.price && form.price > 0 && (form.price < 4.99 || form.price > 50.00) && (
+                      <p className="text-[11px] text-red-500 mt-1">
                         Price must be between $4.99 and $50.00
                       </p>
                     )}
@@ -506,7 +506,7 @@ export default function SubscriptionsTab() {
 
                   {/* Duration */}
                   <div>
-                    <label className="block text-[10px] font-medium text-gray-700 mb-1">Duration</label>
+                    <label className="block text-[12px] font-medium text-gray-700 mb-1">Duration</label>
                     <div className="flex gap-1.5">
                       <Input 
                         name="intervalCount" 
@@ -521,7 +521,7 @@ export default function SubscriptionsTab() {
                           border: '1px solid rgba(0, 0, 0, 0.1)',
                           borderRadius: '10px',
                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                          fontSize: '11px',
+                          fontSize: '13px',
                           padding: '6px 10px',
                           height: '28px',
                         }}
@@ -535,7 +535,7 @@ export default function SubscriptionsTab() {
                           border: '1px solid rgba(0, 0, 0, 0.1)',
                           borderRadius: '10px',
                           boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                          fontSize: '11px',
+                          fontSize: '13px',
                           padding: '6px 10px',
                           height: '28px',
                         }}
@@ -551,7 +551,7 @@ export default function SubscriptionsTab() {
                     <button 
                       onClick={editingId ? handleUpdate : handleCreate} 
                       disabled={saving}
-                      className="profile-btn"
+                      className="create-plan-btn"
                       style={{
                         border: 'none',
                         color: '#fff',
@@ -561,8 +561,8 @@ export default function SubscriptionsTab() {
                         backgroundSize: '100% auto',
                         fontFamily: 'inherit',
                         fontWeight: '700',
-                        fontSize: '14px',
-                        padding: '12px 32px',
+                        fontSize: '10px',
+                        padding: '4px 10px',
                         cursor: saving ? 'not-allowed' : 'pointer',
                         transition: 'all 0.3s ease',
                         opacity: saving ? 0.6 : 1,
@@ -692,7 +692,7 @@ export default function SubscriptionsTab() {
               <DialogTitle className="text-lg font-bold text-gray-800">{editingPromoId ? 'Edit Promo Code' : 'Create Promo Code'}</DialogTitle>
               <div className="space-y-2 mt-4">
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-1">Promo Code</label>
+                  <label className="block text-[12px] font-medium text-gray-700 mb-1">Promo Code</label>
                   <Input
                     name="code"
                     value={promoForm.code}
@@ -705,14 +705,14 @@ export default function SubscriptionsTab() {
                       border: '1px solid rgba(0, 0, 0, 0.1)',
                       borderRadius: '10px',
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                      fontSize: '11px',
+                      fontSize: '13px',
                       padding: '6px 10px',
                       height: '28px',
                     }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-1">Discount Percentage</label>
+                  <label className="block text-[12px] font-medium text-gray-700 mb-1">Discount Percentage</label>
                   <Input
                     name="discountPercent"
                     type="number"
@@ -727,14 +727,14 @@ export default function SubscriptionsTab() {
                       border: '1px solid rgba(0, 0, 0, 0.1)',
                       borderRadius: '10px',
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                      fontSize: '11px',
+                      fontSize: '13px',
                       padding: '6px 10px',
                       height: '28px',
                     }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-medium text-gray-700 mb-1">Expiry Date</label>
+                  <label className="block text-[12px] font-medium text-gray-700 mb-1">Expiry Date</label>
                   <Input
                     name="expiresAt"
                     type="date"
@@ -747,14 +747,14 @@ export default function SubscriptionsTab() {
                       border: '1px solid rgba(0, 0, 0, 0.1)',
                       borderRadius: '10px',
                       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                      fontSize: '11px',
+                      fontSize: '13px',
                       padding: '6px 10px',
                       height: '28px',
                     }}
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Applicable Plans</label>
+                  <label className="block text-[12px] font-medium text-gray-700 mb-1.5">Applicable Plans</label>
                   <div className="space-y-1.5">
                     {plans.map((plan) => (
                       <div key={`${plan.id}-${plan.name}`} className="flex items-center gap-2">
@@ -765,7 +765,7 @@ export default function SubscriptionsTab() {
                           onChange={() => handlePromoPlanSelect(plan.id)}
                           className="rounded border-gray-300 w-3.5 h-3.5 accent-blue-500"
                         />
-                        <label htmlFor={`plan-${plan.id}`} className="text-[11px] text-gray-700">
+                        <label htmlFor={`plan-${plan.id}`} className="text-[12px] text-gray-700">
                           {plan.name}
                         </label>
                       </div>
@@ -776,7 +776,7 @@ export default function SubscriptionsTab() {
                   <button 
                     onClick={handleCreatePromo} 
                     disabled={promoSaving}
-                    className="profile-btn"
+                    className="create-promo-btn"
                     style={{
                       border: 'none',
                       color: '#fff',
@@ -786,8 +786,8 @@ export default function SubscriptionsTab() {
                       backgroundSize: '100% auto',
                       fontFamily: 'inherit',
                       fontWeight: '700',
-                      fontSize: '14px',
-                      padding: '12px 32px',
+                      fontSize: '10px',
+                      padding: '4px 10px',
                       cursor: promoSaving ? 'not-allowed' : 'pointer',
                       transition: 'all 0.3s ease',
                       opacity: promoSaving ? 0.6 : 1,

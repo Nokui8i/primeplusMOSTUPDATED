@@ -13,7 +13,7 @@ const nextConfig = {
     optimizePackageImports: ['@/components', '@/lib', '@/hooks'],
   },
   // Exclude firebase-admin from Edge Runtime
-  serverComponentsExternalPackages: ['firebase-admin', '@google-cloud/firestore', 'google-gax'],
+  // serverExternalPackages: ['firebase-admin', '@google-cloud/firestore', 'google-gax'],
   // Enable compression and optimization
   compress: true,
   poweredByHeader: false,

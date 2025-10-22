@@ -36,6 +36,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
   const [ppvPrice, setPpvPrice] = useState<number>(0);
   const [ppvEveryonePays, setPpvEveryonePays] = useState<boolean>(true);
   const [postType, setPostType] = useState<'text' | 'image' | 'video' | 'image360' | 'video360'>('text');
+  const [allowComments, setAllowComments] = useState<boolean | null>(null); // null = use global setting, true/false = override
   const [step, setStep] = useState(1);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
@@ -243,6 +244,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
           ppvEveryonePays: accessLevel === 'ppv' ? ppvEveryonePays : null,
         },
         showWatermark: showWatermark,
+        allowComments: allowComments,
         likes: 0,
         comments: 0,
         shares: 0,
@@ -457,6 +459,34 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
                   />
                   <span className="slider"></span>
                 </label>
+              </div>
+            </div>
+
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-label">Allow Comments</div>
+                <div className="setting-description">Override your global comment setting for this post</div>
+              </div>
+              <div className="setting-control">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="dropdown-trigger">
+                      {allowComments === null ? 'Use Global Setting' : allowComments ? 'Allow Comments' : 'Disable Comments'}
+                      <ChevronDown className="w-4 h-4 ml-1" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setAllowComments(null)}>
+                      Use Global Setting
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setAllowComments(true)}>
+                      Allow Comments
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setAllowComments(false)}>
+                      Disable Comments
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 

@@ -59,9 +59,9 @@ export function Feed() {
       })) as PostData[]
 
       // Filter out posts from users who blocked current user (one-way blocking)
-      const filteredPosts = []
+      const filteredPosts: PostData[] = []
       for (const post of allPosts) {
-        const authorId = post.authorId || post.userId
+        const authorId = post.authorId
         if (!authorId) continue
 
         // Only check if author blocked current user (one-way blocking)

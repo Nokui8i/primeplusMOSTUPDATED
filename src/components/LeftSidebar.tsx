@@ -141,16 +141,27 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     onMouseEnter={() => prefetchOnHover(item.path)}
                     onKeyDown={(e) => handleKeyPress(e, item.path)}
                     className={cn(
-                      "w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm",
+                      "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 text-sm",
                       "focus:outline-none",
                       "relative z-10 cursor-pointer",
-                      pathname === item.path
-                        ? "text-blue-600 bg-blue-50 font-medium"
+                      "shadow-sm hover:shadow-md",
+                      (pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile')))
+                        ? "text-blue-600 bg-blue-50 font-medium shadow-md"
                         : "text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-normal"
                     )}
+                    style={{
+                      borderRadius: '12px',
+                      boxShadow: (pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile')))
+                        ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                      transform: (pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile')))
+                        ? 'translateY(-1px)'
+                        : 'translateY(0)',
+                      transition: 'all 0.2s ease-in-out',
+                      pointerEvents: 'auto'
+                    }}
                     aria-label={item.ariaLabel}
-                    aria-current={pathname === item.path ? 'page' : undefined}
-                    style={{ pointerEvents: 'auto' }}
+                    aria-current={(pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile'))) ? 'page' : undefined}
                   >
                     <div className="flex items-center justify-between">
                       <span>{item.label}</span>
@@ -171,12 +182,23 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     onClick={() => router.push('/admin')}
                     onKeyDown={(e) => handleKeyPress(e, '/admin')}
                     className={cn(
-                      "w-full text-left px-4 py-3 rounded-lg transition-all duration-200 text-sm",
+                      "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 text-sm",
                       "focus:outline-none",
+                      "shadow-sm hover:shadow-md",
                       pathname === '/admin'
-                        ? "text-blue-600 bg-blue-50 font-medium"
+                        ? "text-blue-600 bg-blue-50 font-medium shadow-md"
                         : "text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-normal"
                     )}
+                    style={{
+                      borderRadius: '12px',
+                      boxShadow: pathname === '/admin'
+                        ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                        : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                      transform: pathname === '/admin'
+                        ? 'translateY(-1px)'
+                        : 'translateY(0)',
+                      transition: 'all 0.2s ease-in-out'
+                    }}
                     aria-label="Go to admin dashboard"
                     aria-current={pathname === '/admin' ? 'page' : undefined}
                   >
@@ -206,7 +228,12 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
       <div className="pt-6 border-t border-gray-200">
         <button
           onClick={handleLogout}
-          className="w-full text-left px-4 py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 font-normal text-sm"
+          className="w-full text-left px-4 py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-200 font-normal text-sm shadow-sm hover:shadow-md"
+          style={{
+            borderRadius: '12px',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+            transition: 'all 0.2s ease-in-out'
+          }}
           aria-label="Sign out"
         >
           Sign Out

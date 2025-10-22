@@ -1082,14 +1082,14 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     }
 
     return (
-      <div className="relative w-full mb-2" style={{
+      <div className="relative w-full mb-6" style={{
         background: transparent ? 'transparent' : 'white',
-        borderRadius: transparent ? '0px' : '17px 17px 27px 27px',
-        boxShadow: transparent ? 'none' : '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)',
+        borderRadius: transparent ? '0px' : '12px',
+        boxShadow: transparent ? 'none' : '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
         maxWidth: showNavigation ? '672px' : '100%'
       }}>
         {/* Post Header - Profile and Time */}
-        <div className="flex items-center justify-between gap-2 px-3 py-1.5">
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
           <div className="flex items-center gap-2">
             <Link href={`/${currentPost.author?.username ? currentPost.author.username : 'profile/' + currentPost.authorId}`} className="shrink-0">
               <Avatar className="h-10 w-10">

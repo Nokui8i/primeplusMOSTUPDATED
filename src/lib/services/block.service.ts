@@ -45,15 +45,26 @@ export async function unblockUser(blockerId: string, userToUnblockId: string): P
  * Check if a user is blocked
  */
 export async function isUserBlocked(blockerId: string, userId: string): Promise<boolean> {
+  console.log('🔒 isUserBlocked called:', { blockerId, userId })
   try {
     const userDoc = await getDoc(doc(db, 'users', blockerId));
-    if (!userDoc.exists()) return false;
+    if (!userDoc.exists()) {
+      console.log('🔒 User document does not exist:', blockerId)
+      return false;
+    }
     
     const userData = userDoc.data();
     const blockedUsers = userData.blockedUsers || [];
-    return blockedUsers.includes(userId);
+    const isBlocked = blockedUsers.includes(userId);
+    console.log('🔒 Block check result:', { 
+      blockerId, 
+      userId, 
+      blockedUsers, 
+      isBlocked 
+    })
+    return isBlocked;
   } catch (error) {
-    console.error('Error checking if user is blocked:', error);
+    console.error('❌ Error checking if user is blocked:', error);
     return false;
   }
 }

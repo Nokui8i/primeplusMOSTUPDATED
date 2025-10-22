@@ -227,15 +227,47 @@ export interface Like {
 // =============================================
 // 👤 POST WITH AUTHOR INTERFACE
 // =============================================
-export interface PostWithAuthor extends Omit<PostData, 'comments'> {
-  title: string
-  authorName: string
-  author: User
-  type: PostType
-  isPublic: boolean
-  shares: number
-  taggedUsers: string[]
-  comments: number
+export interface PostWithAuthor {
+  id: string;
+  title: string;
+  authorName: string;
+  author: User;
+  comments: number;
+  type: PostType;
+  isPublic: boolean;
+  allowComments?: boolean | null;
+  shares: number;
+  taggedUsers: string[];
+  content: string;
+  authorId: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  likes: number;
+  views: number;
+  mediaUrl?: string;
+  thumbnailUrl?: string;
+  mediaType?: PostType;
+  background?: string;
+  location?: string;
+  commands?: any;
+  likedBy?: string[];
+  status?: string;
+  tags: string[];
+  metadata?: {
+    width?: number;
+    height?: number;
+    duration?: number;
+    fileSize?: number;
+    mimeType?: string;
+             aspectRatio?: string;
+    quality?: string;
+    format?: string;
+    imageMetadata?: any;
+    videoMetadata?: any;
+    audioMetadata?: any;
+    vrMetadata?: any;
+    arMetadata?: any;
+  };
   accessSettings?: {
     isPremium: boolean;
     subscriptionTier?: string;
@@ -249,4 +281,19 @@ export interface PostWithAuthor extends Omit<PostData, 'comments'> {
     geoRestrictions?: string[];
     ageRestriction?: number;
   };
+  showWatermark?: boolean;
+  engagement?: {
+    views: number;
+    uniqueViews: number;
+    averageViewDuration?: number;
+    clickThroughRate?: number;
+    saveCount: number;
+    reportCount: number;
+    relevanceScore?: number;
+  };
+  moderation?: any;
+  organization?: any;
+  vrSettings?: any;
+  storySettings?: any;
+  analytics?: any;
 } 

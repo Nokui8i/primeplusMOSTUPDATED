@@ -281,7 +281,7 @@ export default function SubscribersTab() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-center">
         <div className="flex items-center space-x-4">
           <div className="relative w-64">
             <input
@@ -347,40 +347,6 @@ export default function SubscribersTab() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => setBulkModalOpen(true)}
-            className="profile-btn"
-            style={{
-              border: 'none',
-              color: '#fff',
-              backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)',
-              backgroundColor: 'transparent',
-              borderRadius: '20px',
-              backgroundSize: '100% auto',
-              fontFamily: 'inherit',
-              fontWeight: '700',
-              fontSize: '14px',
-              padding: '12px 32px',
-              cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundSize = '200% auto';
-              e.currentTarget.style.boxShadow = 'rgba(14, 165, 233, 0.5) 0px 0px 20px 0px';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundSize = '100% auto';
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            <FiMail />
-            <span>MESSAGE ALL</span>
-          </button>
         </div>
       </div>
 
@@ -465,7 +431,7 @@ export default function SubscribersTab() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={4} className="py-4 text-center text-gray-400">
+                  <td colSpan={4} className="py-6 text-gray-500 text-sm" style={{ textAlign: 'center', marginLeft: '24px' }}>
                     No subscribers found
                   </td>
                 </tr>

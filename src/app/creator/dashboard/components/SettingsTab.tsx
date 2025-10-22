@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { db } from '@/lib/firebase/config';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, Save, Loader2, Image, X, Upload, Send, DollarSign, ChevronDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { uploadFileToS3 } from '@/lib/aws/s3';
+import { uploadToS3 } from '@/lib/aws/s3';
 
 export default function SettingsTab() {
   const { user } = useAuth();
@@ -72,7 +72,7 @@ export default function SettingsTab() {
 
     setUploadingImage(true);
     try {
-      const imageUrl = await uploadFileToS3(file, `welcome-images/${user.uid}/${Date.now()}-${file.name}`);
+      const imageUrl = await uploadToS3(file, `welcome-images/${user.uid}/${Date.now()}-${file.name}`);
       setWelcomeImage(imageUrl);
       toast({
         title: "Success",
@@ -187,7 +187,7 @@ export default function SettingsTab() {
       if (bulkMediaFile) {
         setUploadingBulkMedia(true);
         const folder = bulkMediaType === 'image' ? 'bulk-images' : 'bulk-videos';
-        mediaUrl = await uploadFileToS3(bulkMediaFile, `${folder}/${user.uid}/${Date.now()}-${bulkMediaFile.name}`);
+        mediaUrl = await uploadToS3(bulkMediaFile, `${folder}/${user.uid}/${Date.now()}-${bulkMediaFile.name}`);
 
         if (bulkMediaType === 'video') {
           mediaDuration = 0; // Placeholder, actual duration would need more complex processing
@@ -209,7 +209,7 @@ export default function SettingsTab() {
         return;
       }
 
-      const messagesBatch = db.batch();
+      const messagesBatch = writeBatch(db);
       let sentCount = 0;
 
       for (const subDoc of subscriptionsSnapshot.docs) {
@@ -245,7 +245,7 @@ export default function SettingsTab() {
           messageData.duration = mediaDuration;
         }
 
-        messagesBatch.set(collection(db, 'chats', chatId, 'messages').doc(), messageData);
+        messagesBatch.set(doc(db, 'chats', chatId, 'messages'), messageData);
         sentCount++;
       }
 
@@ -324,7 +324,7 @@ export default function SettingsTab() {
           className="cursor-pointer hover:bg-gray-50 transition-colors py-1"
           onClick={() => toggleSection('bulkMessage')}
         >
-          <CardTitle className="flex items-center justify-between text-sm font-normal">
+          <CardTitle className="flex items-center justify-between text-sm font-normal !font-normal">
             <div className="flex items-center gap-2">
               <Send className="h-3 w-3" />
               Bulk Message to Subscribers
@@ -468,7 +468,7 @@ export default function SettingsTab() {
                 <button
                   onClick={handleSendBulkMessage}
                   disabled={sendingBulkMessage || uploadingBulkMedia}
-                  className="profile-btn"
+                  className="bulk-send-btn"
                   style={{
                     border: 'none',
                     color: '#fff',
@@ -477,12 +477,12 @@ export default function SettingsTab() {
                     borderRadius: '16px',
                     backgroundSize: '100% auto',
                     fontFamily: 'inherit',
-                    fontSize: '14px',
-                    padding: '0.7em 1.4em',
+                    fontSize: '10px',
+                    padding: '4px 10px',
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '8px',
+                    gap: '6px',
                     cursor: 'pointer',
                     outline: 'none',
                     transition: 'all 0.3s ease-in-out',
@@ -496,9 +496,9 @@ export default function SettingsTab() {
                   }}
                 >
                   {sendingBulkMessage ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Send className="h-5 w-5" />
+                    <Send className="h-4 w-4" />
                   )}
                   {sendingBulkMessage ? 'Sending...' : 'Send to All'}
                 </button>
@@ -514,7 +514,7 @@ export default function SettingsTab() {
           className="cursor-pointer hover:bg-gray-50 transition-colors py-1"
           onClick={() => toggleSection('welcomeMessage')}
         >
-          <CardTitle className="flex items-center justify-between text-sm font-normal">
+          <CardTitle className="flex items-center justify-between text-sm font-normal !font-normal">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-3 w-3" />
               Welcome Message Settings
@@ -604,7 +604,7 @@ export default function SettingsTab() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="profile-btn"
+                className="save-message-btn"
                 style={{
                   border: 'none',
                   color: '#fff',
@@ -613,8 +613,8 @@ export default function SettingsTab() {
                   borderRadius: '16px',
                   backgroundSize: '100% auto',
                   fontFamily: 'inherit',
-                  fontSize: '12px',
-                  padding: '0.5em 1em',
+                  fontSize: '10px',
+                  padding: '4px 10px',
                   display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',

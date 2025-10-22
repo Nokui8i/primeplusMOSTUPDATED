@@ -28,7 +28,7 @@ export function RootLayoutContent({ children }: RootLayoutContentProps) {
   const shouldUseMainLayout = !pagesWithoutLayout.includes(pathname);
 
   return (
-    <main className={`min-h-screen ${shouldUseMainLayout ? 'bg-[#F8FAFC]' : 'bg-white'}`}>
+    <main className={`min-h-screen ${shouldUseMainLayout ? 'bg-white' : 'bg-white'}`}>
       {shouldUseMainLayout ? <MainLayout>{children}</MainLayout> : children}
     </main>
   );

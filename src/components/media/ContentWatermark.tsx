@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/firebase/auth';
 import { useEffect, useState } from 'react';
 
 interface ContentWatermarkProps {

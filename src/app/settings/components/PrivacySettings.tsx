@@ -17,6 +17,7 @@ export default function PrivacySettings() {
     onlineStatus: 'everyone',
     allowTagging: true,
     showActivityStatus: true,
+    allowComments: true,
     // allowProfileDiscovery: true,
   });
 
@@ -47,7 +48,10 @@ export default function PrivacySettings() {
   const handlePrivacySettingChange = async (setting: string, value: string | boolean) => {
     if (!user) return;
     
-    setIsLoading(true);
+    // Update UI immediately for instant feedback
+    setPrivacySettings(prev => ({ ...prev, [setting]: value }));
+    
+    // Save to database in background
     try {
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
@@ -62,13 +66,12 @@ export default function PrivacySettings() {
           updatedAt: serverTimestamp(),
         });
       }
-      setPrivacySettings(prev => ({ ...prev, [setting]: value }));
       toast.success('Privacy settings updated');
     } catch (error) {
       console.error('Error updating privacy settings:', error);
+      // Revert the UI change on error
+      setPrivacySettings(prev => ({ ...prev, [setting]: !value }));
       toast.error('Failed to update privacy settings');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -84,8 +87,33 @@ export default function PrivacySettings() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}>
             <div className="space-y-0.5">
-              <div className="font-medium text-gray-800">Allow Tagging</div>
-              <p className="text-sm text-gray-600">
+              <div className="font-normal text-gray-800 text-sm">Allow Comments</div>
+              <p className="text-xs text-gray-600">
+                Let others comment on your posts (can be overridden per post)
+              </p>
+            </div>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={privacySettings.allowComments}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  handlePrivacySettingChange('allowComments', e.target.checked);
+                }}
+                className="checkbox"
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between p-4 rounded-lg" style={{
+            background: 'rgba(255, 255, 255, 0.6)',
+            border: '1px solid rgba(200, 200, 200, 0.3)',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+          }}>
+            <div className="space-y-0.5">
+              <div className="font-normal text-gray-800 text-sm">Allow Tagging</div>
+              <p className="text-xs text-gray-600">
                 Let others tag you in posts and comments
               </p>
             </div>
@@ -115,8 +143,8 @@ export default function PrivacySettings() {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
           }}>
             <div className="space-y-0.5">
-              <div className="font-medium text-gray-800">Activity Status</div>
-              <p className="text-sm text-gray-600">
+              <div className="font-normal text-gray-800 text-sm">Activity Status</div>
+              <p className="text-xs text-gray-600">
                 Show when you're active on the platform
               </p>
             </div>

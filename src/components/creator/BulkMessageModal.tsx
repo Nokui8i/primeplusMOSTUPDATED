@@ -8,8 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Upload, X, Send, Loader2, Image, Video, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { uploadFileToS3 } from '@/lib/aws/s3';
-import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { uploadToS3 } from '@/lib/aws/s3';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -51,7 +51,7 @@ export default function BulkMessageModal({ open, onClose }: BulkMessageModalProp
     try {
       const fileType = file.type.startsWith('video/') ? 'video' : 'image';
       const folder = fileType === 'video' ? 'bulk-videos' : 'bulk-images';
-      const mediaUrl = await uploadFileToS3(file, `${folder}/${user?.uid}/${Date.now()}-${file.name}`);
+      const mediaUrl = await uploadToS3(file, `${folder}/${user?.uid}/${Date.now()}-${file.name}`);
       
       setMediaUrl(mediaUrl);
       setMediaType(fileType);
@@ -122,7 +122,7 @@ export default function BulkMessageModal({ open, onClose }: BulkMessageModalProp
           type: mediaType || 'text',
           timestamp: serverTimestamp(),
           read: false,
-          senderName: user.displayName || user.username || 'Creator',
+          senderName: user.displayName || 'Creator',
           senderPhotoURL: user.photoURL,
         };
 

@@ -9,8 +9,8 @@ export function ChatWindows() {
   const pathname = usePathname();
 
 
-  // Don't show chat on login/register pages
-  if (pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/complete-profile') {
+  // Don't show chat windows if there are no open chats
+  if (chatWindows.length === 0) {
     return null;
   }
 

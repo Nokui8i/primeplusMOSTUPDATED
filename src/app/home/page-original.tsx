@@ -2,30 +2,73 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { collection, query, orderBy, limit, getDocs, startAfter, getDoc, doc as docRef, Timestamp, DocumentData, onSnapshot, increment, updateDoc, where } from 'firebase/firestore'
+import { 
+  collection, 
+  query, 
+  orderBy, 
+  limit, 
+  getDocs, 
+  startAfter, 
+  getDoc, 
+  doc as docRef, 
+  Timestamp, 
+  DocumentData, 
+  onSnapshot, 
+  increment, 
+  updateDoc, 
+  where 
+} from 'firebase/firestore'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
 import { db } from '@/lib/firebase/config'
 import { useAuth } from '@/lib/firebase/auth'
 import { CompactPost } from '@/components/posts/CompactPost'
-import { useInView } from 'react-intersection-observer'
+// import { useInView } from 'react-intersection-observer'
 import { Post, PostWithAuthor, PostType } from '@/lib/types/post'
 import { User } from '@/lib/types/user'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
-import { onSnapshot as onDocSnapshot } from 'firebase/firestore'
 import AppLoader from '@/components/common/AppLoader'
 import { isUserBlocked } from '@/lib/services/block.service'
 
 const POSTS_PER_PAGE = 10
 
 export default function HomePage() {
+  console.log('🏠 HomePage component rendering...')
+  
   const [posts, setPosts] = useState<PostWithAuthor[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
   const [lastDoc, setLastDoc] = useState<any>(null)
   const router = useRouter()
   const { user } = useAuth()
-  const { ref: loadMoreRef, inView } = useInView()
-  const incrementedRef = useRef(false)
+  
+  console.log('🏠 HomePage state:', { 
+    posts: posts.length, 
+    loading, 
+    hasMore, 
+    user: user?.uid,
+    userExists: !!user,
+    postsData: posts.map(p => ({ id: p.id, title: p.title, author: p.authorName }))
+  })
+  // const { ref: loadMoreRef, inView } = useInView()
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const [inView, setInView] = useState(false)
+  // Check if load more element is in view
+  useEffect(() => {
+    console.log('🏠 HomePage useEffect: IntersectionObserver setup')
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        console.log('🏠 HomePage IntersectionObserver:', entry.isIntersecting)
+        setInView(entry.isIntersecting)
+      },
+      { threshold: 0.1 }
+    )
+    
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current)
+    }
+    
+    return () => observer.disconnect()
+  }, [])
 
   const getDateSafe = (value: any) => {
     if (!value) return new Date();
@@ -106,38 +149,68 @@ export default function HomePage() {
 
   // Set up real-time listener for posts
   useEffect(() => {
+    console.log('🔥 Firebase useEffect triggered:', { user: user?.uid, userExists: !!user })
+    
     if (!user) {
+      console.log('❌ No user found, clearing posts and stopping loading')
       setPosts([]);
       setLoading(false);
       return;
     }
+
+    console.log('✅ User found, setting up Firebase listener...')
     setLoading(true);
     const postsRef = collection(db, 'posts');
     const q = query(postsRef, orderBy('createdAt', 'desc'), limit(POSTS_PER_PAGE));
+    
+    console.log('📡 Setting up onSnapshot listener...')
     const unsubscribe = onSnapshot(q, async (snapshot) => {
+      console.log('📡 Firebase snapshot received:', { 
+        docsCount: snapshot.docs.length,
+        isEmpty: snapshot.empty,
+        hasError: !!snapshot.metadata.fromCache
+      })
+      
       const newPosts: PostWithAuthor[] = [];
       for (const doc of snapshot.docs) {
         const postData = doc.data();
         const authorId = postData.authorId || postData.userId;
+        console.log('📝 Processing post:', { 
+          postId: doc.id, 
+          authorId, 
+          title: postData.title,
+          hasAuthorId: !!authorId
+        })
+        
         if (!authorId) {
-          console.error(`No author ID found for post ${doc.id}`);
+          console.error(`❌ No author ID found for post ${doc.id}`);
           continue;
         }
 
         // Only check if author blocked current user (one-way blocking)
+        console.log('🔒 Checking if author blocked user:', { authorId, userId: user.uid })
         const authorBlockedUser = await isUserBlocked(authorId, user.uid);
+        console.log('🔒 Block check result:', { authorBlockedUser })
 
         if (authorBlockedUser) {
-          console.log(`Skipping post ${doc.id} from blocked user ${authorId}`);
+          console.log(`⛔ Skipping post ${doc.id} from blocked user ${authorId}`);
           continue; // Skip this post completely
         }
 
+        console.log('👤 Fetching author data for:', authorId)
         const authorSnap = await getDoc(docRef(db, 'users', authorId));
         const authorData = authorSnap.data() as DocumentData;
         if (!authorData) {
-          console.error(`Author data not found for post ${doc.id}`);
+          console.error(`❌ Author data not found for post ${doc.id}`);
           continue;
         }
+        
+        console.log('✅ Author data found:', { 
+          authorId, 
+          displayName: authorData.displayName,
+          username: authorData.username 
+        })
+        
         newPosts.push({
           id: doc.id,
           title: postData.title || '',
@@ -199,10 +272,12 @@ export default function HomePage() {
           }
         });
       }
+      console.log('📊 Final posts count:', newPosts.length)
+      console.log('📊 Posts data:', newPosts.map(p => ({ id: p.id, title: p.title, author: p.authorName })))
       setPosts(newPosts);
       setLoading(false);
     }, (error) => {
-      console.error('Error fetching posts:', error);
+      console.error('❌ Error fetching posts:', error);
       setLoading(false);
     });
     return () => unsubscribe();
@@ -374,32 +449,48 @@ export default function HomePage() {
 
 
   if (loading && posts.length === 0) {
+    console.log('🏠 HomePage: Showing AppLoader')
     return <AppLoader isVisible={true} />;
   }
 
+  console.log('🏠 HomePage: Rendering posts:', posts.length)
+  console.log('🏠 HomePage: Final render state:', { 
+    loading, 
+    postsCount: posts.length, 
+    user: user?.uid,
+    hasPosts: posts.length > 0,
+    postsTitles: posts.map(p => p.title)
+  })
+  
   return (
-    <div className="space-y-6">
-      {posts.map((post) => (
-        <div key={post.id}>
-          <CompactPost 
-            post={post}
-            currentUserId={user?.uid}
-            onPostDeleted={handlePostDeleted}
-          />
+    <div className="w-full"> {/* REMOVED py-8 - no padding needed */}
+      <div className="w-full"> {/* REMOVED max-w-2xl mx-auto - use full available width */}
+        
+        <div className="space-y-3">
+          {posts.map((post) => (
+            <div key={post.id}>
+              <CompactPost 
+                post={post}
+                currentUserId={user?.uid}
+                onPostDeleted={handlePostDeleted}
+              />
+            </div>
+          ))}
+          {loading && posts.length > 0 && (
+            <div className="text-center text-gray-500">
+              Loading more posts...
+            </div>
+          )}
+          {!loading && posts.length === 0 && (
+            <div className="text-center text-gray-500">
+              No posts found. Be the first to create one!
+            </div>
+          )}
+          <div ref={loadMoreRef} className="h-4" />
         </div>
-      ))}
-      {loading && posts.length > 0 && (
-        <div className="text-center text-gray-500 py-8">
-          Loading more posts...
-        </div>
-      )}
-      {!loading && posts.length === 0 && (
-        <div className="text-center text-gray-500 py-12">
-          <div className="text-lg font-medium mb-2">No posts found</div>
-          <div className="text-sm">Be the first to create one!</div>
-        </div>
-      )}
-      <div ref={loadMoreRef} className="h-4" />
+      </div>
+
+
     </div>
   )
 }

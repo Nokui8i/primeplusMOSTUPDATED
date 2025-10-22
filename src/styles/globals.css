@@ -5,6 +5,9 @@
 /* Import tab navigation styles */
 @import './tab-navigation.css';
 
+/* Import animated send button styles */
+@import './send-button.css';
+
 /* Chat Message Input - Force consistent sizing */
 .chat-message-input {
   height: 40px !important;
@@ -12,6 +15,15 @@
   max-height: 40px !important;
   font-size: 14px !important;
   line-height: 1.5 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  background-color: #f3f4f6 !important;
+  border-radius: 20px !important;
+}
+
+.chat-message-input::placeholder {
+  color: #9ca3af !important;
 }
 
 /* Chat Recipient Name - Force visibility */
@@ -227,7 +239,7 @@ button[class*="profile-btn"] {
   height: 20px !important;
 }
 
-/* Custom Toggle Switch - From Uiverse.io by Galahhad - Smaller Version */
+/* Custom Toggle Switch - Instant Response with Subtle Animation */
 .checkbox {
   display: none;
 }
@@ -235,40 +247,49 @@ button[class*="profile-btn"] {
 .slider {
   width: 32px;
   height: 16px;
-  background-color: lightgray;
+  background-color: #e5e7eb;
   border-radius: 10px;
   overflow: hidden;
   display: flex;
   align-items: center;
   border: 2px solid transparent;
-  transition: .3s;
-  box-shadow: 0 0 4px 0 rgb(0, 0, 0, 0.25) inset;
+  transition: background-color 0.1s ease-out;
+  box-shadow: 0 0 4px 0 rgba(0, 0, 0, 0.15) inset;
   cursor: pointer;
+  position: relative;
 }
 
 .slider::before {
   content: '';
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 12px;
+  height: 12px;
   background-color: #fff;
-  transform: translateX(-16px);
-  border-radius: 10px;
-  transition: .3s;
-  box-shadow: 0 0 4px 2px rgb(0, 0, 0, 0.25);
+  transform: translateX(-2px);
+  border-radius: 50%;
+  transition: transform 0.1s ease-out;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  position: absolute;
+  left: 2px;
+}
+
+.checkbox:checked ~ .slider {
+  background-color: #3b82f6;
+  box-shadow: 0 0 4px 0 rgba(59, 130, 246, 0.3) inset;
 }
 
 .checkbox:checked ~ .slider::before {
   transform: translateX(16px);
-  box-shadow: 0 0 4px 2px rgb(0, 0, 0, 0.25);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-.checkbox:checked ~ .slider {
-  background-color: #2196F3;
+/* Hover effects for better UX */
+.slider:hover {
+  box-shadow: 0 0 6px 0 rgba(0, 0, 0, 0.2) inset;
 }
 
-.checkbox:active ~ .slider::before {
-  transform: translate(0);
+.checkbox:checked ~ .slider:hover {
+  box-shadow: 0 0 6px 0 rgba(59, 130, 246, 0.4) inset;
 }
 
 /* Upload Content Form - Single Modal Design */
@@ -1366,6 +1387,17 @@ html body .text-box textarea:not(.comment-input-3d) {
   display: block !important;
   position: relative !important;
   overflow: hidden !important;
+}
+
+/* Bio Text Responsive Font Size */
+.bio-text-responsive {
+  font-size: 13px !important;
+}
+
+@media (min-width: 640px) {
+  .bio-text-responsive {
+    font-size: 15px !important;
+  }
 }
 
 /* Comments 3D Bubble Design - Integrated with Post */

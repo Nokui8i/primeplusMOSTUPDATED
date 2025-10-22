@@ -591,13 +591,16 @@ export function ProfileHeader({
                   <div className="relative group max-w-2xl">
                     <span
                       ref={bioRef}
-                      className="whitespace-pre-line block text-gray-600 text-sm sm:text-base"
-                      style={isClamped ? {
-                        display: 'block',
-                        maxHeight: '4.5rem', // 3 lines worth of height
-                        overflow: 'hidden',
-                        position: 'relative',
-                      } : {}}
+                      className="whitespace-pre-line block text-gray-600 bio-text-responsive"
+                      style={{
+                        fontSize: '13px',
+                        ...(isClamped ? {
+                          display: 'block',
+                          maxHeight: '4.5rem', // 3 lines worth of height
+                          overflow: 'hidden',
+                          position: 'relative',
+                        } : {})
+                      }}
                     >
                       {profile.bio}
                     </span>

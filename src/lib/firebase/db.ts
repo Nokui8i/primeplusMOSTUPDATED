@@ -1,4 +1,4 @@
-import { db, auth } from '../firebase';
+import { db, auth } from './config';
 import { collection, doc, setDoc, getDoc, updateDoc, deleteDoc, query, where, getDocs, orderBy, limit, serverTimestamp, increment, addDoc } from 'firebase/firestore';
 import type { UserProfile, Comment, Subscription, Like } from '@/types/user';
 import type { Post } from '@/lib/types/post';
