@@ -27,8 +27,8 @@ export function PostOptionsMenu({ postId, authorId, onEdit }: PostOptionsMenuPro
         <MoreVertical className="h-5 w-5 text-gray-500 dark:text-gray-400" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => {
-          setIsOpen(false); // Close the dropdown menu
+        <DropdownMenuItem onSelect={(e) => {
+          e.preventDefault();
           onEdit();
         }}>
           Edit Post
