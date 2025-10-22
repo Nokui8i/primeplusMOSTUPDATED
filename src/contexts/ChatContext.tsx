@@ -89,74 +89,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
           // Check if chat window already exists
           const existingWindow = chatWindows.find(window => window.user.uid === senderId);
-          if (!existingWindow) {
-            // Fetch sender's real profile from Firestore
-            let senderUser: UserProfile;
-            try {
-              const senderDoc = await getDoc(doc(db, 'users', senderId));
-              if (senderDoc.exists()) {
-                const senderProfile = senderDoc.data();
-                senderUser = {
-                  id: senderId,
-                  uid: senderId,
-                  displayName: senderProfile.displayName || messageData.senderName,
-                  username: senderProfile.username || senderId,
-                  photoURL: senderProfile.photoURL || messageData.senderPhotoURL || '',
-                  email: senderProfile.email || '',
-                  createdAt: senderProfile.createdAt || Timestamp.now(),
-                  updatedAt: senderProfile.updatedAt || Timestamp.now(),
-                  isAgeVerified: senderProfile.isAgeVerified || false,
-                  isVerified: senderProfile.isVerified || false,
-                  role: senderProfile.role || 'user',
-                  status: senderProfile.status || 'active',
-                };
-              } else {
-                senderUser = {
-                  id: senderId,
-                  uid: senderId,
-                  displayName: messageData.senderName,
-                  username: messageData.senderName,
-                  photoURL: messageData.senderPhotoURL || '',
-                  email: '',
-                  createdAt: Timestamp.now(),
-                  updatedAt: Timestamp.now(),
-                  isAgeVerified: false,
-                  isVerified: false,
-                  role: 'user',
-                  status: 'active',
-                };
-              }
-            } catch {
-              senderUser = {
-                id: senderId,
-                uid: senderId,
-                displayName: messageData.senderName,
-                username: messageData.senderName,
-                photoURL: messageData.senderPhotoURL || '',
-                email: '',
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now(),
-                isAgeVerified: false,
-                isVerified: false,
-                role: 'user',
-                status: 'active',
-              };
-            }
-            setChatWindows(prev => [
-              ...prev,
-              {
-                id: senderId,
-                user: senderUser,
-                isMinimized: true, // minimized by default
-                position: {
-                  x: Math.max(0, window.innerWidth - 320 - (prev.length * 20)),
-                  y: Math.max(0, window.innerHeight - 400 - (prev.length * 20))
-                },
-                unreadCount: 1
-              }
-            ]);
-            return;
-          } else {
+          if (existingWindow) {
             // Update existing window with unread count
             setChatWindows(prev => prev.map(window => 
               window.user.uid === senderId
@@ -164,6 +97,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 : window
             ));
           }
+          // Don't automatically create new chat windows for new messages
+          // Chat windows should only be created when user explicitly opens them
         });
         chatUnsubscribes.push(unsubscribeMessages);
       });
