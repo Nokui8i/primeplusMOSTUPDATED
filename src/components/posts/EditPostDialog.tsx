@@ -16,7 +16,8 @@ import { toast } from 'react-hot-toast'
 import { Label } from '@/components/ui/label'
 import MediaContent from '@/components/posts/MediaContent'
 import { useAuth } from '@/lib/firebase/auth'
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { X } from 'lucide-react'
 
 interface EditPostDialogProps {
   post: PostType
@@ -93,77 +94,95 @@ export function EditPostDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Edit Post</DialogTitle>
-          <DialogDescription>
-            Make changes to your post content below.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
-            <Textarea
-              id="content"
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What's on your mind?"
-              className="min-h-[200px]"
-              aria-describedby="content-description"
-            />
-            <p id="content-description" className="sr-only">
-              Edit your post content here. Press Enter for new lines.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Post Visibility</Label>
-            <RadioGroup 
-              value={accessLevel}
-              onValueChange={(value: 'public' | 'followers') => setAccessLevel(value)}
-              className="flex items-center space-x-4"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="public" id="edit-access-public" />
-                <Label htmlFor="edit-access-public" className="text-sm font-normal">Public</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="followers" id="edit-access-followers" />
-                <Label htmlFor="edit-access-followers" className="text-sm font-normal">Subscribers Only</Label>
-              </div>
-            </RadioGroup>
-            <p className="text-xs text-gray-500">
-              {accessLevel === 'public' 
-                ? 'Everyone will be able to see this post.' 
-                : 'Only your subscribers will be able to see this post.'}
-            </p>
-          </div>
-          {post.mediaUrl && (
-            <div className="space-y-2">
-              <Label>Current Media</Label>
-              <div className="rounded-lg overflow-hidden">
-                <MediaContent url={post.mediaUrl} type={post.type} />
-              </div>
-              <p className="text-sm text-gray-500">
-                Note: Media files cannot be changed after upload. To change the media, please create a new post.
-              </p>
-            </div>
-          )}
-          <DialogFooter>
+      <DialogContent className="max-w-2xl p-0 border-0 bg-transparent shadow-none">
+        <div className="upload-card">
+          <div className="upload-title">
+            Edit Post
             <Button
-              type="button"
-              variant="outline"
+              variant="ghost"
+              size="icon"
+              className="absolute right-4 top-3 h-8 w-8 rounded-full hover:bg-gray-100 text-gray-600"
               onClick={handleClose}
             >
-              Cancel
+              <X className="h-5 w-5" />
             </Button>
-            <Button 
-              type="submit" 
-              disabled={!content.trim() || content.trim() === post.content?.trim() || isSubmitting}
-            >
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
-        </form>
+          </div>
+          
+          <div className="upload-content">
+            <div className="content-area">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="content">Content</Label>
+                  <textarea
+                    id="content"
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="What's on your mind?"
+                    className="text-input"
+                    rows={4}
+                    aria-describedby="content-description"
+                  />
+                  <p id="content-description" className="sr-only">
+                    Edit your post content here. Press Enter for new lines.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Post Visibility</Label>
+                  <RadioGroup 
+                    value={accessLevel}
+                    onValueChange={(value: 'public' | 'followers') => setAccessLevel(value)}
+                    className="flex items-center space-x-4"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="public" id="edit-access-public" />
+                      <Label htmlFor="edit-access-public" className="text-sm font-normal">Public</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="followers" id="edit-access-followers" />
+                      <Label htmlFor="edit-access-followers" className="text-sm font-normal">Subscribers Only</Label>
+                    </div>
+                  </RadioGroup>
+                  <p className="text-xs text-gray-500">
+                    {accessLevel === 'public' 
+                      ? 'Everyone will be able to see this post.' 
+                      : 'Only your subscribers will be able to see this post.'}
+                  </p>
+                </div>
+                
+                {post.mediaUrl && (
+                  <div className="space-y-2">
+                    <Label>Current Media</Label>
+                    <div className="rounded-lg overflow-hidden">
+                      <MediaContent url={post.mediaUrl} type={post.type} />
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      Note: Media files cannot be changed after upload. To change the media, please create a new post.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex justify-end space-x-3 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleClose}
+                    className="px-6 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={!content.trim() || content.trim() === post.content?.trim() || isSubmitting}
+                    className="px-6 py-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-medium transition-all duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    {isSubmitting ? 'Saving...' : 'SAVE CHANGES'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
