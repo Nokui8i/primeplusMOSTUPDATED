@@ -82,6 +82,7 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
                 e.preventDefault();
                 e.stopPropagation();
                 console.log('🔍 Edit clicked!');
+                setIsOpen(false); // Close the dropdown menu
                 if (onEdit) onEdit();
               }} 
               disabled={isDeleting} 

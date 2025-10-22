@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -15,17 +16,21 @@ interface PostOptionsMenuProps {
 
 export function PostOptionsMenu({ postId, authorId, onEdit }: PostOptionsMenuProps) {
   const { user } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
   const isAuthor = user?.uid === authorId;
 
   if (!isAuthor) return null;
 
   return (
-    <DropdownMenu>
+    <DropdownMenu onOpenChange={setIsOpen}>
       <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
         <MoreVertical className="h-5 w-5 text-gray-500 dark:text-gray-400" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={onEdit}>
+        <DropdownMenuItem onClick={() => {
+          setIsOpen(false); // Close the dropdown menu
+          onEdit();
+        }}>
           Edit Post
         </DropdownMenuItem>
         <DropdownMenuItem className="text-red-600 dark:text-red-400">
