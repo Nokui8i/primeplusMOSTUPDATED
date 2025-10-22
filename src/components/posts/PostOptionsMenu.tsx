@@ -79,9 +79,13 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
           <>
             <DropdownMenuItem 
               onSelect={(e) => {
-                e.preventDefault();
                 console.log('🔍 Edit clicked!');
-                if (onEdit) onEdit();
+                if (onEdit) {
+                  // Use setTimeout to ensure dropdown closes before opening edit dialog
+                  setTimeout(() => {
+                    onEdit();
+                  }, 100);
+                }
               }} 
               disabled={isDeleting} 
               className="cursor-pointer py-2 px-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"

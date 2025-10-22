@@ -28,8 +28,10 @@ export function PostOptionsMenu({ postId, authorId, onEdit }: PostOptionsMenuPro
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={(e) => {
-          e.preventDefault();
-          onEdit();
+          // Use setTimeout to ensure dropdown closes before opening edit dialog
+          setTimeout(() => {
+            onEdit();
+          }, 100);
         }}>
           Edit Post
         </DropdownMenuItem>
