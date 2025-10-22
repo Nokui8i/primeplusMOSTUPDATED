@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Save, Loader2, Image, X, Upload, Send, DollarSign, ChevronDown } from 'lucide-react';
+import { MessageSquare, Save, Loader2, Image, X, Upload, Send, DollarSign, ChevronDown, Settings } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { uploadToS3 } from '@/lib/aws/s3';
 
@@ -24,7 +24,12 @@ export default function SettingsTab() {
   const [openSections, setOpenSections] = useState({
     bulkMessage: false,
     welcomeMessage: false,
+    commentSettings: false,
   });
+  
+  // Comment settings states
+  const [defaultCommentAccess, setDefaultCommentAccess] = useState<'everyone' | 'subscribers' | 'paid_subscribers' | 'none'>('everyone');
+  const [isVerified, setIsVerified] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Bulk message states
@@ -51,6 +56,23 @@ export default function SettingsTab() {
           const userData = userDoc.data();
           setWelcomeMessage(userData.welcomeMessage || '');
           setWelcomeImage(userData.welcomeImage || null);
+          
+          // Load comment settings
+          const commentSettings = userData.privacy?.commentSettings;
+          if (commentSettings?.allowComments === false) {
+            setDefaultCommentAccess('none');
+          } else if (commentSettings?.allowComments === true) {
+            setDefaultCommentAccess('everyone');
+          } else if (commentSettings?.commentAccessLevel === 'subscribers') {
+            setDefaultCommentAccess('subscribers');
+          } else if (commentSettings?.commentAccessLevel === 'paid_subscribers') {
+            setDefaultCommentAccess('paid_subscribers');
+          } else {
+            setDefaultCommentAccess('everyone');
+          }
+          
+          // Check verification status (for other features)
+          setIsVerified(userData.isVerified || false);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -286,15 +308,39 @@ export default function SettingsTab() {
 
     setSaving(true);
     try {
+      // Save user settings
       await updateDoc(doc(db, 'users', user.uid), {
         welcomeMessage: welcomeMessage.trim(),
         welcomeImage: welcomeImage,
+        'privacy.commentSettings': {
+          allowComments: defaultCommentAccess === 'none' ? false : defaultCommentAccess === 'everyone' ? true : null,
+          commentAccessLevel: defaultCommentAccess === 'subscribers' ? 'subscribers' : defaultCommentAccess === 'paid_subscribers' ? 'paid_subscribers' : null,
+        },
         updatedAt: new Date(),
       });
 
+      // Update all existing posts with the new comment settings
+      const postsQuery = query(
+        collection(db, 'posts'),
+        where('authorId', '==', user.uid)
+      );
+      
+      const postsSnapshot = await getDocs(postsQuery);
+      const batch = writeBatch(db);
+      
+      postsSnapshot.docs.forEach((postDoc) => {
+        batch.update(postDoc.ref, {
+          allowComments: defaultCommentAccess === 'none' ? false : defaultCommentAccess === 'everyone' ? true : null,
+          commentAccessLevel: defaultCommentAccess === 'subscribers' ? 'subscribers' : defaultCommentAccess === 'paid_subscribers' ? 'paid_subscribers' : null,
+          updatedAt: new Date(),
+        });
+      });
+      
+      await batch.commit();
+
       toast({
         title: "Settings saved!",
-        description: "Your welcome message has been updated successfully.",
+        description: `Your comment settings have been updated for all ${postsSnapshot.docs.length} existing posts.`,
       });
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -324,7 +370,7 @@ export default function SettingsTab() {
           className="cursor-pointer hover:bg-gray-50 transition-colors py-1"
           onClick={() => toggleSection('bulkMessage')}
         >
-          <CardTitle className="flex items-center justify-between text-sm font-normal !font-normal">
+          <CardTitle className="flex items-center justify-between text-sm !font-normal text-gray-800">
             <div className="flex items-center gap-2">
               <Send className="h-3 w-3" />
               Bulk Message to Subscribers
@@ -335,7 +381,7 @@ export default function SettingsTab() {
               }`}
             />
           </CardTitle>
-          <CardDescription className="text-xs text-gray-500">
+          <CardDescription className="text-xs text-gray-600">
             Send messages, images, or videos to all your active subscribers at once.
           </CardDescription>
         </CardHeader>
@@ -344,7 +390,7 @@ export default function SettingsTab() {
             <div className="space-y-4">
               {/* Message Content */}
               <div className="space-y-1">
-                <Label htmlFor="bulk-message-content" className="text-xs font-normal">Message</Label>
+                <Label htmlFor="bulk-message-content" className="text-sm font-normal text-gray-800">Message</Label>
                 <Textarea
                   id="bulk-message-content"
                   placeholder=""
@@ -368,7 +414,7 @@ export default function SettingsTab() {
 
               {/* Media Upload */}
               <div className="space-y-1">
-                <Label htmlFor="bulk-media-upload" className="text-xs font-normal">Media (Optional)</Label>
+                <Label htmlFor="bulk-media-upload" className="text-sm font-normal text-gray-800">Media (Optional)</Label>
                 {bulkMediaPreview ? (
                   <div className="relative w-full h-48 rounded-lg overflow-hidden border border-gray-200">
                     {bulkMediaType === 'image' ? (
@@ -514,7 +560,7 @@ export default function SettingsTab() {
           className="cursor-pointer hover:bg-gray-50 transition-colors py-1"
           onClick={() => toggleSection('welcomeMessage')}
         >
-          <CardTitle className="flex items-center justify-between text-sm font-normal !font-normal">
+          <CardTitle className="flex items-center justify-between text-sm !font-normal text-gray-800">
             <div className="flex items-center gap-2">
               <MessageSquare className="h-3 w-3" />
               Welcome Message Settings
@@ -525,7 +571,7 @@ export default function SettingsTab() {
               }`}
             />
           </CardTitle>
-          <CardDescription className="text-xs text-gray-500">
+          <CardDescription className="text-xs text-gray-600">
             Set up an automatic welcome message that new subscribers will receive.
           </CardDescription>
         </CardHeader>
@@ -555,7 +601,7 @@ export default function SettingsTab() {
 
           {/* Image Upload Section */}
           <div className="space-y-1">
-            <Label htmlFor="welcome-image" className="text-sm font-medium">Welcome Image (Optional)</Label>
+            <Label htmlFor="welcome-image" className="text-sm font-normal text-gray-800">Welcome Image (Optional)</Label>
             <div className="space-y-1">
               {welcomeImage ? (
                 <div className="relative">
@@ -643,6 +689,126 @@ export default function SettingsTab() {
         )}
       </Card>
 
+      {/* Comment Settings Section - Creator Feature */}
+      <Card>
+        <CardHeader 
+          className="cursor-pointer hover:bg-gray-50 transition-colors py-1"
+          onClick={() => toggleSection('commentSettings')}
+        >
+          <CardTitle className="flex items-center justify-between text-sm !font-normal text-gray-800">
+            <div className="flex items-center gap-2">
+              <Settings className="h-3 w-3" />
+              Comment Settings
+            </div>
+            <ChevronDown 
+              className={`h-3 w-3 transition-transform ${
+                openSections.commentSettings ? 'rotate-180' : ''
+              }`}
+            />
+          </CardTitle>
+        </CardHeader>
+        {openSections.commentSettings && (
+          <CardContent className="space-y-6 py-6">
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <p className="text-xs text-gray-600">
+                  This setting will be used as the default for new posts. You can override it for individual posts.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="commentAccess"
+                    value="everyone"
+                    checked={defaultCommentAccess === 'everyone'}
+                    onChange={(e) => setDefaultCommentAccess(e.target.value as any)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-800">Everyone</span>
+                </label>
+                
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="commentAccess"
+                    value="subscribers"
+                    checked={defaultCommentAccess === 'subscribers'}
+                    onChange={(e) => setDefaultCommentAccess(e.target.value as any)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-800">Subscribers only</span>
+                </label>
+                
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="commentAccess"
+                    value="paid_subscribers"
+                    checked={defaultCommentAccess === 'paid_subscribers'}
+                    onChange={(e) => setDefaultCommentAccess(e.target.value as any)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-800">Paid subscribers only</span>
+                </label>
+                
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="commentAccess"
+                    value="none"
+                    checked={defaultCommentAccess === 'none'}
+                    onChange={(e) => setDefaultCommentAccess(e.target.value as any)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-800">No comments</span>
+                </label>
+              </div>
+
+              <div className="flex justify-center">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="save-message-btn"
+                  style={{
+                    border: 'none',
+                    color: '#fff',
+                    backgroundImage: 'linear-gradient(30deg, #3b82f6, #1d4ed8)',
+                    backgroundColor: 'transparent',
+                    borderRadius: '16px',
+                    backgroundSize: '100% auto',
+                    fontFamily: 'inherit',
+                    fontSize: '10px',
+                    padding: '4px 10px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    transition: 'all 0.3s ease-in-out',
+                    boxShadow: 'none',
+                    margin: '0',
+                    width: 'auto',
+                    height: 'auto',
+                    fontWeight: '600',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {saving ? 'Saving...' : 'Save Settings'}
+                </button>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
     </div>
   );

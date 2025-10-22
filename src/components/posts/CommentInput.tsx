@@ -60,22 +60,52 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId, p
     
     // If allowComments is null (use global setting), check user's privacy settings
     if (post.allowComments === null || post.allowComments === undefined) {
-      try {
-        const postAuthorDoc = await getDoc(doc(db, 'users', post.authorId));
-        if (postAuthorDoc.exists()) {
-          const postAuthorData = postAuthorDoc.data();
-          const globalAllowComments = postAuthorData.privacy?.allowComments;
-          
-          // If global setting is false, deny commenting
-          if (globalAllowComments === false) {
-            return false;
+      // Check if there's a specific comment access level
+      if (post.commentAccessLevel === 'subscribers') {
+        // Check if user is a subscriber (free or paid)
+        try {
+          const subscriptionDoc = await getDoc(doc(db, 'subscriptions', `${user.uid}_${post.authorId}`));
+          if (!subscriptionDoc.exists()) {
+            return false; // Not subscribed
           }
-          
-          // If global setting is true or undefined, continue with access level checks
+        } catch (error) {
+          console.error('Error checking subscription:', error);
+          return false;
         }
-      } catch (error) {
-        console.error('Error checking global comment settings:', error);
-        // If we can't check global settings, continue with access level checks
+      } else if (post.commentAccessLevel === 'paid_subscribers') {
+        // Check if user is a paid subscriber
+        try {
+          const subscriptionDoc = await getDoc(doc(db, 'subscriptions', `${user.uid}_${post.authorId}`));
+          if (!subscriptionDoc.exists()) {
+            return false; // Not subscribed
+          }
+          const subscriptionData = subscriptionDoc.data();
+          if (subscriptionData?.tier !== 'paid') {
+            return false; // Not a paid subscriber
+          }
+        } catch (error) {
+          console.error('Error checking paid subscription:', error);
+          return false;
+        }
+      } else {
+        // Use global setting
+        try {
+          const postAuthorDoc = await getDoc(doc(db, 'users', post.authorId));
+          if (postAuthorDoc.exists()) {
+            const postAuthorData = postAuthorDoc.data();
+            const globalAllowComments = postAuthorData.privacy?.allowComments;
+            
+            // If global setting is false, deny commenting
+            if (globalAllowComments === false) {
+              return false;
+            }
+            
+            // If global setting is true or undefined, continue with access level checks
+          }
+        } catch (error) {
+          console.error('Error checking global comment settings:', error);
+          // If we can't check global settings, continue with access level checks
+        }
       }
     }
     
@@ -144,7 +174,16 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId, p
     // Check if user can comment on this post
     const userCanComment = await canComment();
     if (!userCanComment) {
-      toast.error('You need to subscribe to this creator to comment on their locked content')
+      // Show specific error message based on comment access level
+      if (post?.commentAccessLevel === 'subscribers') {
+        toast.error('You need to subscribe to this creator to comment')
+      } else if (post?.commentAccessLevel === 'paid_subscribers') {
+        toast.error('You need to be a paid subscriber to comment')
+      } else if (post?.allowComments === false) {
+        toast.error('Comments are disabled for this post')
+      } else {
+        toast.error('You need to subscribe to this creator to comment on their locked content')
+      }
       return
     }
 

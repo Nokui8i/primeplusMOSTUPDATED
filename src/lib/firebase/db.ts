@@ -314,7 +314,7 @@ export async function deletePost(postId: string, userId?: string) {
   }
 }
 
-export async function updatePost(postId: string, updates: Partial<Pick<Post, 'content' | 'mediaUrl' | 'isPublic' | 'accessSettings'>>) {
+export async function updatePost(postId: string, updates: Partial<Pick<Post, 'content' | 'mediaUrl' | 'isPublic' | 'accessSettings' | 'allowComments' | 'showWatermark' | 'type' | 'commentAccessLevel'>>) {
   const user = auth.currentUser;
   if (!user) throw new Error('Must be logged in to update posts');
 

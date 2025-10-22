@@ -13,11 +13,12 @@ import { Loader2, Eye, EyeOff, Lock, Globe } from 'lucide-react';
 export default function PrivacySettings() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreator, setIsCreator] = useState(false);
   const [privacySettings, setPrivacySettings] = useState({
     onlineStatus: 'everyone',
     allowTagging: true,
     showActivityStatus: true,
-    allowComments: true,
+    allowComments: true, // Simple boolean for normal users
     // allowProfileDiscovery: true,
   });
 
@@ -29,6 +30,11 @@ export default function PrivacySettings() {
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
+          
+          // Check if user is a creator
+          const hasCreatorRole = userData.role === 'creator' || userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner';
+          setIsCreator(hasCreatorRole);
+          
           if (userData.privacy) {
             setPrivacySettings(prev => ({
               ...prev,
@@ -81,30 +87,46 @@ export default function PrivacySettings() {
         <h2 className="text-xl font-semibold text-gray-800">Interactions</h2>
         
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg" style={{
-            background: 'rgba(255, 255, 255, 0.6)',
-            border: '1px solid rgba(200, 200, 200, 0.3)',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-          }}>
-            <div className="space-y-0.5">
-              <div className="font-normal text-gray-800 text-sm">Allow Comments</div>
-              <p className="text-xs text-gray-600">
-                Let others comment on your posts (can be overridden per post)
-              </p>
+          {/* Only show simple comment settings for non-creators */}
+          {!isCreator && (
+            <div className="flex items-center justify-between p-4 rounded-lg" style={{
+              background: 'rgba(255, 255, 255, 0.6)',
+              border: '1px solid rgba(200, 200, 200, 0.3)',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+            }}>
+              <div className="space-y-0.5">
+                <div className="font-normal text-gray-800 text-sm">Allow Comments</div>
+                <p className="text-xs text-gray-600">
+                  Let others comment on your posts (can be overridden per post)
+                </p>
+              </div>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={privacySettings.allowComments}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handlePrivacySettingChange('allowComments', e.target.checked);
+                  }}
+                  className="checkbox"
+                />
+                <span className="slider"></span>
+              </label>
             </div>
-            <label className="flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={privacySettings.allowComments}
-                onChange={(e) => {
-                  e.stopPropagation();
-                  handlePrivacySettingChange('allowComments', e.target.checked);
-                }}
-                className="checkbox"
-              />
-              <span className="slider"></span>
-            </label>
-          </div>
+          )}
+
+          {/* Show message for creators about advanced comment settings */}
+          {isCreator && (
+            <div className="p-4 rounded-lg bg-gray-50 border border-gray-200">
+              <div className="space-y-1">
+                <div className="font-normal text-gray-800 text-sm">Comment Settings</div>
+                <p className="text-xs text-gray-600">
+                  As a creator, you have advanced comment settings available in your Creator Dashboard. 
+                  You can control who can comment (everyone, subscribers only, paid subscribers only, or no comments).
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between p-4 rounded-lg" style={{
             background: 'rgba(255, 255, 255, 0.6)',

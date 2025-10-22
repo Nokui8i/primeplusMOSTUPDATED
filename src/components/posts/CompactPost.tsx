@@ -1204,7 +1204,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
               </motion.div>
             ) : (
               <motion.p 
-                className="text-base text-gray-900 leading-[1.6] whitespace-pre-wrap"
+                className="ml-10 -mt-3 text-sm text-gray-900 leading-[1.6] whitespace-pre-wrap"
                 initial={false}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

@@ -68,25 +68,63 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
     
     // If allowComments is null (use global setting), check user's privacy settings
     if (post.allowComments === null || post.allowComments === undefined) {
-      try {
-        const postAuthorDoc = await getDoc(doc(db, 'users', post.authorId));
-        if (postAuthorDoc.exists()) {
-          const postAuthorData = postAuthorDoc.data();
-          const globalAllowComments = postAuthorData.privacy?.allowComments;
-          
-          // If global setting is false, deny viewing comments
-          if (globalAllowComments === false) {
-            console.log('[Comments] Global comments disabled');
+      // Check if there's a specific comment access level
+      if (post.commentAccessLevel === 'subscribers') {
+        // Check if user is a subscriber (free or paid)
+        try {
+          const subscriptionDoc = await getDoc(doc(db, 'subscriptions', `${user.uid}_${post.authorId}`));
+          if (!subscriptionDoc.exists()) {
+            console.log('[Comments] User not subscribed');
             setCanViewComments(false);
             return;
           }
-          
-          // If global setting is true or undefined, continue with access level checks
-          console.log('[Comments] Global comments enabled, checking access level');
+        } catch (error) {
+          console.error('Error checking subscription:', error);
+          setCanViewComments(false);
+          return;
         }
-      } catch (error) {
-        console.error('Error checking global comment settings:', error);
-        // If we can't check global settings, continue with access level checks
+      } else if (post.commentAccessLevel === 'paid_subscribers') {
+        // Check if user is a paid subscriber
+        try {
+          const subscriptionDoc = await getDoc(doc(db, 'subscriptions', `${user.uid}_${post.authorId}`));
+          if (!subscriptionDoc.exists()) {
+            console.log('[Comments] User not subscribed');
+            setCanViewComments(false);
+            return;
+          }
+          const subscriptionData = subscriptionDoc.data();
+          if (subscriptionData?.tier !== 'paid') {
+            console.log('[Comments] User not a paid subscriber');
+            setCanViewComments(false);
+            return;
+          }
+        } catch (error) {
+          console.error('Error checking paid subscription:', error);
+          setCanViewComments(false);
+          return;
+        }
+      } else {
+        // Use global setting
+        try {
+          const postAuthorDoc = await getDoc(doc(db, 'users', post.authorId));
+          if (postAuthorDoc.exists()) {
+            const postAuthorData = postAuthorDoc.data();
+            const globalAllowComments = postAuthorData.privacy?.allowComments;
+            
+            // If global setting is false, deny viewing comments
+            if (globalAllowComments === false) {
+              console.log('[Comments] Global comments disabled');
+              setCanViewComments(false);
+              return;
+            }
+            
+            // If global setting is true or undefined, continue with access level checks
+            console.log('[Comments] Global comments enabled, checking access level');
+          }
+        } catch (error) {
+          console.error('Error checking global comment settings:', error);
+          // If we can't check global settings, continue with access level checks
+        }
       }
     }
     
@@ -286,7 +324,10 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
              <div className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 shadow-sm">
                <span className="text-xs font-medium">🔒</span>
                <span className="text-xs font-medium">
-                 Comments are locked
+                 {post?.commentAccessLevel === 'subscribers' ? 'Comments for subscribers only' :
+                  post?.commentAccessLevel === 'paid_subscribers' ? 'Comments for paid subscribers only' :
+                  post?.allowComments === false ? 'Comments are disabled' :
+                  'Comments are locked'}
                </span>
              </div>
            )}

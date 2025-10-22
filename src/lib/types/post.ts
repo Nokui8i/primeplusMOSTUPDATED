@@ -194,6 +194,8 @@ export interface Post {
   title?: string;
 
   showWatermark?: boolean;
+  allowComments?: boolean | null;
+  commentAccessLevel?: 'subscribers' | 'paid_subscribers' | null;
 }
 
 // =============================================
@@ -236,6 +238,7 @@ export interface PostWithAuthor {
   type: PostType;
   isPublic: boolean;
   allowComments?: boolean | null;
+  commentAccessLevel?: 'subscribers' | 'paid_subscribers' | null;
   shares: number;
   taggedUsers: string[];
   content: string;

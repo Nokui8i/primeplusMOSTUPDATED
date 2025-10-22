@@ -337,7 +337,7 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
                   </div>
                 </div>
               ) : (
-                <p className="text-base text-gray-900 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+                <p className="ml-10 -mt-3 text-sm text-gray-900 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
                   {currentPost.content}
                 </p>
               )}

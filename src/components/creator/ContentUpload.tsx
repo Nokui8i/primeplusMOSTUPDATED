@@ -36,7 +36,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
   const [ppvPrice, setPpvPrice] = useState<number>(0);
   const [ppvEveryonePays, setPpvEveryonePays] = useState<boolean>(true);
   const [postType, setPostType] = useState<'text' | 'image' | 'video' | 'image360' | 'video360'>('text');
-  const [allowComments, setAllowComments] = useState<boolean | null>(null); // null = use global setting, true/false = override
+  const [allowComments, setAllowComments] = useState<'everyone' | 'subscribers' | 'paid_subscribers' | 'none'>('everyone');
   const [step, setStep] = useState(1);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
@@ -95,6 +95,20 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
               // Regular users cannot monetize
               setIsVerified(false);
             }
+            
+            // Load global comment settings
+            const commentSettings = userData.privacy?.commentSettings;
+            if (commentSettings?.allowComments === false) {
+              setAllowComments('none');
+            } else if (commentSettings?.allowComments === true) {
+              setAllowComments('everyone');
+            } else if (commentSettings?.commentAccessLevel === 'subscribers') {
+              setAllowComments('subscribers');
+            } else if (commentSettings?.commentAccessLevel === 'paid_subscribers') {
+              setAllowComments('paid_subscribers');
+            } else {
+              setAllowComments('everyone'); // Default fallback
+            }
           }
         } catch (error) {
           console.error('Error loading user profile:', error);
@@ -103,7 +117,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
     };
 
     loadUserProfile();
-  }, [user?.uid]);
+  }, [user?.uid, isOpen]); // Added isOpen dependency to reload when dialog opens
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
@@ -244,7 +258,8 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
           ppvEveryonePays: accessLevel === 'ppv' ? ppvEveryonePays : null,
         },
         showWatermark: showWatermark,
-        allowComments: allowComments,
+        allowComments: allowComments === 'none' ? false : allowComments === 'everyone' ? true : null,
+        commentAccessLevel: allowComments === 'subscribers' ? 'subscribers' : allowComments === 'paid_subscribers' ? 'paid_subscribers' : null,
         likes: 0,
         comments: 0,
         shares: 0,
@@ -324,13 +339,50 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
                   placeholder={`What's on your mind, ${user?.displayName?.split(' ')[0] || 'there'}?`}
                   className="text-input pr-8"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setContent(prev => prev + '😀')}
-                    className="absolute right-2 top-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
-                  >
-                    <Smile className="h-4 w-4 text-yellow-500" />
-                    </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                      >
+                        <Smile className="h-4 w-4 text-yellow-500" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="end" 
+                      className="w-64 p-2"
+                      sideOffset={5}
+                    >
+                      <div 
+                        id="emoji-picker-grid"
+                        className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto"
+                        onWheel={(e) => e.stopPropagation()}
+                      >
+                        {[
+                          // Faces & Emotions
+                          '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃',
+                          // Animals
+                          '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦏', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐓', '🦃', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦦', '🦥', '🐁', '🐀', '🐿️', '🦔',
+                          // Hearts & Love
+                          '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟',
+                          // Symbols & Signs
+                          '🔢', '🔠', '🔡', '🔤', '🅰️', '🆎', '🅱️', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓',
+                          // Food & Drinks
+                          '🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫒', '🌽', '🥕', '🫑', '🥔', '🍠', '🥐', '🥖', '🍞', '🥨', '🥯', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🫓', '🥙', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '☕', '🫖', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾',
+                          // Activities & Sports
+                          '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️‍♀️', '🏋️', '🏋️‍♂️', '🤼‍♀️', '🤼', '🤼‍♂️', '🤸‍♀️', '🤸', '🤸‍♂️', '⛹️‍♀️', '⛹️', '⛹️‍♂️', '🤺', '🤾‍♀️', '🤾', '🤾‍♂️', '🏌️‍♀️', '🏌️', '🏌️‍♂️', '🏇', '🧘‍♀️', '🧘', '🧘‍♂️', '🏄‍♀️', '🏄', '🏄‍♂️', '🏊‍♀️', '🏊', '🏊‍♂️', '🤽‍♀️', '🤽', '🤽‍♂️', '🚣‍♀️', '🚣', '🚣‍♂️', '🧗‍♀️', '🧗', '🧗‍♂️', '🚵‍♀️', '🚵', '🚵‍♂️', '🚴‍♀️', '🚴', '🚴‍♂️', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎪', '🤹', '🤹‍♀️', '🤹‍♂️', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎵', '🎶', '🪘', '🥁', '🪗', '🎸', '🪕', '🎺', '🎷', '🪗', '🎻', '🪈', '🎲', '♠️', '♥️', '♦️', '♣️', '🃏', '🀄', '🎴', '🎯', '🎳', '🎮', '🎰', '🧩', '🎲'
+                        ].map((emoji) => (
+                          <button
+                            key={emoji}
+                            onClick={() => setContent(prev => prev + emoji)}
+                            className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md text-lg"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
               </div>
 
               {!filePreview && (
@@ -462,33 +514,90 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
               </div>
             </div>
 
-            <div className="setting-row">
-              <div className="setting-info">
-                <div className="setting-label">Allow Comments</div>
-                <div className="setting-description">Override your global comment setting for this post</div>
+            {/* Allow Comments - Only for creators */}
+            {isCreatorRole && (
+              <div className="setting-row">
+                <div className="setting-info">
+                  <div className="setting-label">Allow Comments</div>
+                </div>
+                <div className="setting-control">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="w-fit px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none hover:shadow-lg hover:scale-[1.02] focus:shadow-lg focus:scale-[1.02] flex items-center gap-2"
+                        style={{
+                          borderRadius: '6px',
+                          border: '1px solid #e5e7eb',
+                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                        }}
+                      >
+                        <span>
+                          {allowComments === 'everyone' ? 'Everyone' : 
+                           allowComments === 'subscribers' ? 'Subscribers only' :
+                           allowComments === 'paid_subscribers' ? 'Paid subscribers only' :
+                           allowComments === 'none' ? 'No comments' :
+                           'Everyone'}
+                        </span>
+                        <ChevronDown className="h-3 w-3 text-gray-600" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent 
+                      align="start" 
+                      className="w-48 bg-white border-0 p-0 max-h-48 overflow-y-auto"
+                      style={{
+                        borderRadius: '8px',
+                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        maxHeight: '192px', // 12rem = 192px
+                        overflowY: 'auto'
+                      }}
+                    >
+                      <DropdownMenuItem
+                        onClick={() => setAllowComments('everyone')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: allowComments === 'everyone' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: allowComments === 'everyone' ? 'white' : 'inherit',
+                        }}
+                      >
+                        Everyone
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setAllowComments('subscribers')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: allowComments === 'subscribers' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: allowComments === 'subscribers' ? 'white' : 'inherit',
+                        }}
+                      >
+                        Subscribers only
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setAllowComments('paid_subscribers')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: allowComments === 'paid_subscribers' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: allowComments === 'paid_subscribers' ? 'white' : 'inherit',
+                        }}
+                      >
+                        Paid subscribers only
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => setAllowComments('none')}
+                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                        style={{
+                          background: allowComments === 'none' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                          color: allowComments === 'none' ? 'white' : 'inherit',
+                        }}
+                      >
+                        No comments
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-              <div className="setting-control">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="dropdown-trigger">
-                      {allowComments === null ? 'Use Global Setting' : allowComments ? 'Allow Comments' : 'Disable Comments'}
-                      <ChevronDown className="w-4 h-4 ml-1" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => setAllowComments(null)}>
-                      Use Global Setting
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setAllowComments(true)}>
-                      Allow Comments
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setAllowComments(false)}>
-                      Disable Comments
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </div>
+            )}
 
             {/* Post Visibility - Only show to creators */}
             {isCreatorRole && (

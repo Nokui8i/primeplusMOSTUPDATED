@@ -2,6 +2,59 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide scrollbars globally */
+.scrollbar-hide {
+  -ms-overflow-style: none !important;  /* Internet Explorer 10+ */
+  scrollbar-width: none !important;  /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar { 
+  display: none !important;  /* Safari and Chrome */
+  width: 0 !important;
+  height: 0 !important;
+}
+.scrollbar-hide::-webkit-scrollbar-track {
+  display: none !important;
+}
+.scrollbar-hide::-webkit-scrollbar-thumb {
+  display: none !important;
+}
+.scrollbar-hide::-webkit-scrollbar-corner {
+  display: none !important;
+}
+
+/* Hide scrollbar for emoji picker grid specifically */
+#emoji-picker-grid::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+#emoji-picker-grid {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* Hide ALL scrollbars in edit post dialog */
+[data-radix-popper-content-wrapper] .grid::-webkit-scrollbar,
+[data-radix-popper-content-wrapper] .overflow-y-auto::-webkit-scrollbar,
+.grid.grid-cols-8::-webkit-scrollbar,
+.grid.overflow-y-auto::-webkit-scrollbar,
+div[class*="grid"][class*="overflow"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+[data-radix-popper-content-wrapper] .grid,
+[data-radix-popper-content-wrapper] .overflow-y-auto,
+.grid.grid-cols-8,
+.grid.overflow-y-auto,
+div[class*="grid"][class*="overflow"] {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
 /* Import tab navigation styles */
 @import './tab-navigation.css';
 

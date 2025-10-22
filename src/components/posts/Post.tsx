@@ -126,7 +126,7 @@ export function Post({ post }: PostProps) {
           </div>
 
           {post.content && (
-            <p className="mt-2 text-gray-700 dark:text-gray-300">
+            <p className="-mt-1 ml-10 text-sm text-gray-700 dark:text-gray-300">
               {renderContentWithMentions(post.content)}
             </p>
           )}

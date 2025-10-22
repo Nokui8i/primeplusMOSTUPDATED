@@ -52,7 +52,7 @@ export function TextPost({ post }: TextPostProps) {
 
         {/* Post Content */}
         <div className="mt-4">
-          <p className="text-base text-gray-900 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
+          <p className="ml-10 -mt-3 text-sm text-gray-900 dark:text-gray-100 leading-relaxed whitespace-pre-wrap">
             {post.content}
           </p>
         </div>
