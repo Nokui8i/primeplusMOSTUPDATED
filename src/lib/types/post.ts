@@ -48,6 +48,7 @@ export interface Post {
   likes: number;
   comments: number;
   shares: number;
+  views: number;
   tags: string[];
   location?: string;
   taggedUsers: string[];

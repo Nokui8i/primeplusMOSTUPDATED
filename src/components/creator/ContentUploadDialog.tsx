@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTrigger,
@@ -22,6 +22,28 @@ interface ContentUploadDialogProps {
 export function ContentUploadDialog({ triggerClassName, onUploadComplete, children }: ContentUploadDialogProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const { user } = useAuth();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Enable wheel scrolling in the modal
+  useEffect(() => {
+    if (isOpen && dialogRef.current) {
+      const handleWheel = (e: WheelEvent) => {
+        e.stopPropagation();
+        const element = dialogRef.current;
+        if (element) {
+          element.scrollTop += e.deltaY;
+        }
+      };
+
+      dialogRef.current.addEventListener('wheel', handleWheel, { passive: false });
+      
+      return () => {
+        if (dialogRef.current) {
+          dialogRef.current.removeEventListener('wheel', handleWheel);
+        }
+      };
+    }
+  }, [isOpen]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -41,7 +63,8 @@ export function ContentUploadDialog({ triggerClassName, onUploadComplete, childr
       <DialogPortal>
         <DialogOverlay />
         <DialogPrimitive.Content
-          className="fixed left-[50%] top-[50%] z-50 w-full max-w-[500px] translate-x-[-50%] translate-y-[-50%] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
+          ref={dialogRef}
+          className="fixed left-[50%] top-[50%] z-50 w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
         >
           <DialogTitle className="sr-only">Create Post</DialogTitle>
           {user ? (

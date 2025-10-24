@@ -21,7 +21,7 @@ import {
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
 import { db } from '@/lib/firebase/config'
 import { useAuth } from '@/lib/firebase/auth'
-import CompactPost from '@/components/posts/CompactPost'
+import { CompactPost } from '@/components/posts/CompactPost'
 import AppLoader from '@/components/common/AppLoader'
 import { isUserBlocked } from '@/lib/services/block.service'
 
@@ -30,7 +30,7 @@ const POSTS_PER_PAGE = 10
 export default function HomePage() {
   console.log('🏠 HomePage component rendering...')
   
-  const [posts, setPosts] = useState([])
+  const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(true)
   const [lastDoc, setLastDoc] = useState(null)

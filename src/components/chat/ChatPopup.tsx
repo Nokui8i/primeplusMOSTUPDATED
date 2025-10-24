@@ -233,6 +233,7 @@ export function ChatPopup({ user, position, isMinimized, unreadCount }: ChatPopu
             recipientName={user.displayName || user.username} 
             hideHeader={true}
             customWidth={100}
+            recipientProfile={user}
           />
         </div>
       </div>

@@ -20,7 +20,7 @@ export function RightSidebar({ suggestedCreators, trendingTopics, isLoading }: R
   const [isMessagePopupOpen, setIsMessagePopupOpen] = useState(false);
 
   return (
-    <div className="w-80 bg-white p-6 space-y-8">
+    <div className="w-full bg-white p-4 lg:p-6 space-y-6 lg:space-y-8">
       <SuggestedCreators />
 
       <MessagePopup

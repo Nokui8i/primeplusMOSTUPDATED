@@ -16,6 +16,15 @@
     width: 90vw;
     max-width: 300px;
   }
+
+  /* Responsive Typography */
+  .text-responsive-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-responsive-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-responsive-base { font-size: 1rem; line-height: 1.5rem; }
+  .text-responsive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-responsive-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-responsive-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-responsive-3xl { font-size: 1.875rem; line-height: 2.25rem; }
 }
 
 /* Small tablets */
@@ -29,6 +38,15 @@
     padding: 1rem;
     margin: 0 auto;
   }
+
+  /* Responsive Typography */
+  .text-responsive-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-responsive-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-responsive-base { font-size: 1rem; line-height: 1.5rem; }
+  .text-responsive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-responsive-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-responsive-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-responsive-3xl { font-size: 1.875rem; line-height: 2.25rem; }
 }
 
 /* Tablets */
@@ -44,12 +62,21 @@
   }
   
   .left-sidebar {
-    width: 12rem; /* 192px */
+    width: 14rem; /* 224px */
   }
   
   .right-sidebar {
-    width: 16rem; /* 256px */
+    width: 18rem; /* 288px */
   }
+
+  /* Responsive Typography */
+  .text-responsive-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-responsive-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-responsive-base { font-size: 1rem; line-height: 1.5rem; }
+  .text-responsive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-responsive-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-responsive-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-responsive-3xl { font-size: 1.875rem; line-height: 2.25rem; }
 }
 
 /* Desktop */
@@ -71,6 +98,15 @@
   .right-sidebar {
     width: 20rem; /* 320px */
   }
+
+  /* Responsive Typography */
+  .text-responsive-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-responsive-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-responsive-base { font-size: 1rem; line-height: 1.5rem; }
+  .text-responsive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-responsive-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-responsive-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-responsive-3xl { font-size: 1.875rem; line-height: 2.25rem; }
 }
 
 /* Large Desktop */
@@ -86,12 +122,21 @@
   }
   
   .left-sidebar {
-    width: 16rem; /* 256px */
+    width: 18rem; /* 288px */
   }
   
   .right-sidebar {
     width: 20rem; /* 320px */
   }
+
+  /* Responsive Typography */
+  .text-responsive-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-responsive-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-responsive-base { font-size: 1rem; line-height: 1.5rem; }
+  .text-responsive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-responsive-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-responsive-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-responsive-3xl { font-size: 1.875rem; line-height: 2.25rem; }
 }
 
 /* Ultra-wide screens */
@@ -100,6 +145,32 @@
     max-width: 96rem; /* 1536px */
     margin: 0 auto;
   }
+
+  /* Responsive Typography */
+  .text-responsive-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-responsive-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-responsive-base { font-size: 1rem; line-height: 1.5rem; }
+  .text-responsive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-responsive-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-responsive-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-responsive-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+}
+
+/* 4K and Ultra-wide screens */
+@media (min-width: 2560px) {
+  .content-container {
+    max-width: 120rem; /* 1920px */
+    margin: 0 auto;
+  }
+
+  /* Responsive Typography */
+  .text-responsive-xs { font-size: 0.75rem; line-height: 1rem; }
+  .text-responsive-sm { font-size: 0.875rem; line-height: 1.25rem; }
+  .text-responsive-base { font-size: 1rem; line-height: 1.5rem; }
+  .text-responsive-lg { font-size: 1.125rem; line-height: 1.75rem; }
+  .text-responsive-xl { font-size: 1.25rem; line-height: 1.75rem; }
+  .text-responsive-2xl { font-size: 1.5rem; line-height: 2rem; }
+  .text-responsive-3xl { font-size: 1.875rem; line-height: 2.25rem; }
 }
 
 /* Height optimizations */

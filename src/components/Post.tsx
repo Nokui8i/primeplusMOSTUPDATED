@@ -38,6 +38,7 @@ export const Post = forwardRef<HTMLDivElement, PostProps>(({ post, onUpdate, onD
     type: post.type || 'text',
     isPublic: post.isPublic !== false, // Default to true (public) unless explicitly false
     shares: post.shares || 0,
+    views: post.views || 0,
     taggedUsers: post.taggedUsers || [],
     comments: Array.isArray(post.comments) ? post.comments.length : (typeof post.comments === 'number' ? post.comments : 0),
     author: {

@@ -22,6 +22,9 @@ export interface UserPrivacySettings {
   showActivityStatus?: boolean;
   allowTagging?: boolean;
   allowProfileDiscovery?: boolean;
+  profileVisibility?: 'public' | 'subscribers_only';
+  allowComments?: boolean;
+  onlineStatus?: 'everyone' | 'subscribers' | 'none';
   [key: string]: any;
 }
 

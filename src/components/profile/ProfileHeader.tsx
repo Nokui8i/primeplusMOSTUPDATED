@@ -21,7 +21,6 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 const SUBSCRIPTIONS_API_URL = process.env.NEXT_PUBLIC_SUBSCRIPTIONS_API_URL || '';
 import { Users, Image as ImageIcon, Video as VideoIcon } from 'lucide-react';
 import { UserAvatar } from '@/components/user/UserAvatar';
-import { FollowButton, useFollowStats } from '@/components/FollowButton';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'sonner';
@@ -35,6 +34,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { canViewProfile } from '@/lib/utils/profileVisibility';
 
 interface Plan {
   id: string;
@@ -84,7 +85,6 @@ export function ProfileHeader({
   const bioRef = useRef<HTMLSpanElement>(null);
   const router = useRouter();
   
-  const { stats, isLoading: isFollowStatsLoading } = useFollowStats(profile.id);
   const [showPlansModal, setShowPlansModal] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
@@ -349,17 +349,16 @@ export function ProfileHeader({
             <div className="inline-flex flex-wrap gap-3">
               {!isOwnProfile && !isBlocked && (
                 <>
-                  <button
-                    onClick={handleMessageClick}
-                    className="profile-btn chat"
-                  >
-                    <HiOutlineChatBubbleLeftRight size={16} />
-                    <span>CHAT</span>
-                  </button>
-                  <FollowButton
-                    userId={profile.id}
-                    className="profile-btn follow"
-                  />
+                  {/* Only show CHAT button if profile is public OR user is subscribed */}
+                  {canViewProfile(profile, user?.uid || null, isSubscribed) && (
+                    <button
+                      onClick={handleMessageClick}
+                      className="profile-btn chat"
+                    >
+                      <HiOutlineChatBubbleLeftRight size={16} />
+                      <span>CHAT</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => setShowPlansModal(true)}
                     disabled={checkingSubscription || isSubscribed}

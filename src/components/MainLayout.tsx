@@ -234,16 +234,16 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* Content Layer */}
       <div className="flex justify-center">
         <div className="flex w-full max-w-7xl">
-          {/* Left Sidebar */}
+          {/* Left Sidebar - Responsive Widths */}
           <aside className="hidden md:block w-64 h-screen sticky top-0 bg-white border-r border-gray-200">
             <LeftSidebar />
           </aside>
 
           {/* Center Area with Header and Main Content */}
           <div className="flex-1 flex flex-col border-l border-gray-200 bg-white" style={{ height: '100vh' }}>
-            {/* Center Header */}
+            {/* Center Header - Responsive */}
                 <div className="hidden md:block flex-shrink-0 z-10">
-                  <div className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-b border-gray-200">
+                  <div className="flex items-center justify-center gap-2 px-3 lg:px-4 py-3 bg-white border-b border-gray-200">
                 <div className="w-1/2 max-w-md">
                   <Search />
                 </div>
@@ -272,7 +272,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 </main>
           </div>
 
-          {/* Right Sidebar - Desktop Only */}
+          {/* Right Sidebar - Responsive Widths */}
           <aside className="hidden lg:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
             <RightSidebar
               suggestedCreators={suggestedCreators}
@@ -301,7 +301,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         <FiFilter className="w-5 h-5 text-gray-700" />
       </button>
 
-      {/* Mobile Left Sidebar Drawer */}
+      {/* Mobile Left Sidebar Drawer - Responsive */}
       <AnimatePresence>
         {showMobileLeft && (
           <motion.div
@@ -335,7 +335,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
       </AnimatePresence>
 
-      {/* Mobile Right Sidebar Drawer */}
+      {/* Mobile Right Sidebar Drawer - Responsive */}
       <AnimatePresence>
         {showMobileRight && (
           <motion.div

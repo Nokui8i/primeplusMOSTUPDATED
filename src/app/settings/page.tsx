@@ -48,7 +48,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="max-w-4xl mx-auto py-8 px-4">
       <div className="space-y-6">
         {/* Navigation Tabs */}
         <div className="flex justify-center mb-6">
@@ -125,7 +125,7 @@ export default function SettingsPage() {
         )}
 
         {activeTab === 'privacy' && (
-          <Card className="p-6">
+          <Card className="p-4 max-w-2xl mx-auto">
             <PrivacySettings />
           </Card>
         )}

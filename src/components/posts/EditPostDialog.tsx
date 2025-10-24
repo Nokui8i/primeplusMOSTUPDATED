@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Post as PostType } from '@/lib/types/post'
 import { Button } from '@/components/ui/button'
 import { updatePost } from '@/lib/firebase/db'
@@ -30,8 +30,14 @@ export function EditPostDialog({
   const { user } = useAuth()
   const [content, setContent] = useState(post.content || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const dialogRef = useRef<HTMLDivElement>(null)
   const [accessLevel, setAccessLevel] = useState<'free' | 'free_subscriber' | 'paid_subscriber' | 'ppv'>(() => {
-    return post.accessSettings?.accessLevel || 'free';
+    const level = post.accessSettings?.accessLevel || 'free';
+    // Map old values to new values
+    if (level === 'followers' || level === 'premium' || level === 'exclusive') {
+      return 'free_subscriber';
+    }
+    return level as 'free' | 'free_subscriber' | 'paid_subscriber' | 'ppv';
   });
   const [allowComments, setAllowComments] = useState<'everyone' | 'subscribers' | 'paid_subscribers' | 'none'>(() => {
     if (post.allowComments === false) return 'none';
@@ -106,7 +112,13 @@ export function EditPostDialog({
   useEffect(() => {
     if (open) {
       setContent(post.content || '')
-      setAccessLevel(post.accessSettings?.accessLevel || 'free')
+      const level = post.accessSettings?.accessLevel || 'free';
+      // Map old values to new values
+      if (level === 'followers' || level === 'premium' || level === 'exclusive') {
+        setAccessLevel('free_subscriber');
+      } else {
+        setAccessLevel(level as 'free' | 'free_subscriber' | 'paid_subscriber' | 'ppv');
+      }
       setAllowComments(() => {
         if (post.allowComments === false) return 'none';
         if (post.allowComments === true) return 'everyone';
@@ -120,6 +132,27 @@ export function EditPostDialog({
       setIs360Mode(post.type === 'video360' || post.type === 'image360')
     }
   }, [post, open])
+
+  // Enable wheel scrolling in the modal
+  useEffect(() => {
+    if (open && dialogRef.current) {
+      const handleWheel = (e: WheelEvent) => {
+        e.stopPropagation();
+        const element = dialogRef.current;
+        if (element) {
+          element.scrollTop += e.deltaY;
+        }
+      };
+
+      dialogRef.current.addEventListener('wheel', handleWheel, { passive: false });
+      
+      return () => {
+        if (dialogRef.current) {
+          dialogRef.current.removeEventListener('wheel', handleWheel);
+        }
+      };
+    }
+  }, [open]);
 
   const handleSubmit = async () => {
     if (!user) {
@@ -143,29 +176,47 @@ export function EditPostDialog({
       if (accessLevel === 'ppv') {
         accessSettings.ppvPrice = ppvPrice
         accessSettings.ppvEveryonePays = ppvEveryonePays
-      } else {
-        // Remove PPV settings if not PPV
-        delete accessSettings.ppvPrice
-        delete accessSettings.ppvEveryonePays
       }
 
-      // Determine the new post type based on 360° mode
-      let newType = post.type;
-      if (is360Mode && (post.type === 'image' || post.type === 'video')) {
-        newType = post.type === 'image' ? 'image360' : 'video360';
-      } else if (!is360Mode && (post.type === 'image360' || post.type === 'video360')) {
-        newType = post.type === 'image360' ? 'image' : 'video';
+      // Build comment settings
+      let commentSettings: any = {}
+      if (allowComments === 'none') {
+        commentSettings.allowComments = false
+      } else if (allowComments === 'everyone') {
+        commentSettings.allowComments = true
+      } else {
+        commentSettings.allowComments = true
+        commentSettings.commentAccessLevel = allowComments
+      }
+
+      // Determine post type based on 360 mode
+      let postType = post.type
+      if (is360Mode && !initialIs360Mode) {
+        // Switching to 360 mode
+        if (post.type === 'image') {
+          postType = 'image360'
+        } else if (post.type === 'video') {
+          postType = 'video360'
+        }
+      } else if (!is360Mode && initialIs360Mode) {
+        // Switching from 360 mode
+        if (post.type === 'image360') {
+          postType = 'image'
+        } else if (post.type === 'video360') {
+          postType = 'video'
+        }
       }
 
       await updatePost(post.id, {
         content: content.trim(),
-        allowComments: allowComments === 'none' ? false : allowComments === 'everyone' ? true : null,
-        commentAccessLevel: allowComments === 'subscribers' ? 'subscribers' : allowComments === 'paid_subscribers' ? 'paid_subscribers' : null,
-        showWatermark,
-        type: newType,
         accessSettings,
+        allowComments: commentSettings.allowComments,
+        commentAccessLevel: commentSettings.commentAccessLevel,
+        showWatermark,
+        type: postType,
       })
-      toast.success('Post updated successfully')
+
+      toast.success('Post updated successfully!')
       onOpenChange(false)
     } catch (error) {
       console.error('Error updating post:', error)
@@ -183,27 +234,27 @@ export function EditPostDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="upload-master-container">
-        <div className="upload-card">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto" ref={dialogRef}>
+        <div className="upload-card edit-post-dialog">
           <div className="upload-title">
             Edit Post
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-4 top-3 h-8 w-8 rounded-full hover:bg-gray-100 text-gray-600"
+              className="absolute right-4 top-1 h-6 w-6 bg-transparent hover:bg-transparent text-gray-600 hover:text-gray-800"
               onClick={handleClose}
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </Button>
           </div>
           
-          <div className="upload-content">
+          <div className="upload-content px-3 py-2">
             <div className="content-area">
               <div className="relative">
-                  <textarea
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
                   placeholder={`What's on your mind, ${user?.displayName?.split(' ')[0] || 'there'}?`}
                   className="text-input pr-8"
                 />
@@ -216,46 +267,35 @@ export function EditPostDialog({
                       <Smile className="h-4 w-4 text-yellow-500" />
                     </button>
                   </DropdownMenuTrigger>
-                   <DropdownMenuContent 
-                     align="end" 
-                     className="w-64 p-2"
-                     sideOffset={5}
-                   >
-                     <div 
-                       id="emoji-picker-grid"
-                       className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto"
-                       onWheel={(e) => e.stopPropagation()}
-                     >
-                       {[
-                         // Faces & Emotions
-                         '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃',
-                         // Animals
-                         '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋', '🐌', '🐞', '🐜', '🦟', '🦗', '🕷️', '🕸️', '🦂', '🐢', '🐍', '🦎', '🦖', '🦕', '🐙', '🦑', '🦐', '🦞', '🦀', '🐡', '🐠', '🐟', '🐬', '🐳', '🐋', '🦈', '🐊', '🐅', '🐆', '🦓', '🦍', '🦧', '🐘', '🦛', '🦏', '🐪', '🐫', '🦒', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🦙', '🐐', '🦏', '🦌', '🐕', '🐩', '🦮', '🐕‍🦺', '🐈', '🐓', '🦃', '🦚', '🦜', '🦢', '🦩', '🕊️', '🐇', '🦝', '🦨', '🦡', '🦦', '🦥', '🐁', '🐀', '🐿️', '🦔',
-                         // Hearts & Love
-                         '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🈴', '🈵', '🈹', '🈲', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟',
-                         // Symbols & Signs
-                         '🔢', '🔠', '🔡', '🔤', '🅰️', '🆎', '🅱️', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '〽️', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '🈯', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '🚻', '🚮', '🎦', '📶', '🈁', '🔣', 'ℹ️', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓',
-                         // Food & Drinks
-                         '🍎', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍒', '🍑', '🥭', '🍍', '🥥', '🥝', '🍅', '🍆', '🥑', '🥦', '🥬', '🥒', '🌶️', '🫒', '🌽', '🥕', '🫑', '🥔', '🍠', '🥐', '🥖', '🍞', '🥨', '🥯', '🧀', '🥚', '🍳', '🧈', '🥞', '🧇', '🥓', '🥩', '🍗', '🍖', '🦴', '🌭', '🍔', '🍟', '🍕', '🫓', '🥙', '🌮', '🌯', '🫔', '🥗', '🥘', '🫕', '🥫', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🦪', '🍤', '🍙', '🍚', '🍘', '🍥', '🥠', '🥮', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🧁', '🍰', '🎂', '🍮', '🍭', '🍬', '🍫', '🍿', '🍩', '🍪', '🌰', '🥜', '🍯', '🥛', '🍼', '☕', '🫖', '🍵', '🧃', '🥤', '🧋', '🍶', '🍺', '🍻', '🥂', '🍷', '🥃', '🍸', '🍹', '🧉', '🍾',
-                         // Activities & Sports
-                         '⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋', '🎽', '🛹', '🛷', '⛸️', '🥌', '🎿', '⛷️', '🏂', '🪂', '🏋️‍♀️', '🏋️', '🏋️‍♂️', '🤼‍♀️', '🤼', '🤼‍♂️', '🤸‍♀️', '🤸', '🤸‍♂️', '⛹️‍♀️', '⛹️', '⛹️‍♂️', '🤺', '🤾‍♀️', '🤾', '🤾‍♂️', '🏌️‍♀️', '🏌️', '🏌️‍♂️', '🏇', '🧘‍♀️', '🧘', '🧘‍♂️', '🏄‍♀️', '🏄', '🏄‍♂️', '🏊‍♀️', '🏊', '🏊‍♂️', '🤽‍♀️', '🤽', '🤽‍♂️', '🚣‍♀️', '🚣', '🚣‍♂️', '🧗‍♀️', '🧗', '🧗‍♂️', '🚵‍♀️', '🚵', '🚵‍♂️', '🚴‍♀️', '🚴', '🚴‍♂️', '🏆', '🥇', '🥈', '🥉', '🏅', '🎖️', '🏵️', '🎗️', '🎫', '🎟️', '🎪', '🤹', '🤹‍♀️', '🤹‍♂️', '🎭', '🩰', '🎨', '🎬', '🎤', '🎧', '🎼', '🎵', '🎶', '🪘', '🥁', '🪗', '🎸', '🪕', '🎺', '🎷', '🪗', '🎻', '🪈', '🎲', '♠️', '♥️', '♦️', '♣️', '🃏', '🀄', '🎴', '🎯', '🎳', '🎮', '🎰', '🧩', '🎲'
-                       ].map((emoji) => (
-                         <button
-                           key={emoji}
-                           onClick={() => handleEmojiClick(emoji)}
-                           className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md text-lg"
-                         >
-                           {emoji}
-                         </button>
-                       ))}
-                     </div>
-                   </DropdownMenuContent>
+                  <DropdownMenuContent 
+                    align="end" 
+                    className="w-64 p-2"
+                    sideOffset={5}
+                  >
+                    <div 
+                      id="emoji-picker-grid"
+                      className="grid grid-cols-8 gap-1 max-h-40 overflow-y-auto"
+                      onWheel={(e) => e.stopPropagation()}
+                    >
+                      {[
+                        '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚', '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩', '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣', '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱', '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫', '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦', '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵', '🤐', '🥴', '🤢', '🤮', '🤧', '😷', '🤒', '🤕', '🤑', '🤠', '😈', '👿', '👹', '👺', '🤡', '💩', '👻', '💀', '☠️', '👽', '👾', '🤖', '🎃'
+                      ].map((emoji) => (
+                        <button
+                          key={emoji}
+                          onClick={() => handleEmojiClick(emoji)}
+                          className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md text-lg"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </DropdownMenuContent>
                 </DropdownMenu>
-                </div>
+              </div>
                 
               {/* Show existing media */}
-                {post.mediaUrl && (
-                <div className="mt-4">
+              {post.mediaUrl && (
+                  <div className="mt-1">
                   {post.type.startsWith('image') ? (
                     <div className="relative">
                       <img
@@ -288,11 +328,10 @@ export function EditPostDialog({
             </div>
           </div>
 
-          <div className="upload-settings">
+           <div className="upload-settings px-3 py-2">
             <div className="setting-row">
               <div className="setting-info">
                 <div className="setting-label">360° Mode</div>
-                <div className="setting-description">Toggle panoramic viewing mode</div>
               </div>
               <div className="setting-control">
                 <label className="flex items-center cursor-pointer">
@@ -301,7 +340,7 @@ export function EditPostDialog({
                     checked={is360Mode}
                     onChange={(e) => {
                       e.stopPropagation();
-                      setIs360Mode(!is360Mode);
+                      setIs360Mode(e.target.checked);
                     }}
                     className="checkbox"
                   />
@@ -321,162 +360,150 @@ export function EditPostDialog({
                     checked={showWatermark}
                     onChange={(e) => {
                       e.stopPropagation();
-                      setShowWatermark(!showWatermark);
+                      setShowWatermark(e.target.checked);
                     }}
                     className="checkbox"
                   />
                   <span className="slider"></span>
                 </label>
               </div>
-                </div>
-                
-            {/* Allow Comments - Only for creators */}
-            {isCreatorRole && (
-              <div className="setting-row">
-                <div className="setting-info">
-                  <div className="setting-label">Allow Comments</div>
-                </div>
-                <div className="setting-control">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className="w-fit px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none hover:shadow-lg hover:scale-[1.02] focus:shadow-lg focus:scale-[1.02] flex items-center gap-2"
-                        style={{
-                          borderRadius: '6px',
-                          border: '1px solid #e5e7eb',
-                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-                        }}
-                      >
-                        <span>
-                          {allowComments === 'everyone' ? 'Everyone' : 
-                           allowComments === 'subscribers' ? 'Subscribers only' :
-                           allowComments === 'paid_subscribers' ? 'Paid subscribers only' :
-                           allowComments === 'none' ? 'No comments' :
-                           'Everyone'}
-                        </span>
-                        <ChevronDown className="h-3 w-3 text-gray-600" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent 
-                      align="start" 
-                      className="w-48 bg-white border-0 p-0 max-h-48 overflow-y-auto"
+            </div>
+
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-label">Allow Comments</div>
+              </div>
+              <div className="setting-control">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="w-fit px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none hover:shadow-lg hover:scale-[1.02] focus:shadow-lg focus:scale-[1.02] flex items-center gap-2"
                       style={{
-                        borderRadius: '8px',
-                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                        borderRadius: '6px',
+                        border: '1px solid #e5e7eb',
                         background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                        maxHeight: '192px', // 12rem = 192px
-                        overflowY: 'auto'
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
                       }}
                     >
-                      <DropdownMenuItem
-                        onClick={() => setAllowComments('everyone')}
-                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
-                        style={{
-                          background: allowComments === 'everyone' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
-                          color: allowComments === 'everyone' ? 'white' : 'inherit',
-                        }}
-                      >
-                        Everyone
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setAllowComments('subscribers')}
-                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
-                        style={{
-                          background: allowComments === 'subscribers' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
-                          color: allowComments === 'subscribers' ? 'white' : 'inherit',
-                        }}
-                      >
-                        Subscribers only
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setAllowComments('paid_subscribers')}
-                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
-                        style={{
-                          background: allowComments === 'paid_subscribers' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
-                          color: allowComments === 'paid_subscribers' ? 'white' : 'inherit',
-                        }}
-                      >
-                        Paid subscribers only
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setAllowComments('none')}
-                        className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
-                        style={{
-                          background: allowComments === 'none' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
-                          color: allowComments === 'none' ? 'white' : 'inherit',
-                        }}
-                      >
-                        No comments
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-            )}
-                
-            {/* Post Visibility - Only show to creators */}
-            {isCreatorRole && (
-              <div className="setting-row">
-                <div className="setting-info">
-                  <div className="setting-label">Post Visibility</div>
-                </div>
-                <div className="setting-control">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        disabled={!isVerified}
-                        className="w-fit px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none hover:shadow-lg hover:scale-[1.02] focus:shadow-lg focus:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none flex items-center gap-2"
-                        style={{
-                          borderRadius: '6px',
-                          border: '1px solid #e5e7eb',
-                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
-                        }}
-                        title={!isVerified ? 'Complete creator verification to enable paid content' : ''}
-                      >
-                      <span>
-                        {accessLevel === 'free' ? 'Everyone' :
-                         accessLevel === 'free_subscriber' ? 'Free + Paid Subscribers' :
-                         accessLevel === 'paid_subscriber' ? 'Paid Subscribers Only' :
-                         accessLevel === 'ppv' ? 'Pay-Per-View' : 'Select visibility'}
-                      </span>
-                      <ChevronDown className="h-3 w-3 text-gray-600" />
+                      {allowComments === 'everyone' && 'Everyone'}
+                      {allowComments === 'subscribers' && 'Subscribers Only'}
+                      {allowComments === 'paid_subscribers' && 'Paid Subscribers Only'}
+                      {allowComments === 'none' && 'No Comments'}
+                      <ChevronDown className="h-4 w-4" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent 
-                    align="start" 
+                    align="end" 
                     className="w-48 bg-white border-0 p-0 max-h-48 overflow-y-auto"
                     style={{
-                      borderRadius: '8px',
-                      boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
-                      background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                      maxHeight: '192px',
+                      borderRadius: '8px !important',
+                      boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important',
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important',
+                      maxHeight: '192px', // 12rem = 192px
                       overflowY: 'auto'
                     }}
                   >
-                    <DropdownMenuItem
-                      onClick={() => isVerified && setAccessLevel('free')}
+                    <DropdownMenuItem 
+                      onClick={() => setAllowComments('everyone')}
+                      className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                      style={{
+                        background: allowComments === 'everyone' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                        color: allowComments === 'everyone' ? 'white' : 'inherit',
+                      }}
+                    >
+                      Everyone
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setAllowComments('subscribers')}
+                      className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                      style={{
+                        background: allowComments === 'subscribers' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                        color: allowComments === 'subscribers' ? 'white' : 'inherit',
+                      }}
+                    >
+                      Subscribers Only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setAllowComments('paid_subscribers')}
+                      className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                      style={{
+                        background: allowComments === 'paid_subscribers' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                        color: allowComments === 'paid_subscribers' ? 'white' : 'inherit',
+                      }}
+                    >
+                      Paid Subscribers Only
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setAllowComments('none')}
+                      className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
+                      style={{
+                        background: allowComments === 'none' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
+                        color: allowComments === 'none' ? 'white' : 'inherit',
+                      }}
+                    >
+                      No Comments
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            <div className="setting-row">
+              <div className="setting-info">
+                <div className="setting-label">Post Visibility</div>
+              </div>
+              <div className="setting-control">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="w-fit px-3 py-1.5 text-xs font-medium transition-all duration-200 focus:outline-none focus:ring-0 focus:ring-offset-0 focus:border-none hover:shadow-lg hover:scale-[1.02] focus:shadow-lg focus:scale-[1.02] flex items-center gap-2"
+                      style={{
+                        borderRadius: '6px',
+                        border: '1px solid #e5e7eb',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
+                      }}
+                    >
+                      {accessLevel === 'free' && 'Free for Everyone'}
+                      {accessLevel === 'free_subscriber' && 'Free for Subscribers'}
+                      {accessLevel === 'paid_subscriber' && 'Paid Subscribers Only'}
+                      {accessLevel === 'ppv' && 'Pay Per View'}
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent 
+                    align="end" 
+                    className="w-48 bg-white border-0 p-0 max-h-48 overflow-y-auto"
+                    style={{
+                      borderRadius: '8px !important',
+                      boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important',
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important',
+                      maxHeight: '192px', // 12rem = 192px
+                      overflowY: 'auto'
+                    }}
+                  >
+                    <DropdownMenuItem 
+                      onClick={() => setAccessLevel('free')}
                       className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
                       style={{
                         background: accessLevel === 'free' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
                         color: accessLevel === 'free' ? 'white' : 'inherit',
                       }}
                     >
-                      Everyone
+                      Free for Everyone
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => isVerified && setAccessLevel('free_subscriber')}
+                    <DropdownMenuItem 
+                      onClick={() => setAccessLevel('free_subscriber')}
                       className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
                       style={{
                         background: accessLevel === 'free_subscriber' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
                         color: accessLevel === 'free_subscriber' ? 'white' : 'inherit',
                       }}
                     >
-                      Free + Paid Subscribers
+                      Free for Subscribers
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => isVerified && setAccessLevel('paid_subscriber')}
+                    <DropdownMenuItem 
+                      onClick={() => setAccessLevel('paid_subscriber')}
                       className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
                       style={{
                         background: accessLevel === 'paid_subscriber' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
@@ -485,98 +512,94 @@ export function EditPostDialog({
                     >
                       Paid Subscribers Only
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => isVerified && setAccessLevel('ppv')}
+                    <DropdownMenuItem 
+                      onClick={() => setAccessLevel('ppv')}
+                      disabled={!isVerified}
                       className="text-xs py-1.5 px-3 cursor-pointer hover:bg-blue-50 transition-colors"
                       style={{
                         background: accessLevel === 'ppv' ? 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)' : 'transparent',
                         color: accessLevel === 'ppv' ? 'white' : 'inherit',
+                        opacity: !isVerified ? 0.5 : 1,
                       }}
                     >
-                      Pay-Per-View
+                      Pay Per View {!isVerified && '(Verified Creators Only)'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
             </div>
-            )}
 
-            {/* PPV Price Input - Only show when PPV is selected */}
-            {isCreatorRole && isVerified && accessLevel === 'ppv' && (
+            {accessLevel === 'ppv' && (
               <div className="setting-row">
                 <div className="setting-info">
                   <div className="setting-label">PPV Price</div>
                 </div>
                 <div className="setting-control">
                   <div className="relative w-24">
-                    <span className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs">$</span>
                     <input
                       type="number"
                       min="1"
                       max="50"
-                      step="0.01"
-                      value={ppvPrice || ''}
-                      onChange={(e) => setPpvPrice(Number(e.target.value) || 0)}
-                      placeholder="0.00"
-                      className="w-full pl-7 pr-2 py-0.5 text-xs border-0 rounded-lg focus:ring-0 focus:outline-none"
+                      value={ppvPrice}
+                      onChange={(e) => setPpvPrice(Number(e.target.value))}
+                      className="w-full px-2 py-1 text-sm border rounded-lg"
                       style={{
-                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.1)',
-                        border: '1px solid #d1d5db',
                         borderRadius: '6px',
-                        appearance: 'none',
-                        MozAppearance: 'textfield',
-                        height: '28px'
+                        border: '1px solid #e5e7eb',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8)',
                       }}
                     />
+                    <span className="absolute right-2 top-1 text-xs text-gray-500">$</span>
                   </div>
-                    </div>
-                  </div>
-                )}
-                
-            {/* PPV Payment Rules - Only show when PPV is selected */}
-            {isCreatorRole && isVerified && accessLevel === 'ppv' && (
+                </div>
+              </div>
+            )}
+
+            {accessLevel === 'ppv' && (
               <div className="setting-row">
                 <div className="setting-info">
-                  <div className="space-y-2">
-                    <label className="flex items-center cursor-pointer">
+                  <div className="space-y-0.5">
+                    <div className="setting-label">Payment Rules</div>
+                  </div>
+                </div>
+                <div className="setting-control">
+                  <div className="space-y-0.5">
+                    <label className="flex items-center">
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="ppvPayment"
                         checked={ppvEveryonePays}
-                        onChange={(e) => setPpvEveryonePays(e.target.checked)}
-                        className="checkbox"
+                        onChange={() => setPpvEveryonePays(true)}
+                        className="mr-2"
                       />
-                      <span className="slider"></span>
                       <span className="ml-3 text-sm text-gray-700">Everyone pays</span>
                     </label>
-                    <label className="flex items-center cursor-pointer">
+                    <label className="flex items-center">
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="ppvPayment"
                         checked={!ppvEveryonePays}
-                        onChange={(e) => setPpvEveryonePays(!e.target.checked)}
-                        className="checkbox"
+                        onChange={() => setPpvEveryonePays(false)}
+                        className="mr-2"
                       />
-                      <span className="slider"></span>
                       <span className="ml-3 text-sm text-gray-700">Only free subscribers & non-subscribers pay</span>
                     </label>
                   </div>
                 </div>
-                <div className="setting-control">
-                  <div></div>
-                    </div>
-                  </div>
-                )}
+              </div>
+            )}
           </div>
 
           <div className="upload-actions">
             <div className="actions-content">
               <div className="action-buttons">
                 <button
-                    type="button"
+                  type="button"
                   className="btn-cancel"
-                    onClick={handleClose}
-                  >
-                    Cancel
+                  onClick={handleClose}
+                >
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -597,14 +620,14 @@ export function EditPostDialog({
                     ppvPrice === (post.accessSettings?.ppvPrice || 0) &&
                     ppvEveryonePays === (post.accessSettings?.ppvEveryonePays ?? true)
                   )}
-                  >
-                    {isSubmitting ? 'Saving...' : 'SAVE CHANGES'}
+                >
+                  {isSubmitting ? 'Saving...' : 'SAVE CHANGES'}
                 </button>
-                </div>
-            </div>
-                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
+    </div>
   )
-} 
+}

@@ -70,6 +70,7 @@ export default function ProfilePage() {
               updatedAt: userData.updatedAt,
               defaultSubscriptionPlanId: userData.defaultSubscriptionPlanId || null,
               defaultSubscriptionType: userData.defaultSubscriptionType || null,
+              privacy: userData.privacy || { profileVisibility: 'public' },
             };
             setProfile(profileData);
             setLoading(false);
@@ -101,6 +102,7 @@ export default function ProfilePage() {
             updatedAt: userData.updatedAt,
             defaultSubscriptionPlanId: userData.defaultSubscriptionPlanId || null,
             defaultSubscriptionType: userData.defaultSubscriptionType || null,
+            privacy: userData.privacy || { profileVisibility: 'public' },
           };
           setProfile(profileData);
           setLoading(false);

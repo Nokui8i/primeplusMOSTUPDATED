@@ -36,6 +36,7 @@ export async function createPost(content: string, mediaUrl?: string) {
     likes: 0,
     comments: 0,
     shares: 0,
+    views: 0,
     tags: [],
     taggedUsers: []
   };

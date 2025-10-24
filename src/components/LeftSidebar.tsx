@@ -111,14 +111,14 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
   });
 
   return (
-    <aside className="w-64 h-screen sticky top-0 bg-white px-0 -pt-8 pb-8 flex flex-col relative z-20" role="navigation" aria-label="Main navigation" style={{ pointerEvents: 'auto' }}>
-      {/* Logo */}
+    <aside className="w-full h-screen sticky top-0 bg-white px-0 -pt-8 pb-8 flex flex-col relative z-20" role="navigation" aria-label="Main navigation" style={{ pointerEvents: 'auto' }}>
+      {/* Logo - Responsive */}
       <div className="mb-0 -ml-4 -mt-24 p-0 m-0">
         <NewLogo size="xxxl" showText={false} />
       </div>
 
-      {/* Navigation Items */}
-      <nav className="flex-1 px-4 -mt-20">
+      {/* Navigation Items - Responsive */}
+      <nav className="flex-1 px-3 lg:px-4 -mt-20">
         <ul className="space-y-1" role="menu">
           {isLoading ? (
             // Loading skeletons
@@ -141,32 +141,32 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     onMouseEnter={() => prefetchOnHover(item.path)}
                     onKeyDown={(e) => handleKeyPress(e, item.path)}
                     className={cn(
-                      "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 text-sm",
+                      "w-full text-left px-3 lg:px-4 py-2.5 lg:py-3 rounded-xl transition-all duration-200 text-xs lg:text-sm",
                       "focus:outline-none",
                       "relative z-10 cursor-pointer",
                       "shadow-sm hover:shadow-md",
-                      (pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile')))
+                      (pathname === item.path || (item.path === '/profile' && pathname?.startsWith('/profile')))
                         ? "text-blue-600 bg-blue-50 font-medium shadow-md"
                         : "text-gray-700 hover:text-gray-900 hover:bg-gray-50 font-normal"
                     )}
                     style={{
                       borderRadius: '12px',
-                      boxShadow: (pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile')))
+                      boxShadow: (pathname === item.path || (item.path === '/profile' && pathname?.startsWith('/profile')))
                         ? '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
                         : '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-                      transform: (pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile')))
+                      transform: (pathname === item.path || (item.path === '/profile' && pathname?.startsWith('/profile')))
                         ? 'translateY(-1px)'
                         : 'translateY(0)',
                       transition: 'all 0.2s ease-in-out',
                       pointerEvents: 'auto'
                     }}
                     aria-label={item.ariaLabel}
-                    aria-current={(pathname === item.path || (item.path === '/profile' && pathname.startsWith('/profile'))) ? 'page' : undefined}
+                    aria-current={(pathname === item.path || (item.path === '/profile' && pathname?.startsWith('/profile'))) ? 'page' : undefined}
                   >
                     <div className="flex items-center justify-between">
-                      <span>{item.label}</span>
+                      <span className="truncate">{item.label}</span>
                       {item.label === 'Messages' && unreadCount > 0 && (
-                        <div className="w-3 h-3 rounded-full shadow-lg" style={{
+                        <div className="w-2.5 h-2.5 lg:w-3 lg:h-3 rounded-full shadow-lg flex-shrink-0" style={{
                           background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)',
                           boxShadow: '0 2px 8px rgba(96, 165, 250, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
                           border: '1px solid rgba(255, 255, 255, 0.2)'
@@ -182,7 +182,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     onClick={() => router.push('/admin')}
                     onKeyDown={(e) => handleKeyPress(e, '/admin')}
                     className={cn(
-                      "w-full text-left px-4 py-3 rounded-xl transition-all duration-200 text-sm",
+                      "w-full text-left px-3 lg:px-4 py-2.5 lg:py-3 rounded-xl transition-all duration-200 text-xs lg:text-sm",
                       "focus:outline-none",
                       "shadow-sm hover:shadow-md",
                       pathname === '/admin'
@@ -202,7 +202,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                     aria-label="Go to admin dashboard"
                     aria-current={pathname === '/admin' ? 'page' : undefined}
                   >
-                    Admin Dashboard
+                    <span className="truncate">Admin Dashboard</span>
                   </button>
                 </li>
               )}
@@ -224,11 +224,11 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
         </ul>
       </nav>
 
-      {/* Logout Button */}
+      {/* Logout Button - Responsive */}
       <div className="pt-6 border-t border-gray-200">
         <button
           onClick={handleLogout}
-          className="w-full text-left px-4 py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-200 font-normal text-sm shadow-sm hover:shadow-md"
+          className="w-full text-left px-3 lg:px-4 py-2.5 lg:py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-200 font-normal text-xs lg:text-sm shadow-sm hover:shadow-md"
           style={{
             borderRadius: '12px',
             boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
@@ -236,7 +236,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
           }}
           aria-label="Sign out"
         >
-          Sign Out
+          <span className="truncate">Sign Out</span>
         </button>
       </div>
     </aside>

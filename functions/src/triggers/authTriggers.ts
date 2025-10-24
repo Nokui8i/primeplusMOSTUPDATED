@@ -29,6 +29,13 @@ export const onUserCreate = functions.auth.user().onCreate(async (user) => {
     followersCount: 0, // Initialize followers counter
     followingCount: 0, // Initialize following counter
     profileCompleted: true, // Mark profile as completed by default
+    privacy: {
+      profileVisibility: 'public', // Default to public profile visibility
+      allowComments: true,
+      allowTagging: true,
+      showActivityStatus: true,
+      onlineStatus: 'everyone'
+    },
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     // Add any other fields needed for the follow system only

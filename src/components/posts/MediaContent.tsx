@@ -454,7 +454,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
   }
 
   return (
-    <ErrorBoundary FallbackComponent={MediaErrorFallback}>
+    <ErrorBoundary fallback={<MediaErrorFallback error={new Error('Media error')} resetErrorBoundary={() => {}} />}>
       {renderMedia()}
 
       {/* Lightbox Modal for Images */}

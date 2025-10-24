@@ -38,6 +38,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
   const [postType, setPostType] = useState<'text' | 'image' | 'video' | 'image360' | 'video360'>('text');
   const [allowComments, setAllowComments] = useState<'everyone' | 'subscribers' | 'paid_subscribers' | 'none'>('everyone');
   const [step, setStep] = useState(1);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -118,6 +119,27 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
 
     loadUserProfile();
   }, [user?.uid, isOpen]); // Added isOpen dependency to reload when dialog opens
+
+  // Enable wheel scrolling in the modal
+  useEffect(() => {
+    if (isOpen && scrollRef.current) {
+      const handleWheel = (e: WheelEvent) => {
+        e.stopPropagation();
+        const element = scrollRef.current;
+        if (element) {
+          element.scrollTop += e.deltaY;
+        }
+      };
+
+      scrollRef.current.addEventListener('wheel', handleWheel, { passive: false });
+      
+      return () => {
+        if (scrollRef.current) {
+          scrollRef.current.removeEventListener('wheel', handleWheel);
+        }
+      };
+    }
+  }, [isOpen]);
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setContent(e.target.value);
@@ -305,13 +327,14 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
 
   return (
     <div 
-      className="upload-master-container"
+      ref={scrollRef}
+      className="w-full max-w-full"
       onClick={(e) => {
         // Don't close when clicking outside - only close with X button
         // Completely disabled click outside to close
       }}
     >
-      <div className="upload-card" onClick={(e) => e.stopPropagation()}>
+      <div className="upload-card w-full" onClick={(e) => e.stopPropagation()}>
         <div className="upload-title">
           Create post
         <Button

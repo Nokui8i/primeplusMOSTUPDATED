@@ -345,14 +345,206 @@ button[class*="profile-btn"] {
   box-shadow: 0 0 6px 0 rgba(59, 130, 246, 0.4) inset;
 }
 
-/* Upload Content Form - Single Modal Design */
+/* EditPostDialog - Compact spacing */
+.edit-post-dialog {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.edit-post-dialog .setting-row {
+  margin-bottom: 0.25rem !important; /* 4px - much smaller gaps */
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.edit-post-dialog .setting-row:last-child {
+  margin-bottom: 0 !important;
+}
+
+.edit-post-dialog .upload-title {
+  height: 32px !important; /* Even smaller title height */
+  padding-left: 12px !important;
+  font-size: 14px !important;
+  margin-bottom: 0 !important; /* Remove bottom margin */
+}
+
+.edit-post-dialog .text-input {
+  min-height: 50px !important; /* Smaller text input */
+  font-size: 13px !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.edit-post-dialog .upload-content {
+  padding: 2px 12px !important; /* Even smaller content padding */
+  margin-top: 0 !important; /* Remove top margin */
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.edit-post-dialog .upload-settings {
+  padding: 4px 12px !important; /* Smaller settings padding */
+  margin-top: 0 !important; /* Remove top margin */
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.edit-post-dialog .upload-actions {
+  padding: 8px 12px !important; /* Smaller actions padding */
+}
+
+.edit-post-dialog .upload-actions button {
+  padding: 6px 12px !important; /* Smaller button padding */
+  font-size: 12px !important; /* Smaller button text */
+}
+
+/* Ensure all content fits within bounds */
+.edit-post-dialog * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.edit-post-dialog .setting-control {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.edit-post-dialog .setting-control button {
+  max-width: 100% !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+.edit-post-dialog .setting-control {
+  flex-shrink: 1 !important;
+  min-width: 0 !important;
+}
+
+.edit-post-dialog .setting-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.edit-post-dialog .setting-description {
+  font-size: 10px !important;
+  color: #6b7280 !important;
+  margin-top: 1px !important; /* Even smaller gap between label and description */
+}
+
+.edit-post-dialog .setting-info {
+  flex: 1 !important;
+  min-width: 0 !important;
+  margin-bottom: 0 !important; /* Remove any bottom margin */
+}
+
+.edit-post-dialog .radio-group {
+  margin-top: 2px !important; /* Even smaller gap between description and radio buttons */
+}
+
+.edit-post-dialog .radio-item {
+  margin-bottom: 1px !important; /* Even smaller gap between radio buttons */
+}
+
+.edit-post-dialog .radio-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Hide scrollbars but keep scrolling functionality */
+[data-radix-dialog-content] {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+}
+
+[data-radix-dialog-content]::-webkit-scrollbar {
+  display: none !important; /* WebKit browsers */
+}
+
+/* Hide scrollbars for ContentUploadDialog */
+.fixed.left-\[50\%\].top-\[50\%\].z-50.w-full.max-w-sm.sm\:max-w-md.max-h-\[90vh\] {
+  overflow-y: auto !important;
+  scroll-behavior: smooth !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+}
+
+.fixed.left-\[50\%\].top-\[50\%\].z-50.w-full.max-w-sm.sm\:max-w-md.max-h-\[90vh\]::-webkit-scrollbar {
+  display: none !important; /* WebKit browsers */
+}
+
+/* Hide scrollbars for EditPostDialog */
+.edit-post-dialog {
+  overflow-y: auto !important;
+  scroll-behavior: smooth !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+}
+
+.edit-post-dialog::-webkit-scrollbar {
+  display: none !important; /* WebKit browsers */
+}
+
+/* Hide scrollbars for all modal containers */
+div[class*="max-h-\[90vh\]"][class*="overflow-y-auto"] {
+  overflow-y: auto !important;
+  scroll-behavior: smooth !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+}
+
+div[class*="max-h-\[90vh\]"][class*="overflow-y-auto"]::-webkit-scrollbar {
+  display: none !important; /* WebKit browsers */
+}
+
+/* Hide scrollbars for ContentUpload component */
+.upload-card {
+  overflow-y: auto !important;
+  scroll-behavior: smooth !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+}
+
+.upload-card::-webkit-scrollbar {
+  display: none !important; /* WebKit browsers */
+}
+
+/* Hide scrollbars for ContentUploadDialog */
+[data-radix-dialog-content] .upload-card {
+  overflow-y: auto !important;
+  scroll-behavior: smooth !important;
+  pointer-events: auto !important;
+  touch-action: auto !important;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* Internet Explorer 10+ */
+}
+
+[data-radix-dialog-content] .upload-card::-webkit-scrollbar {
+  display: none !important; /* WebKit browsers */
+}
+
+/* Upload Content Form - Single Modal Design - Responsive */
 .upload-master-container {
-  max-width: 500px;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
 }
 
 .upload-card {
-  width: 100%;
+  width: auto;
   background: #FFFFFF;
   border-radius: 12px;
   box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.1);
@@ -366,7 +558,6 @@ button[class*="profile-btn"] {
   display: flex;
   align-items: center;
   padding-left: 20px;
-  border-bottom: 1px solid #f0f0f0;
   font-weight: 600;
   font-size: 16px;
   color: #333;
@@ -460,7 +651,7 @@ button[class*="profile-btn"] {
 
 .upload-settings .setting-label {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   color: #333;
   margin-bottom: 4px;
 }
@@ -547,6 +738,85 @@ button[class*="profile-btn"] {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* Responsive Modal Styles */
+@media (max-width: 640px) {
+  .upload-master-container {
+    padding: 0.5rem;
+  }
+  
+  .upload-card {
+    border-radius: 8px;
+  }
+  
+  .upload-title {
+    height: 45px;
+    padding-left: 16px;
+    font-size: 14px;
+  }
+  
+  .upload-content .content-area {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .upload-content .text-input {
+    min-height: 60px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  
+  .upload-settings {
+    padding: 16px;
+  }
+  
+  .upload-settings .setting-label {
+    font-size: 13px;
+  }
+  
+  .upload-settings .setting-description {
+    font-size: 11px;
+  }
+  
+  .upload-actions {
+    padding: 16px;
+  }
+  
+  .upload-actions .action-buttons {
+    gap: 8px;
+  }
+  
+  .upload-actions .btn-cancel,
+  .upload-actions .btn-submit {
+    padding: 6px 12px;
+    height: 28px;
+    font-size: 11px;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .upload-master-container {
+    padding: 0.75rem;
+  }
+  
+  .upload-content .content-area {
+    padding: 18px;
+  }
+  
+  .upload-settings {
+    padding: 18px;
+  }
+  
+  .upload-actions {
+    padding: 18px;
+  }
+}
+
+@media (min-width: 769px) {
+  .upload-master-container {
+    padding: 1rem;
+  }
 }
 
 /* Profile Button Styles - From Uiverse.io by niat786 - EXACT CODE - IMMEDIATELY AFTER RESET */
@@ -1106,7 +1376,6 @@ button.profile-btn.profile-btn,
 button.profile-btn.edit-bio,
 button.profile-btn.share,
 button.profile-btn.chat,
-button.profile-btn.follow,
 button.profile-btn.subscribe {
   border: none !important;
   color: #fff !important;
@@ -1999,17 +2268,15 @@ html body div.fixed.inset-0.bg-black.z-50.flex.items-center.justify-center.p-8 d
   pointer-events: auto !important;
   z-index: 99999 !important;
   position: fixed !important;
-  background: white !important;
-  background-color: white !important;
-  border: 1px solid #e5e7eb !important;
+  /* Remove forced white background to allow 3D bubble styling */
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
 }
 
 [data-radix-dropdown-menu-content] [data-radix-dropdown-menu-item] {
   pointer-events: auto !important;
   cursor: pointer !important;
   z-index: 99999 !important;
-  background: white !important;
-  background-color: white !important;
+  /* Remove forced white background to allow gradient styling */
   position: relative !important;
 }
 
@@ -2017,13 +2284,13 @@ html body div.fixed.inset-0.bg-black.z-50.flex.items-center.justify-center.p-8 d
 [data-radix-dropdown-menu-item]:hover {
   pointer-events: auto !important;
   cursor: pointer !important;
-  background: #f3f4f6 !important;
+  /* Remove forced background to allow gradient styling */
 }
 
 [data-radix-dropdown-menu-item]:active {
   pointer-events: auto !important;
   cursor: pointer !important;
-  background: #e5e7eb !important;
+  /* Remove forced background to allow gradient styling */
 }
 
 /* Force clickability on all dropdown menu elements */
@@ -2616,7 +2883,7 @@ div[class*="fixed"][class*="inset-0"][class*="bg-black"] div[class*="bg-white"][
 /* CHAT UPLOAD MODAL TEXT SIZE OVERRIDES - ULTRA HIGH SPECIFICITY */
 div[class*="fixed"][class*="inset-0"][class*="bg-black"] div[class*="bg-white"][class*="rounded-xl"] .setting-label {
   font-size: 14px !important;
-  font-weight: 600 !important;
+  font-weight: 400 !important;
 }
 
 /* CHAT LIST TEXT VISIBILITY OVERRIDES - ULTRA HIGH SPECIFICITY */
@@ -2865,12 +3132,10 @@ button.profile-btn,
 button.profile-btn.edit-bio,
 button.profile-btn.share,
 button.profile-btn.chat,
-button.profile-btn.follow,
 button.profile-btn.subscribe,
 .profile-btn.edit-bio,
 .profile-btn.share,
 .profile-btn.chat,
-.profile-btn.follow,
 .profile-btn.subscribe {
   font-size: 10px !important;
   padding: 0.25em 0.5em !important;

@@ -23,6 +23,8 @@ import { motion } from 'framer-motion';
 import { debounce } from 'lodash';
 import { formatDistanceToNow } from 'date-fns';
 import type { MessageAttachment } from '@/lib/types/messages';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { canViewProfile } from '@/lib/utils/profileVisibility';
 
 interface Message {
   id: string;
@@ -49,6 +51,11 @@ interface ChatProps {
   recipientName: string;
   hideHeader?: boolean;
   customWidth?: number;
+  recipientProfile?: {
+    privacy?: {
+      profileVisibility?: 'public' | 'subscribers_only';
+    };
+  };
 }
 
 // Add this function before the Chat component
@@ -89,10 +96,16 @@ if (typeof window !== 'undefined') {
   document.head.appendChild(style);
 }
 
-export function Chat({ recipientId, recipientName, hideHeader = false, customWidth }: ChatProps) {
+export function Chat({ recipientId, recipientName, hideHeader = false, customWidth, recipientProfile }: ChatProps) {
   const { user } = useAuth();
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingBlock, setCheckingBlock] = useState(true);
+
+  // Check subscription status for profile visibility
+  const { isSubscriber, isLoading: subscriptionLoading } = useSubscriptionStatus(recipientId);
+  
+  // Check if user can chat with this profile (profile visibility check)
+  const canChat = recipientProfile ? canViewProfile(recipientProfile as any, user?.uid || null, isSubscriber) : true;
 
   // Check if either user blocked the other (bidirectional for chat)
   useEffect(() => {
@@ -176,6 +189,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showVideoUpload, setShowVideoUpload] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isLocked, setIsLocked] = useState(false);
   const [recordingPosition, setRecordingPosition] = useState({ x: 0, y: 0 });
@@ -201,7 +215,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [shouldCancel, setShouldCancel] = useState(false);
   const [slidePosition, setSlidePosition] = useState(0);
-  const [recipientProfile, setRecipientProfile] = useState<{ displayName: string; username: string; photoURL?: string } | null>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
   const recipientNameRef = useRef<HTMLSpanElement>(null);
 
@@ -454,24 +467,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
   useEffect(() => {
     if (!recipientId) return;
-    const fetchProfile = async () => {
-      const userDoc = await getDoc(doc(db, 'users', recipientId));
-      if (userDoc.exists()) {
-        const data = userDoc.data();
-        setRecipientProfile({
-          displayName: data.displayName || data.username || recipientName,
-          username: data.username || recipientId,
-          photoURL: data.photoURL || undefined,
-        });
-      } else {
-        setRecipientProfile({ displayName: recipientName, username: recipientId });
-      }
-    };
-    fetchProfile();
-  }, [recipientId, recipientName]);
-
-  useEffect(() => {
-    if (!recipientId) return;
     const userRef = doc(db, 'users', recipientId);
     const unsubscribe = onSnapshot(userRef, (docSnap) => {
       const data = docSnap.data();
@@ -479,13 +474,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         online: data?.online,
         lastSeen: data?.lastSeen,
       });
-      if (data) {
-        setRecipientProfile((prev) => prev ? { ...prev, ...data } : {
-          displayName: data.displayName || recipientName,
-          username: data.username || recipientId,
-          photoURL: data.photoURL || undefined,
-        });
-      }
     });
     return () => unsubscribe();
   }, [recipientId, recipientName]);
@@ -564,6 +552,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const handleSendFiles = async () => {
     if (selectedFiles.length === 0 || !user) return;
 
+    // Check if user can chat with this profile (profile visibility check)
+    if (!canChat) {
+      toast.error('You need to subscribe to chat with this creator');
+      return;
+    }
+
     setUploading(true);
     
     try {
@@ -598,6 +592,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if user can chat with this profile (profile visibility check)
+    if (!canChat) {
+      toast.error('You need to subscribe to chat with this creator');
+      return;
+    }
     
     // If there are selected files, send them with caption text
     if (selectedFiles.length > 0) {
@@ -2376,15 +2376,15 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           {/* Dropdown for Media & Emoji Buttons */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 text-blue-400 hover:text-blue-400 hover:bg-transparent" disabled={isBlocked}>
+              <Button type="button" size="icon" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 text-blue-400 hover:text-blue-400 hover:bg-transparent" disabled={isBlocked || !canChat}>
                 <Plus className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="bg-white p-2">
-              <DropdownMenuItem onClick={handleImageClick} className="flex items-center gap-2" disabled={isBlocked}>
+              <DropdownMenuItem onClick={handleImageClick} className="flex items-center gap-2" disabled={isBlocked || !canChat}>
                 <ImageIcon className="h-4 w-4 text-blue-400" /> Image
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleVideoClick} className="flex items-center gap-2" disabled={isBlocked}>
+              <DropdownMenuItem onClick={handleVideoClick} className="flex items-center gap-2" disabled={isBlocked || !canChat}>
                 <Video className="h-4 w-4 text-blue-400" /> Video
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -2403,11 +2403,29 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           />
           {/* Message Input */}
           <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+            {/* Chat Locked Overlay */}
+            {!canChat && !isBlocked && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-[20px] shadow-lg">
+                <div className="flex items-center justify-center gap-2 font-medium -ml-4">
+                  <Lock className="h-4 w-4 bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent" />
+                  <span className="bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
+                    This chat is for subscribers only
+                  </span>
+                </div>
+              </div>
+            )}
+            
             <Input
               ref={messageInputRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={isBlocked ? "You cannot send messages to this user" : "Aa"}
+              placeholder={
+                isBlocked 
+                  ? "You cannot send messages to this user" 
+                  : !canChat 
+                    ? "Subscribe to chat with this creator" 
+                    : "Aa"
+              }
               className="w-full chat-message-input text-black placeholder:text-gray-400 bg-gray-100 focus:ring-0 focus:border-0 px-4 pr-12 shadow-sm"
               style={{
                 height: '40px',
@@ -2421,7 +2439,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1) !important',
                 borderRadius: '20px !important',
               }}
-              disabled={uploading || isRecording || isBlocked}
+              disabled={uploading || isRecording || isBlocked || !canChat}
             />
             
             {/* Emoji Button Inside Input */}
@@ -2433,7 +2451,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     size="icon" 
                     variant="ghost" 
                     className="h-6 w-6 text-gray-400 hover:text-gray-400 hover:bg-transparent p-0" 
-                    disabled={isBlocked}
+                    disabled={isBlocked || !canChat}
                   >
                     <Smile className="h-4 w-4" />
                   </Button>
@@ -2503,7 +2521,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 e.currentTarget.style.borderRadius = '50%';
                 e.currentTarget.style.transition = 'all 0.5s ease-in-out';
               }}
-              disabled={uploading || isBlocked}
+              disabled={uploading || isBlocked || !canChat}
             >
               <Send className="h-2 w-2 md:h-3 md:w-3" style={{ opacity: 0 }} />
             </Button>
@@ -2540,7 +2558,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       isolation: 'isolate'
                     } as any}
                   onClick={startRecording}
-                  disabled={uploading || isBlocked}
+                  disabled={uploading || isBlocked || !canChat}
                 >
                   <Mic className="h-3 w-3 md:h-4 md:w-4" />
                 </Button>

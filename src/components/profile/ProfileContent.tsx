@@ -16,12 +16,14 @@ import { User } from '@/lib/types/user';
 import { Timestamp } from 'firebase/firestore';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import VRVideoPlayer from '@/components/media/VRVideoPlayer';
-import { Image, Video, LayoutGrid, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Image, Video, LayoutGrid, X, ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import React from 'react';
 import { CommentsList } from '@/components/posts/CommentsList';
 import { CommentInput } from '@/components/posts/CommentInput';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'react-hot-toast';
+import { canViewProfile, getProfileAccessDeniedMessage } from '@/lib/utils/profileVisibility';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 
 interface ProfileContentProps {
   profile: UserProfile;
@@ -47,6 +49,13 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
   const PAGE_SIZE = 20;
   const [selectedPost, setSelectedPost] = useState<PostWithAuthor | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Check subscription status for profile visibility
+  const { isSubscriber, isLoading: subscriptionLoading } = useSubscriptionStatus(profile.uid);
+  
+  // Check if user can view this profile
+  const canView = canViewProfile(profile, user?.uid || null, isSubscriber);
+  const accessDeniedMessage = getProfileAccessDeniedMessage(profile, isSubscriber);
 
   // Prevent body scroll when modal is open - More aggressive approach
   useEffect(() => {
@@ -142,6 +151,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
             type: (postData.type as any) || 'text',
             isPublic: postData.isPublic ?? true,
             shares: postData.shares || 0,
+            views: postData.views || 0,
             taggedUsers: postData.taggedUsers || [],
             comments: postData.comments || 0,
             updatedAt: (postData.updatedAt instanceof Timestamp ? postData.updatedAt : postData.createdAt instanceof Timestamp ? postData.createdAt : Timestamp.now()),
@@ -214,6 +224,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
             type: (postData.type as any) || 'text',
             isPublic: postData.isPublic ?? true,
             shares: postData.shares || 0,
+            views: postData.views || 0,
             taggedUsers: postData.taggedUsers || [],
             comments: postData.comments || 0,
             updatedAt: (postData.updatedAt instanceof Timestamp ? postData.updatedAt : postData.createdAt instanceof Timestamp ? postData.createdAt : Timestamp.now()),
@@ -372,13 +383,61 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedPost, selectedIndex, filteredPosts]);
 
+  // Show profile access denied message if user cannot view profile
+  if (!canView) {
+    const visibility = profile.privacy?.profileVisibility || 'public';
+    
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex flex-col items-center justify-center py-16 px-4">
+            <div className="text-center space-y-4 max-w-md">
+              <Lock className="h-16 w-16 text-gray-400 mx-auto" />
+              
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-gray-800">
+                  Subscribers Only
+                </h3>
+                <p className="text-gray-600">
+                  {accessDeniedMessage}
+                </p>
+              </div>
+              
+              {!isSubscriber && (
+                <button 
+                  className="mt-6 px-6 py-2 text-white rounded-lg transition-all duration-300 shadow-lg"
+                  style={{
+                    borderRadius: '8px',
+                    border: '1px solid #e5e7eb',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 6px 12px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
+                  }}
+                >
+                  Subscribe to View Profile
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto">
 
         {/* Content Display - same structure as home page */}
         <div className="space-y-6">
-          {loading ? (
+          {loading || subscriptionLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <Skeleton key={i} className="h-64 w-full" />

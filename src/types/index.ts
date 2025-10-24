@@ -8,6 +8,7 @@ export interface PostData {
   updatedAt: Date | any
   likes: number
   comments: Comment[]
+  views: number
   tags: string[]
   imageUrl?: string
   type?: 'text' | 'image' | 'video' | 'vr' | 'image360' | 'video360' | 'ar' | 'audio'

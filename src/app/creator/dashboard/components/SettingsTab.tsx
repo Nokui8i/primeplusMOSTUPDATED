@@ -706,14 +706,15 @@ export default function SettingsTab() {
               }`}
             />
           </CardTitle>
+          <CardDescription className="text-xs text-gray-600">
+            This setting will be used as the default for new posts. You can override it for individual posts.
+          </CardDescription>
         </CardHeader>
         {openSections.commentSettings && (
           <CardContent className="space-y-6 py-6">
             <div className="space-y-3">
               <div className="space-y-2">
-                <p className="text-xs text-gray-600">
-                  This setting will be used as the default for new posts. You can override it for individual posts.
-                </p>
+                
               </div>
               
               <div className="space-y-2">

@@ -18,6 +18,7 @@ export default function MessagesPage() {
   const [selectedChat, setSelectedChat] = useState<{
     recipientId: string;
     recipientName: string;
+    recipientProfile?: any;
   } | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,7 +44,8 @@ export default function MessagesPage() {
           const userData = userDoc.data();
           setSelectedChat({
             recipientId: userId,
-            recipientName: userData.displayName || userData.username || 'Unknown User'
+            recipientName: userData.displayName || userData.username || 'Unknown User',
+            recipientProfile: userData
           });
         }
       };
@@ -51,9 +53,27 @@ export default function MessagesPage() {
     }
   }, [searchParams]);
 
-  const handleSelectChat = (recipientId: string, recipientName: string) => {
+  const handleSelectChat = async (recipientId: string, recipientName: string) => {
     console.log('🔍 Selecting chat:', recipientId, recipientName);
-    setSelectedChat({ recipientId, recipientName });
+    
+    // Fetch the full profile data for the selected chat
+    try {
+      const userDoc = await getDoc(doc(db, 'users', recipientId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setSelectedChat({ 
+          recipientId, 
+          recipientName,
+          recipientProfile: userData
+        });
+      } else {
+        setSelectedChat({ recipientId, recipientName });
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      setSelectedChat({ recipientId, recipientName });
+    }
+    
     console.log('🔍 Calling markAsRead for:', recipientId);
     markAsRead(recipientId);
   };
@@ -203,7 +223,8 @@ export default function MessagesPage() {
             key={`${selectedChat.recipientId}-${selectedChat.recipientName}`}
             recipientId={selectedChat.recipientId} 
             recipientName={selectedChat.recipientName} 
-            hideHeader={false} 
+            hideHeader={false}
+            recipientProfile={selectedChat.recipientProfile}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">
