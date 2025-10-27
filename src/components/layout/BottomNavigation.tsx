@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Home, User, MessageCircle, Menu, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { useTotalUnreadMessagesCount } from '@/lib/messages';
 
 interface BottomNavigationProps {
   onMenuClick: () => void;
@@ -14,6 +15,7 @@ interface BottomNavigationProps {
 export function BottomNavigation({ onMenuClick, isMenuOpen, onUploadClick }: BottomNavigationProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const unreadCount = useTotalUnreadMessagesCount();
 
   if (!user) return null;
 
@@ -86,7 +88,7 @@ export function BottomNavigation({ onMenuClick, isMenuOpen, onUploadClick }: Bot
               href={item.href}
               className="flex-1 flex items-center justify-center relative min-w-0 active:scale-95 transition-transform"
             >
-              <div className={`p-2 rounded-xl transition-colors ${
+              <div className={`p-2 rounded-xl transition-colors relative ${
                 active ? 'bg-blue-100' : ''
               }`}>
                 <Icon 
@@ -95,6 +97,16 @@ export function BottomNavigation({ onMenuClick, isMenuOpen, onUploadClick }: Bot
                   }`}
                   strokeWidth={active ? 2.5 : 2}
                 />
+                {/* Unread message dot - only show on Messages icon */}
+                {item.label === 'Messages' && unreadCount > 0 && (
+                  <div 
+                    className="absolute top-1 right-1 w-2.5 h-2.5 rounded-full shadow-lg flex-shrink-0" 
+                    style={{
+                      background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)',
+                      boxShadow: '0 2px 8px rgba(96, 165, 250, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
+                    }}
+                  />
+                )}
               </div>
             </Link>
           );

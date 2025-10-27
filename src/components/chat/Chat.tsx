@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical, UserX } from 'lucide-react';
+import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical, UserX, Pin, Search, ChevronUp, ChevronDown, Grid3x3 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 // Firebase Storage imports removed - now using AWS S3
 import { ImageUploadPreview } from './ImageUploadPreview';
@@ -41,6 +41,7 @@ interface Message {
   status?: 'sent' | 'delivered' | 'read';
   locked?: boolean;
   price?: number;
+  unlockedBy?: string[];
   attachments?: MessageAttachment[];
   edited?: boolean;
   isWelcomeMessage?: boolean;
@@ -51,6 +52,7 @@ interface ChatProps {
   recipientName: string;
   hideHeader?: boolean;
   customWidth?: number;
+  onClose?: () => void;
   recipientProfile?: {
     username?: string;
     photoURL?: string;
@@ -99,10 +101,23 @@ if (typeof window !== 'undefined') {
   document.head.appendChild(style);
 }
 
-export function Chat({ recipientId, recipientName, hideHeader = false, customWidth, recipientProfile }: ChatProps) {
+export function Chat({ recipientId, recipientName, hideHeader = false, customWidth, onClose, recipientProfile }: ChatProps) {
   const { user } = useAuth();
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingBlock, setCheckingBlock] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Check subscription status for profile visibility
   const { isSubscriber, isLoading: subscriptionLoading } = useSubscriptionStatus(recipientId);
@@ -177,7 +192,32 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+  const [matchedMessageIndex, setMatchedMessageIndex] = useState(0);
+  const [matchedMessageIds, setMatchedMessageIds] = useState<string[]>([]);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showGallery, setShowGallery] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  
+  // Function to highlight matching text
+  const highlightText = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    
+    // Escape special regex characters
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, i) => 
+      regex.test(part) ? (
+        <span key={i} style={{ backgroundColor: '#fef3c7', fontWeight: 600, color: 'black' }}>{part}</span>
+      ) : (
+        part
+      )
+    );
+  };
   const [messageToDelete, setMessageToDelete] = useState<{ id: string; type: string } | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Array<{ file: File; preview: string; type: 'image' | 'video'; locked: boolean; price?: number }>>([]);
@@ -187,6 +227,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -437,6 +478,17 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       }
     };
     markMessagesAsRead();
+    
+    // Load current pinned status
+    const loadPinnedStatus = async () => {
+      const chatRef = doc(db, 'chats', chatId);
+      const chatDoc = await getDoc(chatRef);
+      if (chatDoc.exists()) {
+        const pinnedBy = chatDoc.data().pinnedBy || {};
+        setIsPinned(pinnedBy[user.uid] || false);
+      }
+    };
+    loadPinnedStatus();
 
     // Listen to messages with real-time updates
     const messagesRef = collection(db, 'chats', chatId, 'messages');
@@ -449,6 +501,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       })) as Message[];
       // Reverse to show oldest first (chronological order)
       setMessages(newMessages.reverse());
+      
+      // Immediately set scroll position to bottom with no animation
+      setTimeout(() => {
+        scrollToBottom();
+      }, 0);
 
       // Update message status to 'delivered' for new messages
       snapshot.docChanges().forEach((change) => {
@@ -511,19 +568,9 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   }, []);
 
   const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      // Force immediate scroll to bottom like WhatsApp
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'auto', // Changed from 'smooth' to 'auto' for immediate scroll
-        block: 'end',
-        inline: 'nearest'
-      });
-      
-      // Also try scrolling the container directly
-      const container = messagesEndRef.current.parentElement;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
+    if (messagesContainerRef.current) {
+      // Scroll the container to the bottom
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   };
 
@@ -1278,18 +1325,30 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     <div className="flex flex-col h-full w-full relative chat-container" style={{ width: '100%' }}>
       {/* Chat Title Bar */}
       {!hideHeader && (
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 sticky top-0 z-10 bg-white/80 backdrop-blur-lg"
-             style={{ borderColor: themeColors.brand.blue.deep }}>
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 sticky top-0 z-10 bg-white"
+             style={{ borderBottom: '1px solid #e5e7eb', minHeight: '56px', maxHeight: '56px' }}>
+          {/* Mobile Back Button */}
+          {isMobile && onClose && (
+            <button
+              onClick={onClose}
+              className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-full transition-colors"
+              aria-label="Back to messages"
+            >
+              <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
           <div
             className="flex items-center gap-3 cursor-pointer hover:underline"
             onClick={() => router.push(`/${recipientProfile?.username || recipientId}`)}
           >
-            <div className="relative flex-shrink-0 w-12 h-12">
+            <div className="relative flex-shrink-0 w-10 h-10">
               <MessagesAvatar 
                 src={recipientProfile?.photoURL || '/default-avatar.png'}
                 alt={recipientProfile?.displayName || recipientName}
                 fallback={(recipientProfile?.displayName || recipientName)?.[0] || '?'}
-                size="md"
+                size="sm"
               />
             </div>
             <span 
@@ -1324,47 +1383,429 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               <span className="text-xs text-green-500 font-semibold">Online</span>
             )}
           </div>
-          {/* Open in Popup Icon Button */}
+          
+          {/* Action Buttons Group */}
+          <div className="ml-auto flex items-center gap-2">
+            {/* Gallery Button */}
             <button
-              className="ml-auto p-1.5 rounded-full shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{
-                backgroundColor: '#0F77FF',
-                color: 'white'
+              className={`p-1.5 rounded-full hover:bg-gray-100 transition-all duration-200 focus:outline-none ${showGallery ? 'bg-blue-50' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowGallery(!showGallery);
+                setShowSearch(false);
+                
+                // When closing gallery, immediately jump to bottom
+                if (showGallery) {
+                  setTimeout(() => {
+                    scrollToBottom();
+                  }, 0);
+                }
               }}
-            onClick={async (e) => {
-              e.stopPropagation();
-              // Create a minimal user profile for openChat
-              const userProfile = {
-                id: recipientId,
-                uid: recipientId,
-                displayName: recipientProfile?.displayName || recipientName,
-                username: recipientProfile?.username || recipientName,
-                photoURL: recipientProfile?.photoURL || '',
-                email: '',
-                createdAt: Timestamp.now(),
-                updatedAt: Timestamp.now(),
-                isAgeVerified: false,
-                isVerified: false,
-                role: 'user' as const,
-                status: 'active' as const
-              };
-              await openChat(userProfile);
-            }}
-            title="Open in popup"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </button>
+              title="View gallery"
+            >
+              <svg className={`w-5 h-5 ${showGallery ? 'text-blue-600' : 'text-gray-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="16" rx="1" ry="1" strokeWidth="1.5"/>
+                <circle cx="17.5" cy="7.5" r="1" fill="currentColor"/>
+                <path d="M6 16l4-3 3 2 5-4" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+            
+            {/* Search Messages Button */}
+            <button
+              className={`p-1.5 rounded-full hover:bg-gray-100 transition-all duration-200 focus:outline-none ${showSearch ? 'bg-blue-50' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSearch(!showSearch);
+                if (!showSearch) setSearchQuery('');
+                setShowGallery(false);
+              }}
+              title="Search in conversation"
+            >
+              <Search className={`w-5 h-5 ${showSearch ? 'text-blue-600' : 'text-gray-600'}`} />
+            </button>
+            
+            {/* Pin Conversation Button */}
+            <button
+              className={`p-1.5 rounded-full hover:bg-gray-100 transition-all duration-200 focus:outline-none ${isPinned ? 'bg-blue-50' : ''}`}
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  const chatId = [user?.uid, recipientId].sort().join('_');
+                  const chatRef = doc(db, 'chats', chatId);
+                  const chatDoc = await getDoc(chatRef);
+                  
+                  if (chatDoc.exists()) {
+                    const currentPinned = chatDoc.data().pinnedBy || {};
+                    const newPinned = !isPinned;
+                    
+                    await updateDoc(chatRef, {
+                      [`pinnedBy.${user?.uid}`]: newPinned
+                    });
+                    
+                    setIsPinned(newPinned);
+                  }
+                } catch (error) {
+                  console.error('Error pinning conversation:', error);
+                }
+              }}
+              title={isPinned ? "Unpin conversation" : "Pin conversation"}
+            >
+              <Pin className={`w-5 h-5 ${isPinned ? 'text-blue-600 fill-blue-600' : 'text-gray-600'}`} />
+            </button>
+            
+          {/* Open in Popup Icon Button - Hidden on mobile */}
+            {!isMobile && (
+              <button
+                className="p-1.5 rounded-full hover:bg-gray-100 transition-all duration-200 focus:outline-none"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  // Create a minimal user profile for openChat
+                  const userProfile = {
+                    id: recipientId,
+                    uid: recipientId,
+                    displayName: recipientProfile?.displayName || recipientName,
+                    username: recipientProfile?.username || recipientName,
+                    photoURL: recipientProfile?.photoURL || '',
+                    email: '',
+                    createdAt: Timestamp.now(),
+                    updatedAt: Timestamp.now(),
+                    isAgeVerified: false,
+                    isVerified: false,
+                    role: 'user' as const,
+                    status: 'active' as const
+                  };
+                  await openChat(userProfile);
+                }}
+                title="Open in popup"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       )}
       
-      {/* Separator Line */}
-      <div className="border-b border-gray-200"></div>
+      {/* Search Bar */}
+      {showSearch && (
+        <div className="px-4 py-2 border-b border-gray-200">
+          <div className="relative flex items-center gap-2">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Search in conversation..."
+                value={searchQuery}
+                onChange={(e) => {
+                  const query = e.target.value;
+                  setSearchQuery(query);
+                  
+                  // Find all matching message IDs
+                  if (query.trim()) {
+                    const matches = messages
+                      .filter(m => m.text?.toLowerCase().includes(query.toLowerCase()))
+                      .map(m => m.id);
+                    setMatchedMessageIds(matches);
+                    setMatchedMessageIndex(0);
+                    
+                    // Scroll to first match
+                    if (matches.length > 0 && messagesContainerRef.current) {
+                      setTimeout(() => {
+                        const element = document.getElementById(`message-${matches[0]}`);
+                        if (element && messagesContainerRef.current) {
+                          const container = messagesContainerRef.current;
+                          const containerRect = container.getBoundingClientRect();
+                          const elementRect = element.getBoundingClientRect();
+                          const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
+                          container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+                        }
+                      }, 100);
+                    }
+                  } else {
+                    setMatchedMessageIds([]);
+                    setMatchedMessageIndex(0);
+                  }
+                }}
+                className="w-full px-2 py-1.5 pl-7 pr-24 rounded-2xl focus:outline-none shadow-lg border-0 text-base"
+                style={{
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                  fontSize: '16px' // Prevents zoom on iOS
+                }}
+                autoFocus
+              />
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            </div>
+            
+            {/* Search Navigation */}
+            {searchQuery.trim() && matchedMessageIds.length > 0 && (
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-600">
+                  {matchedMessageIndex + 1} / {matchedMessageIds.length}
+                </span>
+                <button
+                  onClick={() => {
+                    const prevIndex = matchedMessageIndex > 0 ? matchedMessageIndex - 1 : matchedMessageIds.length - 1;
+                    setMatchedMessageIndex(prevIndex);
+                    const element = document.getElementById(`message-${matchedMessageIds[prevIndex]}`);
+                    if (element && messagesContainerRef.current) {
+                      const container = messagesContainerRef.current;
+                      const containerRect = container.getBoundingClientRect();
+                      const elementRect = element.getBoundingClientRect();
+                      const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
+                      container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+                    }
+                  }}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Previous match"
+                >
+                  <ChevronUp className="w-4 h-4 text-gray-600" />
+                </button>
+                <button
+                  onClick={() => {
+                    const nextIndex = matchedMessageIndex < matchedMessageIds.length - 1 ? matchedMessageIndex + 1 : 0;
+                    setMatchedMessageIndex(nextIndex);
+                    const element = document.getElementById(`message-${matchedMessageIds[nextIndex]}`);
+                    if (element && messagesContainerRef.current) {
+                      const container = messagesContainerRef.current;
+                      const containerRect = container.getBoundingClientRect();
+                      const elementRect = element.getBoundingClientRect();
+                      const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
+                      container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+                    }
+                  }}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Next match"
+                >
+                  <ChevronDown className="w-4 h-4 text-gray-600" />
+                </button>
+              </div>
+            )}
+            
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowSearch(false);
+                setSearchQuery('');
+                setMatchedMessageIds([]);
+                setMatchedMessageIndex(0);
+              }}
+              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+              title="Close search"
+            >
+              <X className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Gallery View */}
+      {showGallery && (
+        <div className="flex-1 overflow-y-auto p-2" style={{ height: '100%' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {messages
+              .filter(m => (m.type === 'image' && m.imageUrl) || (m.type === 'video' && m.videoUrl))
+              .map((message) => {
+                const isSender = message.senderId === user?.uid;
+                const isLocked = message.locked && !isSender && (!message.unlockedBy || !user?.uid || !message.unlockedBy.includes(user.uid));
+                
+                return (
+                <div key={message.id} className="relative aspect-square group cursor-pointer">
+                  {message.type === 'image' && message.imageUrl ? (
+                    <>
+                      <img
+                        src={message.imageUrl}
+                        alt="Gallery image"
+                        className="w-full h-full object-cover rounded-lg"
+                        style={isLocked ? { filter: 'blur(20px)', pointerEvents: 'none' } : {}}
+                        onClick={() => {
+                          if (!isLocked && message.imageUrl) {
+                            setSelectedImage(message.imageUrl);
+                          }
+                        }}
+                      />
+                      {!isLocked && message.locked && isSender && (
+                        <div className="absolute top-2 right-2 text-white text-xs font-bold px-2 py-1 rounded shadow-lg z-10" style={{ backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)' }}>
+                          PPV
+                        </div>
+                      )}
+                      {isLocked && (
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '8px'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '8px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={20} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
+                            </div>
+                            <p style={{ 
+                              color: '#ffffff',
+                              fontWeight: 800,
+                              fontSize: '12px',
+                              marginBottom: '8px',
+                              textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                              letterSpacing: '0.5px'
+                            }}>${message.price?.toFixed(2) ?? '0.00'}</p>
+                            <button
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                              }}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const confirmed = window.confirm(`Pay $${message.price?.toFixed(2) ?? '0.00'} to unlock this media?`);
+                                if (!confirmed || !user?.uid) return;
+                                try {
+                                  const chatId = [user.uid, recipientId].sort().join('_');
+                                  const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
+                                  const messageSnap = await getDoc(messageRef);
+                                  if (!messageSnap.exists()) throw new Error('Message not found');
+                                  
+                                  const currentUnlockedBy = messageSnap.data().unlockedBy || [];
+                                  if (!currentUnlockedBy.includes(user.uid)) {
+                                    await updateDoc(messageRef, { 
+                                      unlockedBy: [...currentUnlockedBy, user.uid] 
+                                    });
+                                    toast.success('Media unlocked!');
+                                  }
+                                } catch (err) {
+                                  toast.error('Failed to unlock media. Please try again.');
+                                }
+                              }}
+                            >
+                              UNLOCK
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : message.type === 'video' && message.videoUrl ? (
+                    <div className="w-full h-full relative">
+                      <video
+                        className="w-full h-full object-cover rounded-lg"
+                        style={isLocked ? { filter: 'blur(20px)', pointerEvents: 'none' } : {}}
+                        controls={false}
+                        muted
+                        preload="metadata"
+                      >
+                        <source src={message.videoUrl} type="video/mp4" />
+                      </video>
+                      {!isLocked && message.locked && isSender && (
+                        <div className="absolute top-2 right-2 text-white text-xs font-bold px-2 py-1 rounded shadow-lg z-10" style={{ backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)' }}>
+                          PPV
+                        </div>
+                      )}
+                      {isLocked ? (
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '8px'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '8px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={20} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
+                            </div>
+                            <p style={{ 
+                              color: '#ffffff',
+                              fontWeight: 800,
+                              fontSize: '12px',
+                              marginBottom: '8px',
+                              textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                              letterSpacing: '0.5px'
+                            }}>${message.price?.toFixed(2) ?? '0.00'}</p>
+                            <button
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+                              }}
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const confirmed = window.confirm(`Pay $${message.price?.toFixed(2) ?? '0.00'} to unlock this media?`);
+                              if (!confirmed || !user?.uid) return;
+                              try {
+                                const chatId = [user.uid, recipientId].sort().join('_');
+                                const messageRef = doc(db, 'chats', chatId, 'messages', message.id);
+                                const messageSnap = await getDoc(messageRef);
+                                if (!messageSnap.exists()) throw new Error('Message not found');
+                                
+                                const currentUnlockedBy = messageSnap.data().unlockedBy || [];
+                                if (!currentUnlockedBy.includes(user.uid)) {
+                                  await updateDoc(messageRef, { 
+                                    unlockedBy: [...currentUnlockedBy, user.uid] 
+                                  });
+                                  toast.success('Media unlocked!');
+                                }
+                              } catch (err) {
+                                toast.error('Failed to unlock media. Please try again.');
+                              }
+                            }}
+                          >
+                              UNLOCK
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Play className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-8 h-8 text-white drop-shadow-lg" />
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+                  );
+                })}
+          </div>
+        </div>
+      )}
       
       {/* Messages Container */}
+      {!showGallery && (
           <div 
-            className="flex-1 overflow-y-auto px-2 py-4 bg-white border-r border-gray-200 scrollbar-hide flex flex-col justify-start chat-messages-container" 
+            ref={messagesContainerRef}
+            className="flex-1 overflow-y-auto px-2 py-4 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container relative" 
             style={{ 
               scrollBehavior: 'smooth', 
               scrollbarWidth: 'none', 
@@ -1377,6 +1818,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               minHeight: '0',
               overflowY: 'auto',
               width: '100%'
+            }}
+            onScroll={(e) => {
+              // Show scroll to bottom button when user scrolls up
+              const container = e.currentTarget;
+              const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+              setShowScrollToBottom(!isAtBottom);
             }}
           >
         {messages.length === 0 ? (
@@ -1395,10 +1842,17 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   justifyContent: 'flex-start',
                   alignItems: 'stretch',
                   width: '100%',
-                  gap: '0.1rem'
+                  gap: '0.1rem',
+                  filter: searchQuery ? 'none' : 'none'
                 }}
               >
-        {messages.map((message, idx) => (
+            {messages.map((message, idx) => {
+                  // Check if this message matches search query
+                  const isHighlighted = searchQuery && message.text?.toLowerCase().includes(searchQuery.toLowerCase());
+                  
+                  return (
+                    <div key={message.id} id={`message-${message.id}`}>
+                    {/* Moved the existing message rendering code inside this wrapper */}
           <div
             key={message.id}
               className={`flex w-full chat-message-item ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
@@ -1981,7 +2435,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                             className="w-full max-w-sm h-48 object-cover rounded-lg border border-gray-200"
                           />
                           <p className="text-xs md:text-sm break-words whitespace-normal">
-                            {message.text}
+                            {searchQuery ? highlightText(message.text || '', searchQuery) : message.text}
                             {message.edited && (
                               <span className="text-xs text-gray-400 ml-1">(edited)</span>
                             )}
@@ -1989,7 +2443,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                         </div>
                       ) : (
                         <p className="text-xs md:text-sm break-words whitespace-normal">
-                          {message.text}
+                          {searchQuery ? highlightText(message.text || '', searchQuery) : message.text}
                           {message.edited && (
                             <span className="text-xs text-gray-400 ml-1">(edited)</span>
                           )}
@@ -2040,7 +2494,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                                 }
                               }}
                             >
-                              Unlock
+                              UNLOCK
                             </Button>
                           </div>
                           {att.type === 'image' && (
@@ -2146,12 +2600,31 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 </div>
               )}
           </div>
-        ))}
+                  </div>
+                );
+              })}
           </div>
         )}
         <div ref={messagesEndRef} />
+        
       </div>
-
+        )}
+        
+        {/* Scroll to Bottom Button - Floating above chat */}
+        {showScrollToBottom && !showGallery && (
+          <div className="absolute bottom-16 right-4 z-20">
+            <button
+              onClick={() => {
+                scrollToBottom();
+                setShowScrollToBottom(false);
+              }}
+              className="bg-gray-200 border border-gray-300 rounded-full p-1 shadow-lg hover:bg-gray-300 transition-all duration-200"
+              title="Scroll to bottom"
+            >
+              <ChevronDown className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        )}
       {/* Full-size Image Preview Modal */}
       {selectedImage && (
         <div 
@@ -2380,7 +2853,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button type="button" size="icon" variant="ghost" className="h-7 w-7 md:h-8 md:w-8 text-blue-400 hover:text-blue-400 hover:bg-transparent" disabled={isBlocked || !canChat}>
-                <Plus className="h-5 w-5" />
+                <Plus className="h-5 w-5" strokeWidth={3} />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="bg-white p-2">
@@ -2546,7 +3019,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 <Button
                   type="button"
                   size="icon"
-                    className="microphone-button bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 hover:bg-[#6B3BFF]/10 focus:outline-none"
+                    className="microphone-button bg-white text-[#2B55FF] h-8 w-8 md:h-9 md:w-9 hover:bg-[#6B3BFF]/10 focus:outline-none"
                     style={{ 
                       boxShadow: 'none !important',
                       animation: 'none !important',
@@ -2563,7 +3036,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   onClick={startRecording}
                   disabled={uploading || isBlocked || !canChat}
                 >
-                  <Mic className="h-3 w-3 md:h-4 md:w-4" />
+                  <Mic className="h-4 w-4 md:h-5 md:w-5" />
                 </Button>
                 </div>
               ) : (
@@ -2571,7 +3044,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   <Button
                     type="button"
                     size="icon"
-                    className="microphone-button rounded-full bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 hover:bg-[#6B3BFF]/10 focus:outline-none"
+                    className="microphone-button rounded-full bg-white text-[#2B55FF] h-8 w-8 md:h-9 md:w-9 hover:bg-[#6B3BFF]/10 focus:outline-none"
                     style={{ 
                       backgroundColor: '#ffffff !important',
                       color: '#3b82f6 !important',
@@ -2594,7 +3067,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   <Button
                     type="button"
                     size="icon"
-                    className="microphone-button rounded-full bg-white text-[#2B55FF] h-7 w-7 md:h-8 md:w-8 hover:bg-[#6B3BFF]/10 focus:outline-none"
+                    className="microphone-button rounded-full bg-white text-[#2B55FF] h-8 w-8 md:h-9 md:w-9 hover:bg-[#6B3BFF]/10 focus:outline-none"
                     style={{ 
                       backgroundColor: '#ffffff !important',
                       color: '#3b82f6 !important',

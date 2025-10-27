@@ -6,6 +6,7 @@ import { ChatProvider } from '@/contexts/ChatContext'
 import { RootLayoutContent } from '@/components/RootLayoutContent'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { FilterProvider } from '@/contexts/FilterContext'
+import { MessagesProvider } from '@/contexts/MessagesContext'
 import { NotificationList } from '@/components/common/NotificationList'
 import { Toaster } from '@/components/ui/toaster'
 import { SimpleToaster } from '@/components/ui/SimpleToast'
@@ -55,14 +56,16 @@ export default function RootLayout({
           }
         `}} />
       </head>
-      <body className={inter.className} style={{ backgroundColor: '#ffffff', margin: 0, padding: 0 }}>
+      <body className={inter.className} style={{ backgroundColor: '#ffffff', margin: 0, padding: 0, overflow: 'hidden', height: '100vh' }}>
         <AuthProvider>
           <ChatProvider>
             <NotificationProvider>
               <FilterProvider>
-                <RootLayoutContent>{children}</RootLayoutContent>
-                <NotificationList />
-                <SimpleToaster />
+                <MessagesProvider>
+                  <RootLayoutContent>{children}</RootLayoutContent>
+                  <NotificationList />
+                  <SimpleToaster />
+                </MessagesProvider>
               </FilterProvider>
             </NotificationProvider>
           </ChatProvider>

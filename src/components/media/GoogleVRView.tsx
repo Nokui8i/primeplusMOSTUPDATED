@@ -82,7 +82,6 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
             html, body { 
               margin: 0; 
               padding: 0; 
-              touch-action: none;
               -webkit-touch-callout: none;
               -webkit-user-select: none;
               user-select: none;
@@ -91,12 +90,62 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
             a-scene { 
               width: 100%; 
               height: 100vh; 
-              touch-action: none;
-            }
-            * {
-              touch-action: none;
             }
           </style>
+          <script>
+            window.addEventListener('load', function() {
+              var touchStart = {x: 0, y: 0};
+              var isDragging = false;
+              var camera = null;
+              
+              function initTouchControls() {
+                camera = document.querySelector('a-camera');
+                if (!camera) {
+                  setTimeout(initTouchControls, 100);
+                  return;
+                }
+                
+                document.addEventListener('touchstart', function(evt) {
+                  if (evt.touches.length === 1) {
+                    touchStart.x = evt.touches[0].clientX;
+                    touchStart.y = evt.touches[0].clientY;
+                    isDragging = true;
+                  }
+                }, { passive: false });
+                
+                document.addEventListener('touchmove', function(evt) {
+                  if (!isDragging || evt.touches.length !== 1) return;
+                  evt.preventDefault();
+                  
+                  var deltaX = evt.touches[0].clientX - touchStart.x;
+                  var deltaY = evt.touches[0].clientY - touchStart.y;
+                  
+                  if (camera) {
+                    var lookControls = camera.components['look-controls'];
+                    if (lookControls) {
+                      var pitchObject = lookControls.pitchObject;
+                      var yawObject = lookControls.yawObject;
+                      
+                      if (pitchObject && yawObject) {
+                        yawObject.rotation.y -= deltaX * 0.002;
+                        pitchObject.rotation.x -= deltaY * 0.002;
+                        pitchObject.rotation.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitchObject.rotation.x));
+                      }
+                    }
+                  }
+                  
+                  touchStart.x = evt.touches[0].clientX;
+                  touchStart.y = evt.touches[0].clientY;
+                }, { passive: false });
+                
+                document.addEventListener('touchend', function() {
+                  isDragging = false;
+                });
+              }
+              
+              initTouchControls();
+            });
+          </script>
         </head>
         <body>
           <a-scene embedded vr-mode-ui="enabled: true">
@@ -106,7 +155,7 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
             }
             <a-camera 
               position="0 1.6 0" 
-              look-controls="reverseMouseDrag: true; touchEnabled: true; pointerLockEnabled: false; gyroscopeEnabled: true;"
+              look-controls="reverseMouseDrag: true; reverseTouchDrag: true; touchEnabled: false; pointerLockEnabled: false; mouseEnabled: true;"
             ></a-camera>
           </a-scene>
         </body>
@@ -236,11 +285,7 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
         position: 'relative',
         backgroundColor: '#f3f4f6',
         borderRadius: '8px',
-        overflow: 'hidden',
-        touchAction: 'none',
-        WebkitTouchCallout: 'none',
-        WebkitUserSelect: 'none',
-        userSelect: 'none'
+        overflow: 'hidden'
       }}
     >
       {!isLoaded && (
@@ -273,7 +318,6 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
           style={{ 
             border: 'none', 
             borderRadius: '8px',
-            touchAction: 'none',
             pointerEvents: 'auto'
           }}
           onLoad={() => {}}

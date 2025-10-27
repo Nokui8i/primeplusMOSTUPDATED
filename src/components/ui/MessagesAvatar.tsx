@@ -10,9 +10,9 @@ interface MessagesAvatarProps {
 }
 
 const sizeClasses = {
-  sm: { width: '36px', height: '36px' },
-  md: { width: '48px', height: '48px' }, 
-  lg: { width: '56px', height: '56px' }
+  sm: { width: '40px', height: '40px' },
+  md: { width: '52px', height: '52px' }, 
+  lg: { width: '60px', height: '60px' }
 };
 
 export function MessagesAvatar({ 

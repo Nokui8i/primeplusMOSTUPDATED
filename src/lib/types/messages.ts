@@ -33,6 +33,16 @@ export interface Message {
     content: string;
     timestamp: Timestamp;
   }>;
+  locked?: boolean;
+  price?: number;
+  unlockedBy?: string[];
+  text?: string;
+  imageUrl?: string;
+  videoUrl?: string;
+  edited?: boolean;
+  read?: boolean;
+  duration?: number;
+  audioUrl?: string;
 }
 
 export interface Thread {

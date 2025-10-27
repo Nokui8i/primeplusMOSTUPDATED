@@ -112,7 +112,7 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
   });
 
   return (
-    <aside className="w-full h-screen sticky top-0 bg-white px-0 -pt-8 pb-8 flex flex-col relative z-20" role="navigation" aria-label="Main navigation" style={{ pointerEvents: 'auto' }}>
+    <aside className="w-full h-screen sticky top-0 bg-white px-0 -pt-8 pb-8 flex flex-col relative z-20 overflow-y-auto" role="navigation" aria-label="Main navigation" style={{ pointerEvents: 'auto' }}>
       {/* Logo - Responsive */}
       <div className="mb-0 -ml-4 -mt-24 p-0 m-0">
         <NewLogo size="xxxl" showText={false} />
@@ -220,26 +220,26 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
                   }}
                 />
               </li>
+              
+              {/* Sign Out Button */}
+              <li key="signout" role="menuitem">
+                <button
+                  onClick={handleLogout}
+                  className="w-full text-left px-3 lg:px-4 py-2.5 lg:py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-200 font-normal text-xs lg:text-sm shadow-sm hover:shadow-md"
+                  style={{
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    transition: 'all 0.2s ease-in-out'
+                  }}
+                  aria-label="Sign out"
+                >
+                  <span className="truncate">Sign Out</span>
+                </button>
+              </li>
             </>
           )}
         </ul>
       </nav>
-
-      {/* Logout Button - Responsive */}
-      <div className="pt-6 border-t border-gray-200">
-        <button
-          onClick={handleLogout}
-          className="w-full text-left px-3 lg:px-4 py-2.5 lg:py-3 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-xl transition-all duration-200 font-normal text-xs lg:text-sm shadow-sm hover:shadow-md"
-          style={{
-            borderRadius: '12px',
-            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-            transition: 'all 0.2s ease-in-out'
-          }}
-          aria-label="Sign out"
-        >
-          <span className="truncate">Sign Out</span>
-        </button>
-      </div>
     </aside>
   )
 } 

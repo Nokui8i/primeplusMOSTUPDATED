@@ -4,7 +4,7 @@ import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
 import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
 import { Button } from '@/components/ui/button';
-import { Trash2, MessageCircle } from 'lucide-react';
+import { X, MessageCircle, Pin } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 
@@ -12,17 +12,19 @@ interface ChatMetadata {
   id: string;
   recipientId: string;
   recipientName: string;
+  recipientUsername?: string;
   recipientPhotoURL?: string | null;
   lastMessage: string;
   lastMessageTime: any;
   unreadCount: number;
+  pinned?: boolean;
 }
 
 
 interface ChatListProps {
   onSelectChat: (recipientId: string, recipientName: string) => void;
   searchQuery?: string;
-  filterType?: 'all' | 'unread';
+  filterType?: 'all' | 'unread' | 'pinned';
 }
 
 export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }: ChatListProps) {
@@ -88,16 +90,29 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
             id: chatDoc.id,
             recipientId: otherUserId,
             recipientName: userData.displayName || userData.username || 'Unknown User',
+            recipientUsername: userData.username,
             recipientPhotoURL: userData.photoURL,
             lastMessage: lastMessage,
             lastMessageTime: lastMessageTime,
-            unreadCount: unreadCount
+            unreadCount: unreadCount,
+            pinned: data.pinnedBy?.[user.uid] || false
           };
         });
 
         const chatResults = await Promise.all(chatPromises);
         const validChats = chatResults.filter(chat => chat !== null) as ChatMetadata[];
-        setChats(validChats);
+        
+        // Sort chats: pinned first, then by lastMessageTime
+        const sortedChats = validChats.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1;
+          if (!a.pinned && b.pinned) return 1;
+          if (a.lastMessageTime && b.lastMessageTime) {
+            return b.lastMessageTime.toMillis() - a.lastMessageTime.toMillis();
+          }
+          return 0;
+        });
+        
+        setChats(sortedChats);
       });
 
       return () => unsubscribe();
@@ -113,6 +128,10 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
     // Apply filter type
     if (filterType === 'unread') {
       filtered = filtered.filter(chat => chat.unreadCount > 0);
+    }
+    
+    if (filterType === 'pinned') {
+      filtered = filtered.filter(chat => chat.pinned);
     }
 
     // Apply search query
@@ -161,7 +180,7 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Chat List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-14 md:pb-0" style={{ minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
         {filteredChats.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-6 text-center text-gray-500">
             <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-400" />
@@ -173,11 +192,11 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div>
             {filteredChats.map((chat) => (
               <div
                 key={chat.id}
-                className="group flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                className="group flex items-center gap-3 p-3 hover:bg-blue-50/50 cursor-pointer transition-colors relative"
                 onClick={() => onSelectChat(chat.recipientId, chat.recipientName)}
               >
                 {/* Avatar */}
@@ -193,13 +212,21 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
 
                 {/* Chat Info */}
                 <div className="flex-1 min-w-0">
-                  {/* Name Row */}
+                  {/* Name and Username Row - Inline */}
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate max-w-[200px]">
+                    {chat.pinned && (
+                      <Pin className="w-3 h-3 text-blue-600 fill-blue-600 flex-shrink-0" />
+                    )}
+                    <h3 className="text-base font-semibold text-gray-900">
                       {chat.recipientName || chat.recipientId || 'Unknown User'}
                     </h3>
+                    {chat.recipientUsername && (
+                      <span className="text-sm text-gray-500">
+                        @{chat.recipientUsername}
+                      </span>
+                    )}
                     {chat.unreadCount > 0 && (
-                      <div className="w-3 h-3 rounded-full shadow-lg flex-shrink-0" style={{
+                      <div className="w-3.5 h-3.5 rounded-full shadow-lg flex-shrink-0" style={{
                         background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)',
                         boxShadow: '0 2px 8px rgba(96, 165, 250, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3)',
                         border: '1px solid rgba(255, 255, 255, 0.2)'
@@ -209,7 +236,7 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
                   
                   {/* Message Row */}
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-600 truncate flex-1 min-w-0">
+                    <p className="text-sm text-gray-600 truncate flex-1 min-w-0">
                       {chat.lastMessage || 'No messages yet'}
                     </p>
                     <button
@@ -217,13 +244,17 @@ export function ChatList({ onSelectChat, searchQuery = '', filterType = 'all' }:
                         e.stopPropagation();
                         setChatToDelete({ id: chat.id, name: chat.recipientName });
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition-all"
+                      className="ml-2 flex-shrink-0 transition-all"
+                      style={{ padding: '2px', marginTop: '-12px' }}
                       disabled={deletingChatId === chat.id}
                     >
-                      <Trash2 className="h-3 w-3" style={{ color: '#3b82f6' }} />
+                      <X className="h-3.5 w-3.5" style={{ color: '#6b7280' }} strokeWidth={2.5} />
                     </button>
                   </div>
                 </div>
+                
+                {/* Bottom separator line */}
+                <div className="absolute bottom-0 left-0 right-0 h-p x bg-gray-200"></div>
               </div>
             ))}
           </div>

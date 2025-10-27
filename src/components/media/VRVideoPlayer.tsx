@@ -256,11 +256,48 @@ const VRVideoPlayer: React.FC<VRVideoPlayerProps> = ({
         camera.updateProjectionMatrix();
       };
 
+      // Touch controls for mobile
+      let touchStart = { x: 0, y: 0 };
+      let isTouching = false;
+
+      const onTouchStart = (event: TouchEvent) => {
+        if (event.touches.length === 1) {
+          isTouching = true;
+          touchStart.x = event.touches[0].clientX;
+          touchStart.y = event.touches[0].clientY;
+        }
+      };
+
+      const onTouchMove = (event: TouchEvent) => {
+        if (!isTouching || event.touches.length !== 1) return;
+        
+        event.preventDefault(); // Prevent scrolling
+        
+        const deltaX = event.touches[0].clientX - touchStart.x;
+        const deltaY = event.touches[0].clientY - touchStart.y;
+
+        targetRotationY += deltaX * 0.01;
+        targetRotationX += deltaY * 0.01;
+
+        // Limit vertical rotation
+        targetRotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, targetRotationX));
+
+        touchStart.x = event.touches[0].clientX;
+        touchStart.y = event.touches[0].clientY;
+      };
+
+      const onTouchEnd = () => {
+        isTouching = false;
+      };
+
       // Add event listeners
       renderer.domElement.addEventListener('mousedown', onMouseDown);
       renderer.domElement.addEventListener('mousemove', onMouseMove);
       renderer.domElement.addEventListener('mouseup', onMouseUp);
       renderer.domElement.addEventListener('wheel', onWheel);
+      renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+      renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+      renderer.domElement.addEventListener('touchend', onTouchEnd);
 
       // Animation loop
       const animate = () => {
@@ -335,7 +372,21 @@ const VRVideoPlayer: React.FC<VRVideoPlayerProps> = ({
     // Do not loop VR videos by default
     video.loop = false;
     video.playsInline = true;
-    video.style.display = 'none';
+    
+    // Add mobile attributes for fullscreen support
+    video.setAttribute('webkit-playsinline', 'true');
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('x5-video-player-type', 'h5');
+    video.setAttribute('x5-video-player-fullscreen', 'true');
+    video.setAttribute('x5-video-orientation', 'landscape');
+    
+    // Make video visible but hidden behind canvas for fullscreen
+    video.style.position = 'absolute';
+    video.style.opacity = '0';
+    video.style.width = '100%';
+    video.style.height = '100%';
+    video.style.zIndex = '1';
+    
     if (poster) {
       video.poster = poster;
       // Ensure poster shows until play starts
@@ -406,6 +457,41 @@ const VRVideoPlayer: React.FC<VRVideoPlayerProps> = ({
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Handle fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const isFullscreen = !!(document.fullscreenElement || 
+                               (document as any).webkitFullscreenElement || 
+                               (document as any).mozFullScreenElement || 
+                               (document as any).msFullscreenElement);
+      setIsFullscreen(isFullscreen);
+      
+      // Resize renderer when fullscreen changes
+      setTimeout(() => {
+        if (rendererRef.current && cameraRef.current && containerRef.current) {
+          const width = containerRef.current.clientWidth;
+          const height = containerRef.current.clientHeight;
+          
+          cameraRef.current.aspect = width / height;
+          cameraRef.current.updateProjectionMatrix();
+          rendererRef.current.setSize(width, height);
+        }
+      }, 100);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
   }, []);
 
   // Check VR support on mount
@@ -530,14 +616,42 @@ const VRVideoPlayer: React.FC<VRVideoPlayerProps> = ({
   }, [isPlaying, duration]);
 
   const toggleFullscreen = useCallback(() => {
-    if (containerRef.current) {
-      if (!document.fullscreenElement) {
-        containerRef.current.requestFullscreen();
-        setIsFullscreen(true);
-      } else {
-        document.exitFullscreen();
-        setIsFullscreen(false);
+    const isFullscreen = document.fullscreenElement || 
+                        (document as any).webkitFullscreenElement || 
+                        (document as any).mozFullScreenElement || 
+                        (document as any).msFullscreenElement;
+    
+    if (!isFullscreen) {
+      // Always use container for fullscreen to maintain Three.js 360° rendering
+      // Do NOT use video element as it shows flat 2D video
+      const containerEl = containerRef.current as any;
+      
+      if (!containerEl) return;
+      
+      if (containerEl.requestFullscreen) {
+        containerEl.requestFullscreen().catch((err: any) => {
+          console.error('Error entering fullscreen on container:', err);
+        });
+      } else if (containerEl.webkitRequestFullscreen) {
+        containerEl.webkitRequestFullscreen();
+      } else if (containerEl.mozRequestFullScreen) {
+        containerEl.mozRequestFullScreen();
+      } else if (containerEl.msRequestFullscreen) {
+        containerEl.msRequestFullscreen();
       }
+      setIsFullscreen(true);
+    } else {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozCancelFullScreen) {
+        (document as any).mozCancelFullScreen();
+      } else if ((document as any).msExitFullscreen) {
+        (document as any).msExitFullscreen();
+      }
+      setIsFullscreen(false);
     }
   }, []);
 

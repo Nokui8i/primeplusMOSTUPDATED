@@ -6,11 +6,11 @@ import { ChatList } from '@/components/chat/ChatList';
 import { Chat } from '@/components/chat/Chat';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { Search, MessageCircle, ChevronDown } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MessageCircle, Search as SearchIcon, ChevronDown } from 'lucide-react';
 import { useChat } from '@/contexts/ChatContext';
+import { useMessages } from '@/contexts/MessagesContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -21,8 +21,7 @@ export default function MessagesPage() {
     recipientProfile?: any;
   } | null>(null);
   const [isMobileView, setIsMobileView] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
+  const { searchQuery, filterType, setSearchQuery, setFilterType } = useMessages();
 
   useEffect(() => {
     const checkMobile = () => {
@@ -56,7 +55,6 @@ export default function MessagesPage() {
   const handleSelectChat = async (recipientId: string, recipientName: string) => {
     console.log('🔍 Selecting chat:', recipientId, recipientName);
     
-    // Fetch the full profile data for the selected chat
     try {
       const userDoc = await getDoc(doc(db, 'users', recipientId));
       if (userDoc.exists()) {
@@ -79,135 +77,142 @@ export default function MessagesPage() {
   };
 
   return (
-    <div className="flex bg-white rounded-lg shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
+      <div className="relative flex bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden" style={{ height: isMobileView ? 'calc(100vh - 48px - 56px)' : 'calc(100vh - 80px)' }}>
       {/* Left Column - Chat List */}
-      <div className={`${isMobileView ? (!selectedChat ? 'flex' : 'hidden') : 'flex'} w-80 flex-col bg-white border-r border-gray-200`}>
-        {/* Header */}
-        <div className="px-4 py-1.5 overflow-hidden border-b border-gray-200">
-          {/* Search Bar and Filter Dropdown */}
-          <div className="flex gap-3 justify-between">
-            {/* Animated Search Bar */}
-            <div className="relative flex-1 ml-2">
-              <style jsx>{`
-                .search-container {
-                  position: relative !important;
-                  --size-button: 32px;
-                  color: white;
-                  top: -2px !important;
-                }
-                
-                .search-input {
-                  padding-left: var(--size-button) !important;
-                  height: var(--size-button) !important;
-                  font-size: 13px !important;
-                  border: none !important;
-                  color: #000 !important;
-                  outline: none !important;
-                  width: var(--size-button) !important;
-                  transition: all ease 0.3s !important;
-                  background-color: #fff !important;
-                  box-shadow: 1.5px 1.5px 3px #e5e7eb, -1.5px -1.5px 3px rgba(156, 163, 175, 0.25), inset 0px 0px 0px #e5e7eb, inset 0px -0px 0px rgba(156, 163, 175, 0.25) !important;
-                  border-radius: 50px !important;
-                  cursor: pointer !important;
-                  margin: 0 !important;
-                  padding-top: 0 !important;
-                  padding-bottom: 0 !important;
-                  padding-right: 0 !important;
-                }
-                
-                .search-input:focus,
-                .search-input:not(:invalid) {
-                  width: 150px !important;
-                  cursor: text !important;
-                  border: none !important;
-                  outline: none !important;
-                  box-shadow: 0px 0px 0px #e5e7eb, 0px 0px 0px rgba(156, 163, 175, 0.25), inset 1.5px 1.5px 3px #e5e7eb, inset -1.5px -1.5px 3px rgba(156, 163, 175, 0.25) !important;
-                }
-                
-                .search-input:focus + .search-icon,
-                .search-input:not(:invalid) + .search-icon {
-                  pointer-events: all !important;
-                  cursor: pointer !important;
-                }
-                
-                .search-icon {
-                  position: absolute !important;
-                  width: var(--size-button) !important;
-                  height: var(--size-button) !important;
-                  top: -2px !important;
-                  left: 1px !important;
-                  padding: 6px !important;
-                  pointer-events: none !important;
-                }
-                
-                .search-icon svg {
-                  width: 100% !important;
-                  height: 100% !important;
-                }
-              `}</style>
-              <div className="search-container">
-                <input
-                  type="text"
-                  name="search"
-                  className="search-input"
-                  required
-                  placeholder="Type to search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  autoComplete="off"
-                />
-                <div className="search-icon">
-                  <Search className="w-full h-full text-gray-500" />
+      <div className={`${isMobileView ? (!selectedChat ? 'flex' : 'hidden') : 'flex'} ${isMobileView ? 'w-full' : 'w-[400px]'} flex-col bg-white ${!isMobileView ? 'border-r border-gray-200' : ''}`}>
+        {/* Only desktop shows internal header, mobile uses MainLayout header */}
+        {!isMobileView && (
+        <div className="px-4 py-3 border-b border-gray-200" style={{ minHeight: '56px', maxHeight: '56px' }}>
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0">
+                <h1 className="text-xl font-bold text-gray-900">Messages</h1>
+              </div>
+              <div className="flex-1 max-w-md"></div>
+              <div className="flex items-center gap-0 flex-shrink-0 ml-auto -mr-2">
+                {/* Messages Search */}
+                <div className="relative mr-2">
+                  <style jsx>{`
+                    .search-container-messages-page {
+                      position: relative !important;
+                      --size-button: 32px;
+                      width: 32px !important;
+                      transition: width ease 0.3s !important;
+                    }
+                    
+                    .search-container-messages-page:has(input:focus) {
+                      width: 150px !important;
+                    }
+                    
+                    .search-input-messages-page {
+                      padding-right: var(--size-button) !important;
+                      padding-left: 8px !important;
+                      height: var(--size-button) !important;
+                      font-size: 14px !important;
+                      border: 2px solid transparent !important;
+                      color: #000 !important;
+                      outline: none !important;
+                      width: 100% !important;
+                      transition: border ease 0.3s !important;
+                      background-color: transparent !important;
+                      border-radius: 10px !important;
+                      cursor: pointer !important;
+                    }
+                    
+                    .search-input-messages-page:focus {
+                      cursor: text !important;
+                      border: 1px solid #d1d5db !important;
+                      background-color: white !important;
+                    }
+                    
+                    .search-icon-messages-page {
+                      position: absolute !important;
+                      width: var(--size-button) !important;
+                      height: var(--size-button) !important;
+                      top: 0 !important;
+                      right: 0 !important;
+                      padding: 6px !important;
+                      pointer-events: none !important;
+                    }
+                  `}</style>
+                  <div className="search-container-messages-page">
+                    <input
+                      type="text"
+                      name="search"
+                      className="search-input-messages-page"
+                      required
+                      placeholder="Search..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      autoComplete="off"
+                    />
+                    <div className="search-icon-messages-page">
+                      <SearchIcon className="w-full h-full text-gray-500" />
+                    </div>
+                  </div>
                 </div>
+                
+                {/* Messages Filter */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
+                      <span className="text-xs font-medium">
+                        {filterType === 'all' ? 'All' : filterType === 'unread' ? 'Unread' : 'Pinned'}
+                      </span>
+                      <ChevronDown className="h-3 w-3" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent 
+                    align="end" 
+                    className="w-24 bg-white border-0 overflow-hidden p-0"
+                    style={{
+                      borderRadius: '12px',
+                      boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                    }}
+                  >
+                    <DropdownMenuItem 
+                      onClick={() => setFilterType('all')}
+                      className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                        filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
+                      }`}
+                      style={{ fontWeight: '500', fontSize: '12px' }}
+                    >
+                      All
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setFilterType('unread')}
+                      className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                        filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
+                      }`}
+                      style={{ fontWeight: '500', fontSize: '12px' }}
+                    >
+                      Unread
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setFilterType('pinned')}
+                      className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                        filterType === 'pinned' ? 'text-blue-600' : 'text-gray-700'
+                      }`}
+                      style={{ fontWeight: '500', fontSize: '12px' }}
+                    >
+                      Pinned
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
-
-            {/* Filter Dropdown */}
-            <div className="mr-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
-                  <span className="text-xs font-medium">
-                    {filterType === 'all' ? 'All' : 'Unread'}
-                  </span>
-                  <ChevronDown className="h-3 w-3" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent 
-                align="end" 
-                className="w-24 bg-white border-0 overflow-hidden p-0"
-                style={{
-                  borderRadius: '12px',
-                  boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
-                  background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                }}
-              >
-                <DropdownMenuItem 
-                  onClick={() => setFilterType('all')}
-                  className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
-                    filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
-                  }`}
-                  style={{ fontWeight: '500', fontSize: '12px' }}
-                >
-                  All
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setFilterType('unread')}
-                  className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
-                    filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
-                  }`}
-                  style={{ fontWeight: '500', fontSize: '12px' }}
-                >
-                  Unread
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            </div>
           </div>
+        )}
+        
+        {/* Filter Header */}
+        <div className="px-4 py-3">
+          <h2 className="text-sm font-semibold uppercase text-gray-600">
+            {filterType === 'all' ? 'All Messages' : filterType === 'unread' ? 'Unread Messages' : 'Pinned Messages'}
+          </h2>
         </div>
 
         {/* Chat List */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden" style={{ minHeight: 0, paddingBottom: isMobileView ? '56px' : '0' }}>
           <ChatList 
             onSelectChat={handleSelectChat} 
             searchQuery={searchQuery}
@@ -217,27 +222,52 @@ export default function MessagesPage() {
       </div>
 
       {/* Right Column - Chat Area */}
-      <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-white`}>
-        {selectedChat ? (
-          <Chat 
-            key={`${selectedChat.recipientId}-${selectedChat.recipientName}`}
-            recipientId={selectedChat.recipientId} 
-            recipientName={selectedChat.recipientName} 
-            hideHeader={false}
-            recipientProfile={selectedChat.recipientProfile}
-          />
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <MessageCircle className="w-8 h-8 text-gray-400" />
+      {isMobileView ? (
+        <AnimatePresence>
+          {selectedChat && (
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              className="fixed left-0 right-0 bg-white z-50"
+              style={{ top: '48px', bottom: '56px' }}
+            >
+              <Chat 
+                key={`${selectedChat.recipientId}-${selectedChat.recipientName}`}
+                recipientId={selectedChat.recipientId} 
+                recipientName={selectedChat.recipientName} 
+                hideHeader={false}
+                onClose={() => setSelectedChat(null)}
+                recipientProfile={selectedChat.recipientProfile}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        <div className={`${isMobileView && !selectedChat ? 'hidden' : 'flex'} flex-1 flex-col bg-white border-l border-gray-200`}>
+          {selectedChat ? (
+            <Chat 
+              key={`${selectedChat.recipientId}-${selectedChat.recipientName}`}
+              recipientId={selectedChat.recipientId} 
+              recipientName={selectedChat.recipientName} 
+              hideHeader={false}
+              onClose={() => setSelectedChat(null)}
+              recipientProfile={selectedChat.recipientProfile}
+            />
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <MessageCircle className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
+                <p className="text-sm text-gray-500">Choose a chat from the sidebar to start messaging</p>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
-              <p className="text-sm text-gray-500">Choose a chat from the sidebar to start messaging</p>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

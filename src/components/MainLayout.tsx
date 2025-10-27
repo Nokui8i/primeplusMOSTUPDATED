@@ -22,6 +22,9 @@ import { DataPreloader } from './common/DataPreloader';
 import { ChatWindows } from './chat/ChatWindows';
 import { useAuth } from '@/hooks/useAuth';
 import { ContentUploadDialog } from './creator/ContentUploadDialog';
+import { useMessages } from '@/contexts/MessagesContext';
+import { Search as SearchIcon, ChevronDown } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface Creator {
   id: string;
@@ -52,6 +55,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const pathname = usePathname();
   const mainContentRef = useRef<HTMLElement>(null);
   const { user } = useAuth();
+  const messages = useMessages();
   
   // Hide right sidebar on messages page
   const isMessagesPage = pathname === '/messages';
@@ -234,19 +238,19 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="h-screen bg-white overflow-hidden">
       {/* Content Layer */}
-      <div className="flex justify-center">
-        <div className="flex w-full max-w-7xl">
+      <div className="flex justify-center h-full">
+        <div className="flex w-full max-w-7xl h-full">
           {/* Left Sidebar - Responsive Widths */}
-          <aside className="hidden md:block w-64 h-screen sticky top-0 bg-white border-r border-gray-200">
+          <aside className="hidden md:block w-64 h-screen sticky top-0 bg-white">
             <LeftSidebar />
           </aside>
 
           {/* Center Area with Header and Main Content */}
-          <div className="flex-1 flex flex-col border-l border-gray-200 bg-white overflow-hidden" style={{ height: '100vh' }}>
+          <div className={`flex-1 flex flex-col ${!isMessagesPage ? 'border-l border-gray-200' : ''} bg-white overflow-hidden h-full`}>
             {/* Mobile Header - Page Name with Search Icon */}
-            <div className="md:hidden flex items-center justify-between px-4 bg-white border-b border-gray-200 flex-shrink-0" style={{ paddingTop: 'max(6px, env(safe-area-inset-top, 6px))', paddingBottom: '6px' }}>
+            <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 bg-white border-b border-gray-200 flex-shrink-0" style={{ paddingTop: 'max(6px, env(safe-area-inset-top, 6px))', paddingBottom: '6px' }}>
               <h1 className="text-base font-bold text-gray-900">
                 {pathname === '/home' && 'Home'}
                 {pathname === '/messages' && 'Messages'}
@@ -261,25 +265,145 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 {pathname?.startsWith('/post/') && 'Post'}
                 {pathname?.startsWith('/') && pathname.split('/').filter(Boolean).length > 1 && !['home', 'messages', 'subscriptions', 'profile', 'settings', 'notifications', 'search', 'creator', 'admin', 'complete-profile'].includes(pathname.split('/')[1]) && pathname.split('/')[1].charAt(0).toUpperCase() + pathname.split('/')[1].slice(1)}
               </h1>
-              <div className="flex items-center gap-0">
-                <div className="relative">
-                  <SearchDropdown />
-                </div>
-                <NotificationsDropdown />
-                <div className="ml-auto -mr-2">
-                  <FilterDropdown />
-                </div>
+              <div className="flex items-center gap-2 ml-auto">
+                {!isMessagesPage ? (
+                  <>
+                    <div className="relative">
+                      <SearchDropdown />
+                    </div>
+                    <NotificationsDropdown />
+                    <div className="ml-auto -mr-2">
+                      <FilterDropdown />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Messages Search */}
+                    <div className="relative">
+                      <style jsx>{`
+                        .search-container-messages {
+                          position: relative;
+                          --size-button: 36px;
+                          color: white;
+                        }
+                        
+                        .search-input-messages {
+                          padding-right: var(--size-button);
+                          padding-left: 10px;
+                          height: var(--size-button);
+                          font-size: 16px;
+                          border: 2px solid transparent;
+                          color: #000;
+                          outline: none;
+                          width: var(--size-button);
+                          transition: width ease 0.3s;
+                          background-color: transparent;
+                          border-radius: 10px;
+                          cursor: pointer;
+                        }
+                        
+                        .search-input-messages:focus,
+                        .search-input-messages:not(:invalid) {
+                          width: 180px;
+                          cursor: text;
+                          border: 1px solid #d1d5db;
+                          background-color: white;
+                        }
+                        
+                        .search-icon-messages {
+                          position: absolute;
+                          width: var(--size-button);
+                          height: var(--size-button);
+                          top: 0;
+                          right: 0;
+                          padding: 6px;
+                          pointer-events: none;
+                          z-index: 10;
+                        }
+                        
+                        .search-icon-messages svg {
+                          width: 100%;
+                          height: 100%;
+                        }
+                      `}</style>
+                      <div className="search-container-messages">
+                        <input
+                          type="text"
+                          name="search"
+                          className="search-input-messages"
+                          required
+                          placeholder="Search..."
+                          value={messages.searchQuery}
+                          onChange={(e) => messages.setSearchQuery(e.target.value)}
+                          autoComplete="off"
+                        />
+                        <div className="search-icon-messages">
+                          <SearchIcon className="w-full h-full text-gray-500" />
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Messages Filter */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
+                          <span className="text-xs font-medium">
+                            {messages.filterType === 'all' ? 'All' : messages.filterType === 'unread' ? 'Unread' : 'Pinned'}
+                          </span>
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent 
+                        align="end" 
+                        className="w-24 bg-white border-0 overflow-hidden p-0"
+                        style={{
+                          borderRadius: '12px',
+                          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        }}
+                      >
+                        <DropdownMenuItem 
+                          onClick={() => messages.setFilterType('all')}
+                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                            messages.filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
+                          }`}
+                          style={{ fontWeight: '500', fontSize: '12px' }}
+                        >
+                          All
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => messages.setFilterType('unread')}
+                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                            messages.filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
+                          }`}
+                          style={{ fontWeight: '500', fontSize: '12px' }}
+                        >
+                          Unread
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => messages.setFilterType('pinned')}
+                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                            messages.filterType === 'pinned' ? 'text-blue-600' : 'text-gray-700'
+                          }`}
+                          style={{ fontWeight: '500', fontSize: '12px' }}
+                        >
+                          Pinned
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Desktop Header - Responsive */}
-            <div className="hidden md:block flex-shrink-0 z-10">
-              <div className="flex items-center gap-4 px-4 lg:px-6 py-3 bg-white border-b border-gray-200">
+              {!isMessagesPage && (
+              <div className="hidden md:block flex-shrink-0 z-10">
+              <div className={`flex items-center gap-4 ${isMessagesPage ? 'px-4' : 'px-4 lg:px-6'} py-3 bg-white border-b border-gray-200`}>
                 {/* Page Title */}
                 <div className="flex-shrink-0">
                   <h1 className="text-xl font-bold text-gray-900">
                     {pathname === '/home' && 'Home'}
-                    {pathname === '/messages' && 'Messages'}
                     {pathname === '/subscriptions' && 'Subscriptions'}
                     {pathname === '/profile' && 'Profile'}
                     {pathname === '/settings' && 'Settings'}
@@ -296,19 +420,124 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 <div className="flex-1 max-w-md"></div>
                 {/* Search, Notifications & Filters */}
                 <div className="flex items-center gap-0 flex-shrink-0 ml-auto -mr-2">
-                  <div className="relative">
-                    <SearchDropdown />
-                  </div>
+                  {!isMessagesPage ? (
+                    <>
+                      <div className="relative">
+                        <SearchDropdown />
+                      </div>
                   <NotificationsDropdown />
-                  <FilterDropdown />
+                      <FilterDropdown />
+                    </>
+                  ) : (
+                    <>
+                      {/* Messages Search */}
+                      <div className="relative mr-2">
+                        <style jsx>{`
+                          .search-container-messages-desk {
+                            position: relative !important;
+                            --size-button: 36px;
+                          }
+                          
+                          .search-input-messages-desk {
+                            padding-right: var(--size-button);
+                            padding-left: 10px;
+                            height: var(--size-button);
+                            font-size: 16px;
+                            border: 2px solid transparent;
+                            color: #000;
+                            outline: none;
+                            width: var(--size-button);
+                            transition: width ease 0.3s;
+                            background-color: transparent;
+                            border-radius: 10px !important;
+                            cursor: pointer !important;
+                          }
+                          
+                          .search-input-messages-desk:focus,
+                          .search-input-messages-desk:not(:invalid) {
+                            width: 180px;
+                            cursor: text;
+                            border: 1px solid #d1d5db;
+                            background-color: white;
+                          }
+                          
+                          .search-icon-messages-desk {
+                            position: absolute !important;
+                            width: var(--size-button) !important;
+                            height: var(--size-button) !important;
+                            top: 0 !important;
+                            right: 0 !important;
+                            padding: 6px !important;
+                            pointer-events: none !important;
+                          }
+                        `}</style>
+                        <div className="search-container-messages-desk">
+                          <input
+                            type="text"
+                            name="search"
+                            className="search-input-messages-desk"
+                            required
+                            placeholder="Search..."
+                            value={messages.searchQuery}
+                            onChange={(e) => messages.setSearchQuery(e.target.value)}
+                            autoComplete="off"
+                          />
+                          <div className="search-icon-messages-desk">
+                            <SearchIcon className="w-full h-full text-gray-500" />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Messages Filter */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="px-2 py-1 rounded-full flex items-center gap-1 bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 shadow-sm transition-all duration-200 focus:outline-none focus:ring-0">
+                            <span className="text-xs font-medium">
+                              {messages.filterType === 'all' ? 'All' : 'Unread'}
+                            </span>
+                            <ChevronDown className="h-3 w-3" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent 
+                          align="end" 
+                          className="w-24 bg-white border-0 overflow-hidden p-0"
+                          style={{
+                            borderRadius: '12px',
+                            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
+                            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                          }}
+                        >
+                          <DropdownMenuItem 
+                            onClick={() => messages.setFilterType('all')}
+                            className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                              messages.filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
+                            }`}
+                            style={{ fontWeight: '500', fontSize: '12px' }}
+                          >
+                            All
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => messages.setFilterType('unread')}
+                            className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                              messages.filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
+                            }`}
+                            style={{ fontWeight: '500', fontSize: '12px' }}
+                          >
+                            Unread
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </>
+                  )}
                 </div>
               </div>
-            </div>
+              </div>
+              )}
 
                 {/* Main Content - Responsive */}
                 <main 
                   ref={mainContentRef} 
-                  className={`flex-1 w-full invisible-scrollbar relative pb-16 md:pb-0 ${isSubscriptionsPage ? 'overflow-hidden subscriptions-page-main' : 'overflow-y-auto'}`}
+                  className={`flex-1 w-full invisible-scrollbar relative pb-16 md:pb-0 pt-[48px] md:pt-0 ${isSubscriptionsPage ? 'overflow-hidden subscriptions-page-main' : 'overflow-y-auto'}`}
                   style={{ 
                     scrollBehavior: 'smooth',
                     scrollbarWidth: 'none',
@@ -325,13 +554,15 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           {/* Right Sidebar - Responsive Widths */}
-          <aside className="hidden lg:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
-            <RightSidebar
-              suggestedCreators={suggestedCreators}
-              trendingTopics={trendingTopics}
-              isLoading={isLoading}
-            />
-          </aside>
+          {!isMessagesPage && (
+            <aside className="hidden lg:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
+              <RightSidebar
+                suggestedCreators={suggestedCreators}
+                trendingTopics={trendingTopics}
+                isLoading={isLoading}
+              />
+            </aside>
+          )}
         </div>
       </div>
 

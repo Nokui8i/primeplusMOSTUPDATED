@@ -190,31 +190,40 @@ export function EditPostDialog({
       }
 
       // Determine post type based on 360 mode
+      // NOTE: We don't allow converting regular media to 360° mode via edit
+      // because the actual media file isn't converted. Only allow toggling OFF 360° mode.
       let postType = post.type
-      if (is360Mode && !initialIs360Mode) {
-        // Switching to 360 mode
-        if (post.type === 'image') {
-          postType = 'image360'
-        } else if (post.type === 'video') {
-          postType = 'video360'
-        }
-      } else if (!is360Mode && initialIs360Mode) {
-        // Switching from 360 mode
+      
+      // Allow switching FROM 360 mode to regular (the media will display correctly)
+      if (!is360Mode && initialIs360Mode) {
         if (post.type === 'image360') {
           postType = 'image'
         } else if (post.type === 'video360') {
           postType = 'video'
         }
       }
+      
+      // If trying to turn ON 360 mode for non-360 media, prevent it
+      if (is360Mode && !initialIs360Mode) {
+        toast.error('Cannot convert regular media to 360° mode. Please upload as 360° content from the beginning.')
+        setIsSubmitting(false)
+        return
+      }
 
-      await updatePost(post.id, {
+      const updateData: any = {
         content: content.trim(),
         accessSettings,
         allowComments: commentSettings.allowComments,
-        commentAccessLevel: commentSettings.commentAccessLevel,
         showWatermark,
         type: postType,
-      })
+      }
+      
+      // Only include commentAccessLevel if it's defined
+      if (commentSettings.commentAccessLevel !== undefined) {
+        updateData.commentAccessLevel = commentSettings.commentAccessLevel
+      }
+
+      await updatePost(post.id, updateData)
 
       toast.success('Post updated successfully!')
       onOpenChange(false)
@@ -332,17 +341,28 @@ export function EditPostDialog({
             <div className="setting-row">
               <div className="setting-info">
                 <div className="setting-label">360° Mode</div>
+                {!initialIs360Mode && (
+                  <div className="text-gray-500 text-xs mt-1">
+                    Cannot be enabled for regular media
+                  </div>
+                )}
               </div>
               <div className="setting-control">
-                <label className="flex items-center cursor-pointer">
+                <label className={`flex items-center cursor-pointer ${(!initialIs360Mode && !is360Mode) ? 'opacity-50' : ''}`}>
                   <input
                     type="checkbox"
                     checked={is360Mode}
                     onChange={(e) => {
                       e.stopPropagation();
-                      setIs360Mode(e.target.checked);
+                      if (e.target.checked && !initialIs360Mode) {
+                        // Cannot convert regular to 360 mode
+                        toast.error('Cannot convert regular media to 360° mode. Please upload as 360° content from the beginning.')
+                      } else {
+                        setIs360Mode(e.target.checked)
+                      }
                     }}
                     className="checkbox"
+                    disabled={!initialIs360Mode && !is360Mode}
                   />
                   <span className="slider"></span>
                 </label>
