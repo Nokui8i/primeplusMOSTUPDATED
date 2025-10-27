@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { collection, query, orderBy, limit, getDocs, startAfter, getDoc, doc as docRef, Timestamp, DocumentData, onSnapshot, increment, updateDoc, where } from 'firebase/firestore'
 import { getAuth, onAuthStateChanged } from 'firebase/auth'
@@ -14,6 +14,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { onSnapshot as onDocSnapshot } from 'firebase/firestore'
 import AppLoader from '@/components/common/AppLoader'
 import { isUserBlocked } from '@/lib/services/block.service'
+import { useFilter } from '@/contexts/FilterContext'
 
 const POSTS_PER_PAGE = 10
 
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [lastDoc, setLastDoc] = useState<any>(null)
   const router = useRouter()
   const { user } = useAuth()
+  const { hideLockedPosts } = useFilter()
   const { ref: loadMoreRef, inView } = useInView()
   const incrementedRef = useRef(false)
 
@@ -116,29 +118,46 @@ export default function HomePage() {
     const postsRef = collection(db, 'posts');
     const q = query(postsRef, orderBy('createdAt', 'desc'), limit(POSTS_PER_PAGE));
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const newPosts: PostWithAuthor[] = [];
-      for (const doc of snapshot.docs) {
-        const postData = doc.data();
-        const authorId = postData.authorId || postData.userId;
-        if (!authorId) {
-          console.error(`No author ID found for post ${doc.id}`);
-          continue;
-        }
+      try {
+        const docs = snapshot.docs;
+        
+        // Batch fetch all author IDs
+        const authorIds = [...new Set(docs.map(doc => {
+          const data = doc.data();
+          return data.authorId || data.userId;
+        }).filter(Boolean))] as string[];
 
-        // Only check if author blocked current user (one-way blocking)
-        const authorBlockedUser = await isUserBlocked(authorId, user.uid);
+        // Batch fetch all user documents in parallel
+        const userDocs = await Promise.all(
+          authorIds.map(id => getDoc(docRef(db, 'users', id)))
+        );
+        
+        // Create a map for quick lookup
+        const userMap = new Map();
+        userDocs.forEach((userDoc, index) => {
+          if (userDoc.exists()) {
+            userMap.set(authorIds[index], userDoc.data());
+          }
+        });
 
-        if (authorBlockedUser) {
-          console.log(`Skipping post ${doc.id} from blocked user ${authorId}`);
-          continue; // Skip this post completely
-        }
+        // Batch fetch block status
+        const currentUserDoc = await getDoc(docRef(db, 'users', user.uid));
+        const currentUserData = currentUserDoc.data();
+        const blockedUsers = new Set(currentUserData?.blockedUsers || []);
 
-        const authorSnap = await getDoc(docRef(db, 'users', authorId));
-        const authorData = authorSnap.data() as DocumentData;
-        if (!authorData) {
-          console.error(`Author data not found for post ${doc.id}`);
-          continue;
-        }
+        // Build posts with batched data
+        const newPosts: PostWithAuthor[] = [];
+        for (const doc of docs) {
+          const postData = doc.data();
+          const authorId = postData.authorId || postData.userId;
+          if (!authorId) continue;
+
+          // Check block status from Set
+          if (blockedUsers.has(authorId)) continue;
+
+          const authorData = userMap.get(authorId);
+          if (!authorData) continue;
+          
         newPosts.push({
           id: doc.id,
           title: postData.title || '',
@@ -194,7 +213,7 @@ export default function HomePage() {
           status: postData.status,
           showWatermark: postData.showWatermark,
           author: {
-            id: authorSnap.id,
+            id: authorId,
             displayName: String(authorData.displayName || 'Anonymous'),
             photoURL: String(authorData.photoURL || '/default-avatar.png'),
             username: String(authorData.username || '')
@@ -203,8 +222,12 @@ export default function HomePage() {
       }
       setPosts(newPosts);
       setLoading(false);
+      } catch (error) {
+        console.error('Error fetching posts:', error);
+        setLoading(false);
+      }
     }, (error) => {
-      console.error('Error fetching posts:', error);
+      console.error('Error in snapshot:', error);
       setLoading(false);
     });
     return () => unsubscribe();
@@ -376,13 +399,24 @@ export default function HomePage() {
   }, [inView, hasMore, loading, lastDoc]);
 
 
+  // Filter posts based on hideLockedPosts setting
+  const filteredPosts = useMemo(() => {
+    if (!hideLockedPosts) return posts;
+    
+    return posts.filter(post => {
+      // Keep posts that are free (no access settings or free access)
+      const accessLevel = post.accessSettings?.accessLevel;
+      return !accessLevel || accessLevel === 'free';
+    });
+  }, [posts, hideLockedPosts]);
+
   if (loading && posts.length === 0) {
     return <AppLoader isVisible={true} />;
   }
 
   return (
     <div className="space-y-6">
-      {posts.map((post) => (
+      {filteredPosts.map((post) => (
         <div key={post.id}>
           <CompactPost 
             post={post}

@@ -300,12 +300,7 @@ export function NotificationsDropdown() {
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <button 
-            className="relative p-2 text-gray-600 hover:text-blue-600 focus:outline-none transition-all duration-300 w-10 h-10 flex items-center justify-center rounded-full hover:bg-blue-50 group"
-            style={{
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-              background: 'rgba(255, 255, 255, 0.9)',
-              backdropFilter: 'blur(10px)'
-            }}
+            className="relative p-1.5 text-gray-600 hover:text-gray-700 focus:outline-none transition-all duration-300 w-9 h-9 flex items-center justify-center group"
           >
             <Bell className="w-5 h-5 transition-transform duration-200 group-hover:scale-110" />
             {unreadCount > 0 && (
@@ -322,17 +317,20 @@ export function NotificationsDropdown() {
         </DropdownMenuTrigger>
         <DropdownMenuContent 
           align="end" 
-          className="w-80 max-h-[600px] bg-white border-0 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-200 rounded-2xl overflow-hidden"
+          className="w-80 max-h-[600px] border p-0"
           style={{
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+            border: '1px solid rgba(255, 255, 255, 0.8)',
             boxShadow: `
-              0 20px 25px -5px rgba(0, 0, 0, 0.1),
-              0 10px 10px -5px rgba(0, 0, 0, 0.04),
-              0 0 0 1px rgba(255, 255, 255, 0.05),
-              inset 0 1px 0 rgba(255, 255, 255, 0.1)
+              0 20px 60px rgba(0, 0, 0, 0.12),
+              0 8px 25px rgba(0, 0, 0, 0.08),
+              0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+              0 2px 4px rgba(0, 0, 0, 0.04) inset
             `,
-            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
             backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
+            transform: 'translateY(-2px)',
+            transition: 'all 0.3s ease',
+            borderRadius: '0.5rem'
           }}
           onWheel={(e) => e.stopPropagation()}
         >

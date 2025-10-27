@@ -155,7 +155,7 @@ export function SubscriptionContainer({
       
       // Calculate price and duration
       let price = plan.price;
-      let duration = plan.duration;
+      let duration = plan.duration || plan.intervalCount || 30; // Default to 30 if not specified
       
       if (bundle) {
         price = bundle.price;
@@ -237,7 +237,7 @@ export function SubscriptionContainer({
   const getBundles = (plan: Plan) => {
     if (!plan.bundles && !plan.discountSchedule) return [];
     
-    const bundles = [];
+    const bundles: any[] = [];
     
     if (plan.bundles && plan.bundles.length > 0) {
       return plan.bundles.map(bundle => ({
@@ -251,13 +251,14 @@ export function SubscriptionContainer({
     
     if (plan.discountSchedule && plan.discountSchedule.length > 0) {
       plan.discountSchedule.forEach(discount => {
-        const bundles = {
-          duration: plan.duration * discount.period,
+        const bundle = {
+          duration: (plan.duration || 30) * discount.period,
           price: Math.round((plan.price * discount.period) * (1 - discount.discountPercent / 100) * 100) / 100,
           discountPercent: discount.discountPercent,
           monthsCount: discount.period,
           label: `${discount.period} MONTHS`
         };
+        bundles.push(bundle);
       });
     }
     

@@ -69,39 +69,38 @@ export default function CreatorDashboard() {
         const dd = String(d.getDate()).padStart(2, '0');
         weekDays.push(`${yyyy}-${mm}-${dd}`);
       }
-      for (const docSnap of postsSnap.docs) {
+      // Batch fetch all likes and comments in parallel for performance
+      const postIds = postsSnap.docs.map(doc => doc.id);
+      
+      const [likesCounts, commentsCounts] = await Promise.all([
+        Promise.all(postIds.map(async (postId) => {
+          const likesCol = collection(db, 'posts', postId, 'likes');
+          return getCountFromServer(likesCol);
+        })),
+        Promise.all(postIds.map(async (postId) => {
+          const commentsQuery = query(
+            collection(db, 'comments'),
+            where('postId', '==', postId)
+          );
+          return getCountFromServer(commentsQuery);
+        }))
+      ]);
+
+      // Process posts with batched data
+      for (let i = 0; i < postsSnap.docs.length; i++) {
+        const docSnap = postsSnap.docs[i];
         const data = docSnap.data();
-        console.log('[Dashboard] Post data:', {
-          id: docSnap.id,
-          likes: data.likes,
-          engagement: data.engagement,
-          hasViews: typeof data.engagement?.views,
-          viewsValue: data.engagement?.views
-        });
         
-        // Count real likes in subcollection (not the counter field)
-        const likesCol = collection(db, 'posts', docSnap.id, 'likes');
-        const likesSnap = await getCountFromServer(likesCol);
-        const likeCount = likesSnap.data().count || 0;
-        console.log('[Dashboard] Post', docSnap.id, 'likes:', likeCount);
+        // Use batched counts
+        const likeCount = likesCounts[i].data().count || 0;
+        const commentCount = commentsCounts[i].data().count || 0;
+        
         totalLikes += likeCount;
-        
-        // Count real comments from main 'comments' collection filtered by postId
-        const commentsQuery = query(
-          collection(db, 'comments'),
-          where('postId', '==', docSnap.id)
-        );
-        const commentsSnap = await getCountFromServer(commentsQuery);
-        const commentCount = commentsSnap.data().count || 0;
-        console.log('[Dashboard] Post', docSnap.id, 'comments:', commentCount);
         totalComments += commentCount;
         
         // Sum views from engagement
         if (typeof data.engagement?.views === 'number') {
-          console.log('[Dashboard] Adding views:', data.engagement.views);
           totalViews += data.engagement.views;
-        } else {
-          console.log('[Dashboard] No views found for post', docSnap.id);
         }
         
         // Sum views this week from engagement.viewsByDay

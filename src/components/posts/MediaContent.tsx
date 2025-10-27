@@ -494,7 +494,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       {type === 'image' && isMounted && (
         <Dialog open={showLightbox} onOpenChange={setShowLightbox}>
           <DialogContent 
-            className="w-auto max-w-none gap-0 p-0 bg-transparent border-none shadow-none outline-none ring-0 rounded-none [&>button]:hidden flex items-center justify-center"
+            className="w-auto max-w-none gap-0 p-0 bg-transparent border-none shadow-none outline-none ring-0 rounded-none [&>button]:hidden flex items-center justify-center fixed inset-0"
             style={{ 
               border: 'none', 
               outline: 'none', 
@@ -504,10 +504,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
               height: '100vh', 
               maxWidth: 'none', 
               maxHeight: 'none',
-              left: 0,
-              top: 0,
-              transform: 'none',
-              position: 'fixed',
+              margin: 0,
               touchAction: 'none'
             }}
           >
@@ -521,7 +518,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
               style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}
             >
               <div
-                className="relative block"
+                className="relative block mx-auto"
                 style={{
                   width: lightboxSize.width,
                   height: lightboxSize.height,
@@ -561,7 +558,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       {type === 'video' && isMounted && showLightbox && (
         <Dialog open={showLightbox} onOpenChange={setShowLightbox}>
           <DialogContent 
-            className="max-w-[95vw] max-h-[95vh] p-0 bg-black/90 border-none"
+            className="max-w-[95vw] max-h-[95vh] p-0 bg-black/90 border-none flex items-center justify-center"
           >
             <DialogTitle className="sr-only">Video Viewer</DialogTitle>
             <DialogDescription className="sr-only">

@@ -86,24 +86,15 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
 
   const profileId = profile?.id;
 
-  const fetchUserData = async (userId: string): Promise<AuthorData> => {
-    try {
-      const userDoc = await getDoc(doc(db, 'users', userId));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        return {
-          displayName: userData.displayName || '',
-          username: userData.username || '',
-          photoURL: userData.photoURL || '',
-          role: userData.role || 'user',
-        };
-      }
-      throw new Error(`User data not found for ${userId}`);
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      throw error;
-    }
-  };
+  // Use profile data already passed in instead of fetching for each post
+  const getAuthorData = useCallback((): AuthorData => {
+    return {
+      displayName: profile.displayName || '',
+      username: profile.username || '',
+      photoURL: profile.photoURL || '',
+      role: profile.role || 'user',
+    };
+  }, [profile]);
 
   const fetchPosts = useCallback(async (isInitial = false) => {
     if (!profileId || (!isInitial && !hasMore)) return;
@@ -135,12 +126,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
       for (const doc of querySnapshot.docs) {
         try {
           const postData = doc.data() as PostType;
-          const authorData = await fetchUserData(postData.authorId);
-          
-          if (!authorData) {
-            console.error(`Author data not found for post ${doc.id}`);
-            continue;
-          }
+          const authorData = getAuthorData();
 
           const postWithAuthor: PostWithAuthor = {
             ...postData,
@@ -184,7 +170,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [profileId, hasMore, lastDoc]);
+  }, [profileId, hasMore, lastDoc, getAuthorData]);
 
   // Set up real-time listener for posts
   useEffect(() => {
@@ -211,9 +197,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
       for (const doc of snapshot.docs) {
         try {
           const postData = doc.data() as PostType;
-          const authorData = await fetchUserData(postData.authorId);
-          
-          if (!authorData) continue;
+          const authorData = getAuthorData();
 
           const postWithAuthor: PostWithAuthor = {
             ...postData,

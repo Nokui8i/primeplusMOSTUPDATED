@@ -52,6 +52,9 @@ interface ChatProps {
   hideHeader?: boolean;
   customWidth?: number;
   recipientProfile?: {
+    username?: string;
+    photoURL?: string;
+    displayName?: string;
     privacy?: {
       profileVisibility?: 'public' | 'subscribers_only';
     };

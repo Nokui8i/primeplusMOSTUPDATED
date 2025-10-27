@@ -3231,3 +3231,25 @@ html body div .profile-btn {
   background-clip: padding-box !important;
   position: relative !important;
 }
+
+/* Mobile Safe Area Support for iOS notch and Android system bars */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+/* Safe area utility classes for mobile */
+.safe-top {
+  padding-top: var(--safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.pb-safe {
+  padding-bottom: max(var(--safe-area-inset-bottom), 0.5rem);
+}
+

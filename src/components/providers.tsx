@@ -2,6 +2,7 @@
 
 import { AuthProvider } from '@/lib/auth';
 import { NotificationProvider } from '@/contexts/NotificationContext';
+import { FilterProvider } from '@/contexts/FilterContext';
 import { NotificationList } from '@/components/common/NotificationList';
 
 interface ProvidersProps {
@@ -12,8 +13,10 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <AuthProvider>
       <NotificationProvider>
-        {children}
-        <NotificationList />
+        <FilterProvider>
+          {children}
+          <NotificationList />
+        </FilterProvider>
       </NotificationProvider>
     </AuthProvider>
   );

@@ -88,7 +88,29 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
       
       console.log('[CommentsList] Filtered comments:', filteredDocs.length);
       
-      const commentsData = await Promise.all(filteredDocs.map(async (docSnapshot) => {
+      // Batch fetch all unique author IDs
+      const authorIds = [...new Set(filteredDocs.map(doc => {
+        const data = doc.data();
+        return data.authorId || data.userId;
+      }).filter(Boolean))];
+      
+      // Batch fetch all user profiles in parallel (performance optimization)
+      const userProfiles = await Promise.all(
+        authorIds.map(id => getDoc(doc(db, 'users', id)))
+      );
+      
+      // Create a map for O(1) lookups
+      const userMap = new Map();
+      userProfiles.forEach((userDoc, index) => {
+        if (userDoc.exists()) {
+          userMap.set(authorIds[index], userDoc.data());
+        }
+      });
+      
+      // Get all replies in one query (instead of N queries)
+      const allRepliesSnapshot = await getDocs(query(commentsRef));
+      
+      const commentsData = filteredDocs.map((docSnapshot) => {
         const data = docSnapshot.data()
         
         // Check if data exists before processing
@@ -105,53 +127,15 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
           authorPhotoURL: data.authorPhotoURL
         });
         
-        // Check if authorId exists before trying to fetch user profile
-        let photoURL = data.authorPhotoURL || undefined;
-        let username = data.authorUsername || undefined;
-        let userProfile = null; // Declare userProfile outside the if block
+        // Use batched user data for O(1) lookup (performance optimization)
+        const authorId = data.authorId || data.userId;
+        const userProfile = userMap.get(authorId);
         
-        if (data.authorId) {
-          try {
-            const authorId = data.authorId || data.userId;
-            if (!authorId) {
-              console.error('[CommentsList] No author ID found for comment:', data.id);
-              return;
-            }
-            console.log('[CommentsList] Fetching user profile for authorId:', authorId);
-            const userProfileDoc = await getDoc(doc(db, 'users', authorId));
-            userProfile = userProfileDoc.data();
-            console.log('[CommentsList] User profile data:', userProfile);
-            photoURL = userProfile?.photoURL || data.authorPhotoURL || undefined;
-            username = userProfile?.username || data.authorUsername || undefined;
-            console.log('[CommentsList] Final values - photoURL:', photoURL, 'username:', username);
-          } catch (error) {
-            console.error('[CommentsList] Error fetching user profile for authorId:', data.authorId, error);
-            // Fall back to the data already in the comment
-          }
-        } else {
-          console.warn('[CommentsList] No authorId found for comment:', docSnapshot.id, 'Using fallback data');
-          // For old comments without authorId, try to get user data from other fields
-          if (data.userId) {
-            try {
-              console.log('[CommentsList] Trying to fetch user profile for old comment with userId:', data.userId);
-              const userProfileDoc = await getDoc(doc(db, 'users', data.userId));
-              userProfile = userProfileDoc.data();
-              console.log('[CommentsList] User profile data for old comment:', userProfile);
-              photoURL = userProfile?.photoURL || data.authorPhotoURL || undefined;
-              username = userProfile?.username || data.authorUsername || undefined;
-            } catch (error) {
-              console.error('[CommentsList] Error fetching user profile for old comment userId:', data.userId, error);
-            }
-          }
-        }
+        const photoURL = userProfile?.photoURL || data.authorPhotoURL || undefined;
+        const username = userProfile?.username || data.authorUsername || undefined;
         
-        // Get replies count for this comment
-        const repliesQuery = query(
-          commentsRef, 
-          orderBy('createdAt', 'desc')
-        );
-        const repliesSnapshot = await getDocs(repliesQuery);
-        const repliesCount = repliesSnapshot.docs.filter(doc => {
+        // Count replies from pre-fetched snapshot (performance optimization)
+        const repliesCount = allRepliesSnapshot.docs.filter(doc => {
           const replyData = doc.data();
           const replyParentId = replyData.parentId || replyData.parentCommentId || null;
           return replyParentId === docSnapshot.id;
@@ -174,7 +158,7 @@ export function CommentsList({ postId, postAuthorId, currentUserId, parentId, cl
         
         console.log('[CommentsList] Final comment data:', commentData);
         return commentData;
-      }))
+      });
 
       // Filter out null and undefined values (comments with no data)
       const validComments = commentsData.filter(comment => comment !== null && comment !== undefined);

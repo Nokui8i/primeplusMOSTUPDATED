@@ -12,8 +12,10 @@ import { isUserBlocked } from '@/lib/services/block.service';
 import { useRouter, usePathname } from 'next/navigation';
 import AppLoader from './common/AppLoader';
 import { AnimatePresence } from 'framer-motion';
-import { FiMenu, FiFilter, FiX, FiBell } from 'react-icons/fi';
+import { FiMenu, FiX, FiBell } from 'react-icons/fi';
 import { motion } from 'framer-motion';
+import { SearchDropdown } from './SearchDropdown';
+import { FilterDropdown } from './layout/FilterDropdown';
 import { UserProfile } from '@/lib/types/user';
 import { RoutePrefetcher } from './common/RoutePrefetcher';
 import { DataPreloader } from './common/DataPreloader';
@@ -45,7 +47,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [showLoader, setShowLoader] = useState(true);
   const [showMobileLeft, setShowMobileLeft] = useState(false);
-  const [showMobileRight, setShowMobileRight] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
@@ -243,15 +244,63 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </aside>
 
           {/* Center Area with Header and Main Content */}
-          <div className="flex-1 flex flex-col border-l border-gray-200 bg-white" style={{ height: '100vh' }}>
-            {/* Center Header - Responsive */}
-                <div className="hidden md:block flex-shrink-0 z-10">
-                  <div className="flex items-center justify-center gap-2 px-3 lg:px-4 py-3 bg-white border-b border-gray-200">
-                <div className="w-1/2 max-w-md">
-                  <Search />
+          <div className="flex-1 flex flex-col border-l border-gray-200 bg-white overflow-hidden" style={{ height: '100vh' }}>
+            {/* Mobile Header - Page Name with Search Icon */}
+            <div className="md:hidden flex items-center justify-between px-4 bg-white border-b border-gray-200 flex-shrink-0" style={{ paddingTop: 'max(6px, env(safe-area-inset-top, 6px))', paddingBottom: '6px' }}>
+              <h1 className="text-base font-bold text-gray-900">
+                {pathname === '/home' && 'Home'}
+                {pathname === '/messages' && 'Messages'}
+                {pathname === '/subscriptions' && 'Subscriptions'}
+                {pathname === '/profile' && 'Profile'}
+                {pathname === '/settings' && 'Settings'}
+                {pathname === '/notifications' && 'Notifications'}
+                {pathname === '/search' && 'Search'}
+                {pathname === '/creator/dashboard' && 'Creator Dashboard'}
+                {pathname === '/admin' && 'Admin Dashboard'}
+                {pathname === '/complete-profile' && 'Complete Profile'}
+                {pathname?.startsWith('/post/') && 'Post'}
+                {pathname?.startsWith('/') && pathname.split('/').filter(Boolean).length > 1 && !['home', 'messages', 'subscriptions', 'profile', 'settings', 'notifications', 'search', 'creator', 'admin', 'complete-profile'].includes(pathname.split('/')[1]) && pathname.split('/')[1].charAt(0).toUpperCase() + pathname.split('/')[1].slice(1)}
+              </h1>
+              <div className="flex items-center gap-0">
+                <div className="relative">
+                  <SearchDropdown />
                 </div>
+                <NotificationsDropdown />
+                <div className="ml-auto -mr-2">
+                  <FilterDropdown />
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Header - Responsive */}
+            <div className="hidden md:block flex-shrink-0 z-10">
+              <div className="flex items-center gap-4 px-4 lg:px-6 py-3 bg-white border-b border-gray-200">
+                {/* Page Title */}
                 <div className="flex-shrink-0">
+                  <h1 className="text-xl font-bold text-gray-900">
+                    {pathname === '/home' && 'Home'}
+                    {pathname === '/messages' && 'Messages'}
+                    {pathname === '/subscriptions' && 'Subscriptions'}
+                    {pathname === '/profile' && 'Profile'}
+                    {pathname === '/settings' && 'Settings'}
+                    {pathname === '/notifications' && 'Notifications'}
+                    {pathname === '/search' && 'Search'}
+                    {pathname === '/creator/dashboard' && 'Creator Dashboard'}
+                    {pathname === '/admin' && 'Admin Dashboard'}
+                    {pathname === '/complete-profile' && 'Complete Profile'}
+                    {pathname?.startsWith('/post/') && 'Post'}
+                    {pathname?.startsWith('/') && pathname.split('/').filter(Boolean).length > 1 && !['home', 'messages', 'subscriptions', 'profile', 'settings', 'notifications', 'search', 'creator', 'admin', 'complete-profile'].includes(pathname.split('/')[1]) && pathname.split('/')[1].charAt(0).toUpperCase() + pathname.split('/')[1].slice(1)}
+                  </h1>
+                </div>
+                {/* Search Bar - Spacer */}
+                <div className="flex-1 max-w-md"></div>
+                {/* Search, Notifications & Filters */}
+                <div className="flex items-center gap-0 flex-shrink-0 ml-auto -mr-2">
+                  <div className="relative">
+                    <SearchDropdown />
+                  </div>
                   <NotificationsDropdown />
+                  <FilterDropdown />
                 </div>
               </div>
             </div>
@@ -288,14 +337,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
       {/* Mobile Sidebar Buttons */}
       {/* Menu button removed - now in bottom navigation */}
-      
-      <button
-        className="fixed top-2 right-2 z-40 md:hidden bg-white/80 rounded-full p-1.5 shadow-lg backdrop-blur-lg"
-        onClick={() => setShowMobileRight(true)}
-        aria-label="Open suggestions menu"
-      >
-        <FiFilter className="w-5 h-5 text-gray-700" />
-      </button>
+      {/* Suggested creators button removed - not needed on mobile */}
 
       {/* Mobile Left Sidebar Drawer - Responsive */}
       <AnimatePresence>
@@ -307,18 +349,18 @@ export default function MainLayout({ children }: MainLayoutProps) {
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             className="fixed inset-0 z-50 flex md:hidden"
           >
-            <div className="w-[85vw] max-w-[320px] h-full bg-white/95 backdrop-blur-lg shadow-xl relative flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                <h2 className="text-lg font-semibold text-gray-900">Menu</h2>
+            <div className="w-[85vw] max-w-[320px] h-full bg-white/95 backdrop-blur-lg shadow-xl relative flex flex-col pt-safe">
+              <div className="flex items-center justify-between p-5 border-b border-gray-100">
+                <h2 className="text-xl font-bold text-gray-900">Menu</h2>
                 <button
                   onClick={() => setShowMobileLeft(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-3 hover:bg-gray-100 active:bg-gray-200 rounded-xl transition-all touch-manipulation"
                   aria-label="Close menu"
                 >
-                  <FiX className="w-5 h-5 text-gray-600" />
+                  <FiX className="w-6 h-6 text-gray-600" />
                 </button>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto scrollbar-hide pb-safe">
                 <LeftSidebar />
               </div>
             </div>
@@ -331,31 +373,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         )}
       </AnimatePresence>
 
-      {/* Mobile Right Sidebar Drawer - Responsive */}
-      <AnimatePresence>
-        {showMobileRight && (
-          <motion.div
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-50 flex justify-end md:hidden"
-          >
-            <div className="w-[85vw] max-w-[320px] h-full bg-white/95 backdrop-blur-lg shadow-xl relative">
-              <RightSidebar
-                suggestedCreators={suggestedCreators}
-                trendingTopics={trendingTopics}
-                isLoading={isLoading}
-              />
-            </div>
-            <div
-              className="flex-1 h-full bg-black/30 backdrop-blur-sm"
-              onClick={() => setShowMobileRight(false)}
-              aria-label="Close suggestions menu"
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Mobile Right Sidebar Drawer - Removed - not needed on mobile */}
 
       <AnimatePresence>{showLoader && <AppLoader isVisible={showLoader} />}</AnimatePresence>
       

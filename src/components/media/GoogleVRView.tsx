@@ -79,8 +79,19 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
         <head>
           <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
           <style>
-            body { margin: 0; padding: 0; }
-            a-scene { width: 100%; height: 100vh; }
+            body { 
+              margin: 0; 
+              padding: 0; 
+              touch-action: none;
+              -webkit-touch-callout: none;
+              -webkit-user-select: none;
+              user-select: none;
+            }
+            a-scene { 
+              width: 100%; 
+              height: 100vh; 
+              touch-action: none;
+            }
           </style>
         </head>
         <body>
@@ -89,7 +100,10 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
               `<a-videosphere src="${finalUrl}" rotation="0 -90 0"></a-videosphere>` : 
               `<a-sky src="${finalUrl}" rotation="0 -90 0"></a-sky>`
             }
-            <a-camera position="0 1.6 0" look-controls="reverseMouseDrag: true"></a-camera>
+            <a-camera 
+              position="0 1.6 0" 
+              look-controls="reverseMouseDrag: true; touchEnabled: true; pointerLockEnabled: false"
+            ></a-camera>
           </a-scene>
         </body>
         </html>

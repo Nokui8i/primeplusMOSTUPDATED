@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
 import { UserProfile } from '@/lib/types/user';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, getDoc, getDocs, writeBatch, setDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -38,6 +38,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   });
   const { user } = useAuth();
   const [lastSeenMessageIds, setLastSeenMessageIds] = useState<Record<string, string>>({});
+  const chatWindowsRef = useRef<ChatWindow[]>([]);
+  
+  // Update ref whenever chatWindows changes
+  useEffect(() => {
+    chatWindowsRef.current = chatWindows;
+  }, [chatWindows]);
 
   // Persist closedChats to localStorage
   useEffect(() => {
@@ -87,8 +93,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           if (lastSeenMessageIds[chatId] === latestDoc.id) return;
           setLastSeenMessageIds(prev => ({ ...prev, [chatId]: latestDoc.id }));
 
-          // Check if chat window already exists
-          const existingWindow = chatWindows.find(window => window.user.uid === senderId);
+          // Check if chat window already exists (using ref to avoid re-subscription)
+          const existingWindow = chatWindowsRef.current.find(window => window.user.uid === senderId);
           if (existingWindow) {
             // Update existing window with unread count
             setChatWindows(prev => prev.map(window => 
@@ -108,7 +114,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       chatUnsubscribes.forEach(unsub => unsub());
     };
-  }, [user, chatWindows, closedChats]);
+  }, [user, closedChats]);
 
   const openChat = async (user: UserProfile) => {
     console.log('openChat called for', user.uid);

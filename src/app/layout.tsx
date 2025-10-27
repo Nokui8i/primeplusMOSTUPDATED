@@ -5,6 +5,7 @@ import { AuthProvider } from '@/contexts/AuthContext'
 import { ChatProvider } from '@/contexts/ChatContext'
 import { RootLayoutContent } from '@/components/RootLayoutContent'
 import { NotificationProvider } from '@/contexts/NotificationContext'
+import { FilterProvider } from '@/contexts/FilterContext'
 import { NotificationList } from '@/components/common/NotificationList'
 import { Toaster } from '@/components/ui/toaster'
 import { SimpleToaster } from '@/components/ui/SimpleToast'
@@ -14,6 +15,13 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'PrimePlus+',
   description: 'Connect with fellow developers',
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: 'cover' // For iOS safe areas
+  },
 }
 
 export default function RootLayout({
@@ -51,9 +59,11 @@ export default function RootLayout({
         <AuthProvider>
           <ChatProvider>
             <NotificationProvider>
-              <RootLayoutContent>{children}</RootLayoutContent>
-              <NotificationList />
-              <SimpleToaster />
+              <FilterProvider>
+                <RootLayoutContent>{children}</RootLayoutContent>
+                <NotificationList />
+                <SimpleToaster />
+              </FilterProvider>
             </NotificationProvider>
           </ChatProvider>
         </AuthProvider>
