@@ -203,6 +203,7 @@ export default function CreatorDashboard() {
         {activeTab === 'subscribers' && <SubscribersTab />}
         {activeTab === 'settings' && <SettingsTab />}
       </div>
+
     </div>
   );
 } 

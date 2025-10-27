@@ -5,6 +5,7 @@ import { LeftSidebar } from './LeftSidebar';
 import { RightSidebar } from './RightSidebar';
 import { NotificationsDropdown } from './NotificationsDropdown';
 import { Search } from './Search';
+import { BottomNavigation } from './layout/BottomNavigation';
 import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { isUserBlocked } from '@/lib/services/block.service';
@@ -18,6 +19,7 @@ import { RoutePrefetcher } from './common/RoutePrefetcher';
 import { DataPreloader } from './common/DataPreloader';
 import { ChatWindows } from './chat/ChatWindows';
 import { useAuth } from '@/hooks/useAuth';
+import { ContentUploadDialog } from './creator/ContentUploadDialog';
 
 interface Creator {
   id: string;
@@ -44,6 +46,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const [showLoader, setShowLoader] = useState(true);
   const [showMobileLeft, setShowMobileLeft] = useState(false);
   const [showMobileRight, setShowMobileRight] = useState(false);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const mainContentRef = useRef<HTMLElement>(null);
@@ -256,7 +259,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 {/* Main Content - Responsive */}
                 <main 
                   ref={mainContentRef} 
-                  className={`flex-1 w-full invisible-scrollbar relative ${isSubscriptionsPage ? 'overflow-hidden subscriptions-page-main' : 'overflow-y-auto'}`}
+                  className={`flex-1 w-full invisible-scrollbar relative pb-16 md:pb-0 ${isSubscriptionsPage ? 'overflow-hidden subscriptions-page-main' : 'overflow-y-auto'}`}
                   style={{ 
                     scrollBehavior: 'smooth',
                     scrollbarWidth: 'none',
@@ -284,14 +287,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
       </div>
 
       {/* Mobile Sidebar Buttons */}
-      <button
-        className="fixed top-2 left-2 z-40 md:hidden bg-white/70 rounded-lg p-1.5 border border-gray-200/60 backdrop-blur-sm"
-        onClick={() => setShowMobileLeft(true)}
-        aria-label="Open navigation menu"
-      >
-        <FiMenu className="w-6 h-6 text-gray-700" />
-      </button>
-      
+      {/* Menu button removed - now in bottom navigation */}
       
       <button
         className="fixed top-2 right-2 z-40 md:hidden bg-white/80 rounded-full p-1.5 shadow-lg backdrop-blur-lg"
@@ -371,6 +367,22 @@ export default function MainLayout({ children }: MainLayoutProps) {
       
       {/* Chat Windows for mini chat functionality */}
       <ChatWindows />
+      
+      {/* Bottom Navigation - Mobile Only */}
+      <BottomNavigation 
+        onMenuClick={() => setShowMobileLeft(!showMobileLeft)} 
+        isMenuOpen={showMobileLeft}
+        onUploadClick={() => setShowUploadDialog(true)}
+      />
+      
+      {/* Upload Dialog */}
+      <ContentUploadDialog 
+        open={showUploadDialog}
+        onOpenChange={setShowUploadDialog}
+        onUploadComplete={() => setShowUploadDialog(false)}
+      >
+        <></>
+      </ContentUploadDialog>
     </div>
   );
 } 

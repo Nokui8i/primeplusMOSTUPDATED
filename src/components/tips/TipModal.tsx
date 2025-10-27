@@ -85,9 +85,15 @@ export function TipModal({ open, onOpenChange, creatorId, creatorName, context }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      // Only close if user clicks X or submits
+      if (!isOpen && !isSubmitting) {
+        onOpenChange(isOpen);
+      }
+    }}>
       <DialogContent 
         className="upload-container"
+        onInteractOutside={(e) => e.preventDefault()}
         style={{
           background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
           backdropFilter: 'blur(20px)',
@@ -98,6 +104,16 @@ export function TipModal({ open, onOpenChange, creatorId, creatorName, context }
           padding: '18px',
         }}
       >
+        <style dangerouslySetInnerHTML={{__html: `
+          .upload-container button[data-radix-dialog-close] {
+            display: none !important;
+          }
+        `}} />
+        <style>{`
+          .upload-container [data-radix-dialog-close] {
+            display: none !important;
+          }
+        `}</style>
         <DialogTitle className="text-xs font-bold text-gray-800 flex items-center gap-1">
           <svg 
             className="h-4 w-4" 
@@ -229,23 +245,10 @@ export function TipModal({ open, onOpenChange, creatorId, creatorName, context }
         {/* Actions */}
         <div className="flex justify-end gap-1.5 mt-2.5">
           <button
-            onClick={() => onOpenChange(false)}
-            disabled={isSubmitting}
-            className="profile-btn"
-            style={{
-              border: '1px solid rgba(0, 0, 0, 0.1) !important',
-              background: 'rgba(255, 255, 255, 0.9) !important',
-              color: '#6b7280 !important',
-              backgroundImage: 'none !important',
-            }}
-          >
-            Cancel
-          </button>
-          <button
             onClick={handleSubmit}
-            disabled={finalAmount <= 0 || isSubmitting}
             className="profile-btn"
             style={{
+              width: '100%',
               opacity: (finalAmount <= 0 || isSubmitting) ? 0.6 : 1,
               cursor: (finalAmount <= 0 || isSubmitting) ? 'not-allowed' : 'pointer',
             }}

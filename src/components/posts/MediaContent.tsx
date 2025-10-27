@@ -100,11 +100,44 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
     if (showLightbox) {
       const previousBodyOverflow = document.body.style.overflow
       const previousHtmlOverflow = document.documentElement.style.overflow
+      const previousBodyHeight = document.body.style.height
+      
       document.body.style.overflow = 'hidden'
+      document.body.style.height = '100vh'
       document.documentElement.style.overflow = 'hidden'
+      
+      // Prevent wheel scrolling
+      const handleWheel = (e: WheelEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+      
+      // Find and disable main content scrolling
+      const mainContent = document.querySelector('main.overflow-y-auto')
+      const previousMainOverflow = mainContent ? (mainContent as HTMLElement).style.overflow : ''
+      if (mainContent) {
+        (mainContent as HTMLElement).style.overflow = 'hidden'
+      }
+      
+      document.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+      
+      // Prevent touch scrolling
+      const handleTouchMove = (e: TouchEvent) => {
+        e.preventDefault()
+        e.stopPropagation()
+        return false
+      }
+      document.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true })
+      
       return () => {
         document.body.style.overflow = previousBodyOverflow
+        document.body.style.height = previousBodyHeight
         document.documentElement.style.overflow = previousHtmlOverflow
+        if (mainContent) {
+          (mainContent as HTMLElement).style.overflow = previousMainOverflow
+        }
+        document.removeEventListener('wheel', handleWheel, { capture: true })
+        document.removeEventListener('touchmove', handleTouchMove, { capture: true })
       }
     }
   }, [showLightbox])
@@ -142,8 +175,8 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
   // Compute scaled size for lightbox based on intrinsic media size and viewport
   const lightboxSize = useMemo(() => {
     if (!intrinsicW || !intrinsicH) return { width: 'auto', height: 'auto' }
-    const maxW = viewportW * 0.95
-    const maxH = viewportH * 0.95
+    const maxW = viewportW * 0.9
+    const maxH = viewportH * 0.9
     const scale = Math.min(maxW / intrinsicW, maxH / intrinsicH)
     const w = Math.max(1, Math.floor(intrinsicW * scale))
     const h = Math.max(1, Math.floor(intrinsicH * scale))
@@ -462,7 +495,21 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
         <Dialog open={showLightbox} onOpenChange={setShowLightbox}>
           <DialogContent 
             className="w-auto max-w-none gap-0 p-0 bg-transparent border-none shadow-none outline-none ring-0 rounded-none [&>button]:hidden flex items-center justify-center"
-            style={{ border: 'none', outline: 'none', boxShadow: 'none', background: 'transparent' }}
+            style={{ 
+              border: 'none', 
+              outline: 'none', 
+              boxShadow: 'none', 
+              background: 'transparent', 
+              width: '100vw', 
+              height: '100vh', 
+              maxWidth: 'none', 
+              maxHeight: 'none',
+              left: 0,
+              top: 0,
+              transform: 'none',
+              position: 'fixed',
+              touchAction: 'none'
+            }}
           >
             <DialogTitle className="sr-only">Image Viewer</DialogTitle>
             <DialogDescription className="sr-only">
@@ -470,24 +517,14 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
             </DialogDescription>
             <div 
               ref={containerRef} 
-              className="relative flex items-center justify-center overflow-hidden"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseLeave}
-              onWheel={(e) => { e.preventDefault(); e.stopPropagation(); handleWheel(e) }}
-              style={{ cursor: imageInteractive ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+              className="relative flex items-center justify-center"
+              style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}
             >
               <div
                 className="relative block"
                 style={{
                   width: lightboxSize.width,
                   height: lightboxSize.height,
-                  maxWidth: '95vw',
-                  maxHeight: '95vh',
-                  transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                  transformOrigin: 'center center',
-                  transition: isDragging ? 'none' : 'transform 0.2s ease-out'
                 }}
                 aria-label={`Lightbox image container ${intrinsicW || ''}x${intrinsicH || ''}`}
                 role="img"
@@ -507,10 +544,13 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
                 {/* Close inside the image wrapper so it hugs the image bounds */}
                 <button
                   onClick={() => setShowLightbox(false)}
-                  className="absolute top-2 right-2 z-50 p-1.5 rounded-full bg-transparent text-white hover:bg-black/20 transition-colors"
+                  className="absolute top-2 right-2 z-50"
                   aria-label="Close full size image viewer"
                 >
-                  <X className="w-5 h-5" />
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6l12 12" stroke="black" strokeWidth={3} strokeLinecap="round" />
+                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth={2} strokeLinecap="round" />
+                  </svg>
                 </button>
               </div>
             </div>
@@ -530,10 +570,13 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
             <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
               <button
                 onClick={() => setShowLightbox(false)}
-                className="absolute top-4 right-4 z-50 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+                className="absolute top-4 right-4 z-50"
                 aria-label="Close full size video viewer"
               >
-                <X className="w-6 h-6" />
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
+                  <path d="M18 6L6 18M6 6l12 12" stroke="black" strokeWidth={3} strokeLinecap="round" />
+                  <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth={2} strokeLinecap="round" />
+                </svg>
               </button>
               <div className="relative w-full h-full">
                 <video

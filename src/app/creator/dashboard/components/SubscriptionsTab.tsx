@@ -19,6 +19,7 @@ interface Plan {
   billingInterval?: 'day' | 'week' | 'month' | 'year';
   intervalCount?: number;
   isActive: boolean;
+  isRecurring?: boolean;
   creatorId: string;
   createdAt?: any;
   updatedAt?: any;
@@ -68,6 +69,8 @@ export default function SubscriptionsTab() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Partial<Plan>>({ intervalCount: 30, billingInterval: 'day', currency: 'USD' });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [subscriptionType, setSubscriptionType] = useState<'fixed' | 'recurring'>('fixed');
+  const [showTooltip, setShowTooltip] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showPromoForm, setShowPromoForm] = useState(false);
   const [promoForm, setPromoForm] = useState({
@@ -181,13 +184,21 @@ export default function SubscriptionsTab() {
 
   const handleCreate = async () => {
     console.log('Form state:', form);
-    if (!form.name || form.price == null || form.intervalCount == null) {
+    
+    // Check name and price
+    if (!form.name || (form.price === undefined && form.price !== 0)) {
+      alert('Missing required fields');
+      return;
+    }
+
+    // For fixed duration, check intervalCount
+    if (subscriptionType === 'fixed' && (!form.intervalCount || form.intervalCount == null)) {
       alert('Missing required fields');
       return;
     }
 
     // Validate price range for paid plans
-    if (form.price > 0 && (form.price < 4.99 || form.price > 50.00)) {
+    if (form.price && form.price > 0 && (form.price < 4.99 || form.price > 50.00)) {
       alert('Price must be between $4.99 and $50.00 for paid plans.');
       return;
     }
@@ -196,21 +207,31 @@ export default function SubscriptionsTab() {
     try {
       const planData: any = {
         name: form.name,
-        price: form.price,
-        billingInterval: form.billingInterval || 'day',
-        intervalCount: form.intervalCount,
+        price: form.price === undefined ? 0 : form.price,
         isActive: true,
         creatorId: user.uid,
         currency: 'USD',
+        isRecurring: subscriptionType === 'recurring',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
+
+      // For recurring: set to 1 month
+      if (subscriptionType === 'recurring') {
+        planData.billingInterval = 'month';
+        planData.intervalCount = 1;
+      } else {
+        // For fixed duration: use form values
+        planData.billingInterval = form.billingInterval || 'day';
+        planData.intervalCount = form.intervalCount;
+      }
       if (discountSchedule.length > 0) {
         planData.discountSchedule = discountSchedule;
       }
       const docRef = await addDoc(collection(db, 'plans'), planData);
       setPlans(prevPlans => [...prevPlans, { id: docRef.id, ...planData }]);
-      setForm({});
+      setForm({ intervalCount: 30, billingInterval: 'day', currency: 'USD' });
+      setSubscriptionType('fixed');
       setShowForm(false);
     } catch (err) {
       console.error('Plan creation error:', err);
@@ -229,30 +250,53 @@ export default function SubscriptionsTab() {
   const handleEdit = (plan: Plan) => {
     setEditingId(plan.id);
     setForm(plan);
+    setSubscriptionType(plan.isRecurring ? 'recurring' : 'fixed');
     setShowForm(true);
   };
 
   const handleUpdate = async () => {
-    if (!form.name || form.price == null || !form.intervalCount || !editingId) return;
+    // Check name and price
+    if (!form.name || form.price === undefined || !editingId) {
+      alert('Missing required fields');
+      return;
+    }
+
+    // For fixed duration, check intervalCount
+    if (subscriptionType === 'fixed' && !form.intervalCount) {
+      alert('Missing required fields');
+      return;
+    }
 
     // Validate price range for paid plans
-    if (form.price > 0 && (form.price < 4.99 || form.price > 50.00)) {
+    if (form.price && form.price > 0 && (form.price < 4.99 || form.price > 50.00)) {
       alert('Price must be between $4.99 and $50.00 for paid plans.');
       return;
     }
 
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'plans', editingId), {
+      const updateData: any = {
         name: form.name,
-        price: form.price,
+        price: form.price === undefined ? 0 : form.price,
         currency: form.currency || 'USD',
-        billingInterval: form.billingInterval || 'day',
-        intervalCount: form.intervalCount,
+        isRecurring: subscriptionType === 'recurring',
         discountSchedule: discountSchedule.length > 0 ? discountSchedule : undefined,
         updatedAt: serverTimestamp(),
-      });
-      setForm({});
+      };
+
+      // For recurring: set to 1 month
+      if (subscriptionType === 'recurring') {
+        updateData.billingInterval = 'month';
+        updateData.intervalCount = 1;
+      } else {
+        // For fixed duration: use form values
+        updateData.billingInterval = form.billingInterval || 'day';
+        updateData.intervalCount = form.intervalCount;
+      }
+
+      await updateDoc(doc(db, 'plans', editingId), updateData);
+      setForm({ intervalCount: 30, billingInterval: 'day', currency: 'USD' });
+      setSubscriptionType('fixed');
       setShowForm(false);
       setEditingId(null);
     } catch (err) {
@@ -410,6 +454,7 @@ export default function SubscriptionsTab() {
                 className="upload-container"
                 style={{
                   background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                  overflow: 'visible',
                   backdropFilter: 'blur(20px)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
                   borderRadius: '24px',
@@ -421,7 +466,7 @@ export default function SubscriptionsTab() {
                 <div className="space-y-2 mt-4">
                   {/* Plan Name */}
                   <div>
-                    <label className="block text-[12px] font-medium text-gray-700 mb-1">Plan Name</label>
+                    <label className="block text-[13px] font-medium text-gray-700 mb-1">Plan Name</label>
                     <Input 
                       name="name" 
                       value={form.name || ''} 
@@ -443,110 +488,158 @@ export default function SubscriptionsTab() {
 
                   {/* Price */}
                   <div>
-                    <label className="block text-[12px] font-medium text-gray-700 mb-1">Price (USD)</label>
-                    <div className="flex items-center gap-1.5">
+                    <label className="block text-[13px] font-medium text-gray-700 mb-1">Price (USD)</label>
+                    <div className="space-y-2">
                       <div className="flex items-center gap-1">
                         <input
                           type="radio"
                           id="plan-type-free"
                           name="planType"
-                          checked={form.price === 0}
-                          onChange={() => setForm(prev => ({ ...prev, price: 0 }))}
+                          checked={!form.price || form.price === 0}
+                          onChange={() => setForm(prev => ({ ...prev, price: undefined, name: prev.name || 'Free Plan' }))}
                           className="accent-blue-500 w-3 h-3"
                         />
-                        <label htmlFor="plan-type-free" className="text-[12px]">Free</label>
+                        <label htmlFor="plan-type-free" className="text-[13px]">Free</label>
                       </div>
                       <div className="flex items-center gap-1">
                         <input
                           type="radio"
                           id="plan-type-paid"
                           name="planType"
-                          checked={typeof form.price === 'number' && form.price > 0}
+                          checked={form.price ? form.price > 0 : false}
                           onChange={() => setForm(prev => ({ ...prev, price: 4.99 }))}
                           className="accent-blue-500 w-3 h-3"
                         />
-                        <label htmlFor="plan-type-paid" className="text-[12px]">Paid ($4.99-$50.00)</label>
+                        <label htmlFor="plan-type-paid" className="text-[13px]">Paid ($4.99-$50.00)</label>
                       </div>
-                      <Input
-                        name="price"
-                        type="number"
-                        value={typeof form.price === 'number' && form.price > 0 ? form.price : ''}
-                        onChange={e => {
-                          const value = e.target.value;
-                          const numValue = value === '' ? undefined : Number(value);
-                          // Validate price range
-                          if (numValue !== undefined && (numValue < 4.99 || numValue > 50.00)) {
-                            return; // Don't update if out of range
-                          }
-                          setForm(prev => ({ ...prev, price: numValue }));
-                        }}
-                        placeholder=""
-                        min="4.99"
-                        max="50.00"
-                        step="0.01"
-                        className="w-20"
-                        disabled={form.price === 0}
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid rgba(0, 0, 0, 0.1)',
-                          borderRadius: '10px',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                          fontSize: '13px',
-                          padding: '6px 10px',
-                          height: '28px',
-                        }}
-                      />
-                    </div>
+                     </div>
+                     {form.price && form.price > 0 && (
+                       <div className="mt-2">
+                         <input
+                           type="number"
+                           value={form.price}
+                           onChange={e => {
+                             const value = e.target.value;
+                             const numValue = value === '' ? undefined : Number(value);
+                             setForm(prev => ({ ...prev, price: numValue }));
+                           }}
+                           placeholder="4.99"
+                           step="0.01"
+                           style={{
+                             width: '128px',
+                             background: 'rgba(255, 255, 255, 0.9)',
+                             border: form.price && form.price > 0 && (form.price < 4.99 || form.price > 50.00) 
+                               ? '1px solid rgba(239, 68, 68, 0.3)' 
+                               : '1px solid rgba(0, 0, 0, 0.1)',
+                             borderRadius: '10px',
+                             boxShadow: form.price && form.price > 0 && (form.price < 4.99 || form.price > 50.00)
+                               ? '0 2px 8px rgba(239, 68, 68, 0.1)'
+                               : '0 2px 8px rgba(0, 0, 0, 0.05)',
+                             fontSize: '13px',
+                             padding: '6px 10px',
+                             height: '28px',
+                           }}
+                         />
+                       </div>
+                     )}
                     {form.price && form.price > 0 && (form.price < 4.99 || form.price > 50.00) && (
-                      <p className="text-[11px] text-red-500 mt-1">
+                      <p className="text-[12px] text-red-500 mt-1">
                         Price must be between $4.99 and $50.00
                       </p>
                     )}
                   </div>
 
-                  {/* Duration */}
+                  {/* Subscription Type */}
                   <div>
-                    <label className="block text-[12px] font-medium text-gray-700 mb-1">Duration</label>
-                    <div className="flex gap-1.5">
-                      <Input 
-                        name="intervalCount" 
-                        type="number" 
-                        value={form.intervalCount || ''} 
-                        onChange={handleInput} 
-                        placeholder="" 
-                        min="1" 
-                        className="flex-1"
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid rgba(0, 0, 0, 0.1)',
-                          borderRadius: '10px',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                          fontSize: '13px',
-                          padding: '6px 10px',
-                          height: '28px',
-                        }}
-                      />
-                      <select
-                        name="billingInterval"
-                        value={form.billingInterval || 'day'}
-                        onChange={e => setForm(prev => ({ ...prev, billingInterval: e.target.value as 'day' | 'week' | 'month' | 'year' }))}
-                        style={{
-                          background: 'rgba(255, 255, 255, 0.9)',
-                          border: '1px solid rgba(0, 0, 0, 0.1)',
-                          borderRadius: '10px',
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-                          fontSize: '13px',
-                          padding: '6px 10px',
-                          height: '28px',
-                        }}
-                      >
-                        <option value="day">Days</option>
-                        <option value="week">Weeks</option>
-                        <option value="month">Months</option>
-                        <option value="year">Years</option>
-                      </select>
+                    <label className="block text-[13px] font-medium text-gray-700 mb-2">Subscription Type</label>
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="subscriptionType"
+                          checked={subscriptionType === 'fixed'}
+                          onChange={() => {
+                            setSubscriptionType('fixed');
+                            setForm(prev => ({ ...prev, intervalCount: 30, billingInterval: 'day' }));
+                          }}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-[13px] text-gray-700">Fixed Duration</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="subscriptionType"
+                          checked={subscriptionType === 'recurring'}
+                          onChange={() => setSubscriptionType('recurring')}
+                          className="w-4 h-4 text-blue-600"
+                        />
+                        <span className="text-[13px] text-gray-700">Monthly Recurring</span>
+                        {subscriptionType === 'recurring' && (
+                          <div 
+                            className="relative inline-block ml-1"
+                            onMouseEnter={() => setShowTooltip(true)}
+                            onMouseLeave={() => setShowTooltip(false)}
+                          >
+                            <div className="w-3.5 h-3.5 rounded-full border border-gray-400 text-white flex items-center justify-center text-[10px] font-normal cursor-pointer" style={{ backgroundColor: '#6b7280' }}>
+                              i
+                            </div>
+                            {showTooltip && (
+                              <div className="fixed bg-gray-800 text-white text-center rounded px-2.5 py-2 text-xs w-48 shadow-2xl z-[10000]" style={{ left: '50%', top: 'calc(50% + 100px)', transform: 'translate(-50%, 0)' }}>
+                                Auto-renews monthly until cancelled
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </label>
                     </div>
                   </div>
+
+                  {/* Duration - Only show for fixed */}
+                  {subscriptionType === 'fixed' && (
+                    <div>
+                      <label className="block text-[13px] font-medium text-gray-700 mb-1">Duration</label>
+                      <div className="flex gap-1.5">
+                        <Input 
+                          name="intervalCount" 
+                          type="number" 
+                          value={form.intervalCount || ''} 
+                          onChange={handleInput} 
+                          placeholder="" 
+                          min="1" 
+                          className="flex-1"
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            border: '1px solid rgba(0, 0, 0, 0.1)',
+                            borderRadius: '10px',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                            fontSize: '13px',
+                            padding: '6px 10px',
+                            height: '28px',
+                          }}
+                        />
+                        <select
+                          name="billingInterval"
+                          value={form.billingInterval || 'day'}
+                          onChange={e => setForm(prev => ({ ...prev, billingInterval: e.target.value as 'day' | 'week' | 'month' | 'year' }))}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            border: '1px solid rgba(0, 0, 0, 0.1)',
+                            borderRadius: '10px',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                            fontSize: '13px',
+                            padding: '6px 10px',
+                            height: '28px',
+                          }}
+                        >
+                          <option value="day">Days</option>
+                          <option value="week">Weeks</option>
+                          <option value="month">Months</option>
+                          <option value="year">Years</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-end mt-4">
                     <button 
                       onClick={editingId ? handleUpdate : handleCreate} 
@@ -682,6 +775,7 @@ export default function SubscriptionsTab() {
               className="upload-container"
               style={{
                 background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                overflow: 'visible',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.3)',
                 borderRadius: '24px',
@@ -692,7 +786,7 @@ export default function SubscriptionsTab() {
               <DialogTitle className="text-lg font-bold text-gray-800">{editingPromoId ? 'Edit Promo Code' : 'Create Promo Code'}</DialogTitle>
               <div className="space-y-2 mt-4">
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 mb-1">Promo Code</label>
+                  <label className="block text-[13px] font-medium text-gray-700 mb-1">Promo Code</label>
                   <Input
                     name="code"
                     value={promoForm.code}
@@ -712,7 +806,7 @@ export default function SubscriptionsTab() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 mb-1">Discount Percentage</label>
+                  <label className="block text-[13px] font-medium text-gray-700 mb-1">Discount Percentage</label>
                   <Input
                     name="discountPercent"
                     type="number"
@@ -734,7 +828,7 @@ export default function SubscriptionsTab() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 mb-1">Expiry Date</label>
+                  <label className="block text-[13px] font-medium text-gray-700 mb-1">Expiry Date</label>
                   <Input
                     name="expiresAt"
                     type="date"
@@ -754,7 +848,7 @@ export default function SubscriptionsTab() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[12px] font-medium text-gray-700 mb-1.5">Applicable Plans</label>
+                  <label className="block text-[13px] font-medium text-gray-700 mb-1.5">Applicable Plans</label>
                   <div className="space-y-1.5">
                     {plans.map((plan) => (
                       <div key={`${plan.id}-${plan.name}`} className="flex items-center gap-2">
@@ -765,7 +859,7 @@ export default function SubscriptionsTab() {
                           onChange={() => handlePromoPlanSelect(plan.id)}
                           className="rounded border-gray-300 w-3.5 h-3.5 accent-blue-500"
                         />
-                        <label htmlFor={`plan-${plan.id}`} className="text-[12px] text-gray-700">
+                        <label htmlFor={`plan-${plan.id}`} className="text-[13px] text-gray-700">
                           {plan.name}
                         </label>
                       </div>

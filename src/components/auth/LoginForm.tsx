@@ -106,13 +106,11 @@ export default function LoginForm() {
               const userDoc = await getDoc(doc(db, 'users', currentUser.uid))
               const userData = userDoc.data()
 
-              // Check if profile is completed
+              // Check if profile is completed and reload page
               if (!userData?.profileCompleted) {
-                setRedirecting(true)
-                router.push('/complete-profile')
+                window.location.href = '/complete-profile'
               } else {
-                setRedirecting(true)
-                router.push('/home')
+                window.location.href = '/home'
               }
             } catch (error) {
               console.error('Error updating email verification status:', error)
@@ -148,13 +146,11 @@ export default function LoginForm() {
         });
       }
 
-      // Check if profile is completed
+      // Check if profile is completed and reload page
       if (!userData?.profileCompleted) {
-        setRedirecting(true)
-        router.push('/complete-profile')
+        window.location.href = '/complete-profile'
       } else {
-        setRedirecting(true)
-        router.push('/home')
+        window.location.href = '/home'
       }
     } catch (err: any) {
       console.error('Login error:', err)
@@ -269,13 +265,11 @@ export default function LoginForm() {
         emailVerified: true
       })
 
-      // Check if profile is completed
+      // Check if profile is completed and reload page
       if (!userData?.profileCompleted) {
-        setRedirecting(true)
-        router.push('/complete-profile')
+        window.location.href = '/complete-profile'
       } else {
-        setRedirecting(true)
-        router.push('/home')
+        window.location.href = '/home'
       }
     } catch (err) {
       setError('Failed to sign in with Google.')
@@ -301,9 +295,8 @@ export default function LoginForm() {
       
       try {
         const user = result.user
-        // Always redirect Google signups to /complete-profile
-        setRedirecting(true)
-        router.push('/complete-profile')
+        // Always redirect Google signups to /complete-profile and reload page
+        window.location.href = '/complete-profile'
       } catch (firestoreErr) {
         console.error('Firestore error:', firestoreErr)
         setError('Failed to process Google sign up. Please try again.')

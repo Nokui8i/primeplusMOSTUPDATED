@@ -28,6 +28,7 @@ import { Share2, UserX, MoreVertical } from 'lucide-react';
 import { SocialLinksDisplay, SocialLink } from './SocialLinksDisplay';
 import { blockUser, unblockUser, isUserBlocked } from '@/lib/services/block.service';
 import { Button } from '@/components/ui/button';
+import { SubscriptionContainer } from './SubscriptionContainer';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -359,13 +360,6 @@ export function ProfileHeader({
                       <span>CHAT</span>
                     </button>
                   )}
-                  <button
-                    onClick={() => setShowPlansModal(true)}
-                    disabled={checkingSubscription || isSubscribed}
-                    className="profile-btn subscribe"
-                  >
-                    <span>SUBSCRIBE</span>
-                  </button>
                 </>
               )}
             

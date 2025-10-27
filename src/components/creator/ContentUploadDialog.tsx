@@ -17,10 +17,14 @@ interface ContentUploadDialogProps {
   triggerClassName?: string;
   onUploadComplete?: () => void;
   children?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function ContentUploadDialog({ triggerClassName, onUploadComplete, children }: ContentUploadDialogProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
+export function ContentUploadDialog({ triggerClassName, onUploadComplete, children, open: externalOpen, onOpenChange: externalOnOpenChange }: ContentUploadDialogProps) {
+  const [internalOpen, setInternalOpen] = React.useState(false);
+  const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setIsOpen = externalOnOpenChange || setInternalOpen;
   const { user } = useAuth();
   const dialogRef = useRef<HTMLDivElement>(null);
 

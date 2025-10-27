@@ -6,6 +6,8 @@ import { ProfileContent } from './ProfileContent';
 import { UserProfile } from '@/lib/types/user';
 import { useAuth } from '@/hooks/useAuth';
 import { isUserBlocked } from '@/lib/services/block.service';
+import { SubscriptionContainer } from './SubscriptionContainer';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 
 interface ProfilePageClientProps {
   profile: UserProfile;
@@ -18,7 +20,31 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
   const [profileState, setProfileState] = useState(profile);
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingBlock, setCheckingBlock] = useState(true);
+  const [isCreator, setIsCreator] = useState(false);
   const { user } = useAuth();
+  
+  // Check if profile owner is a creator
+  useEffect(() => {
+    const checkCreatorStatus = async () => {
+      if (!profile?.role) {
+        console.log('❌ No profile role found');
+        return;
+      }
+      const creatorRoles = ['creator', 'admin', 'superadmin', 'owner'];
+      const isCreatorUser = creatorRoles.includes(profile.role);
+      console.log('🔍 Creator status check:', { 
+        profileId: profile?.uid,
+        role: profile.role, 
+        isCreator: isCreatorUser,
+        inList: creatorRoles.includes(profile.role)
+      });
+      setIsCreator(isCreatorUser);
+    };
+    checkCreatorStatus();
+  }, [profile?.role]);
+
+  // Check subscription status for non-own profiles
+  const { isSubscriber } = useSubscriptionStatus(isOwnProfile ? '' : profile?.uid || '');
 
   // Check if current user is blocked by the profile owner (one-way blocking)
   useEffect(() => {
@@ -93,6 +119,33 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
         activeTab={activeTab}
         onTabChange={handleTabChange}
       />
+      
+      {/* Show Subscription Container for creators and non-own profiles - Right after tabs */}
+      {!isOwnProfile && isCreator && profileState.uid && (
+        <>
+          {console.log('✅ Showing Subscription Container', { 
+            isOwnProfile, 
+            isCreator, 
+            profileId: profileState.uid, 
+            role: profileState.role,
+            uid: profileState.uid
+          })}
+          <div className="w-full px-4 py-1 flex justify-center -mt-6">
+            <div className="w-full max-w-2xl">
+              <SubscriptionContainer
+                creatorId={profileState.uid}
+                isSubscribed={isSubscriber}
+                checkingSubscription={false}
+                onSubscribe={(planId, price, duration) => {
+                  // Handle subscription completion
+                  console.log('Subscription completed:', { planId, price, duration });
+                }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+      
       <ProfileContent profile={profileState} activeTab={activeTab} />
     </div>
   );

@@ -161,10 +161,16 @@ export function TipButton({
           borderRadius: '18px',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
           transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+          zIndex: 9999,
+          pointerEvents: 'auto',
         }}
         align="center"
         side="top"
         sideOffset={8}
+        onInteractOutside={(e) => e.preventDefault()}
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="text-xs font-bold text-gray-800 flex items-center gap-1 mb-3">
           <svg 
@@ -238,7 +244,10 @@ export function TipButton({
               {QUICK_AMOUNTS.map((amount) => (
                 <button
                   key={amount}
-                  onClick={() => handleQuickAmount(amount)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuickAmount(amount);
+                  }}
                   className={`
                     relative overflow-hidden text-center font-bold transition-all
                     ${
@@ -297,20 +306,10 @@ export function TipButton({
         {/* Actions */}
         <div className="flex justify-end gap-1.5 mt-2.5">
           <button
-            onClick={() => setOpen(false)}
-            disabled={isSubmitting}
-            className="profile-btn"
-            style={{
-              border: '1px solid rgba(0, 0, 0, 0.1) !important',
-              background: 'rgba(255, 255, 255, 0.9) !important',
-              color: '#6b7280 !important',
-              backgroundImage: 'none !important',
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSubmit();
             }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
             disabled={finalAmount <= 0 || isSubmitting}
             className="profile-btn"
             style={{

@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { MessageSquare, Save, Loader2, Image, X, Upload, Send, DollarSign, ChevronDown, Settings } from 'lucide-react';
+import { MessageSquare, Save, Loader2, Image, X, Upload, Send, DollarSign, ChevronDown, Settings, Globe, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { uploadToS3 } from '@/lib/aws/s3';
 
@@ -25,11 +25,13 @@ export default function SettingsTab() {
     bulkMessage: false,
     welcomeMessage: false,
     commentSettings: false,
+    profileVisibility: false,
   });
   
   // Comment settings states
   const [defaultCommentAccess, setDefaultCommentAccess] = useState<'everyone' | 'subscribers' | 'paid_subscribers' | 'none'>('everyone');
   const [isVerified, setIsVerified] = useState(false);
+  const [profileVisibility, setProfileVisibility] = useState<'public' | 'subscribers_only'>('public');
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Bulk message states
@@ -73,6 +75,10 @@ export default function SettingsTab() {
           
           // Check verification status (for other features)
           setIsVerified(userData.isVerified || false);
+          
+          // Load profile visibility setting
+          const vis = userData.privacy?.profileVisibility || 'public';
+          setProfileVisibility(vis);
         }
       } catch (error) {
         console.error('Error loading settings:', error);
@@ -316,6 +322,7 @@ export default function SettingsTab() {
           allowComments: defaultCommentAccess === 'none' ? false : defaultCommentAccess === 'everyone' ? true : null,
           commentAccessLevel: defaultCommentAccess === 'subscribers' ? 'subscribers' : defaultCommentAccess === 'paid_subscribers' ? 'paid_subscribers' : null,
         },
+        'privacy.profileVisibility': profileVisibility,
         updatedAt: new Date(),
       });
 
@@ -340,7 +347,7 @@ export default function SettingsTab() {
 
       toast({
         title: "Settings saved!",
-        description: `Your comment settings have been updated for all ${postsSnapshot.docs.length} existing posts.`,
+        description: `Your settings have been updated. ${postsSnapshot.docs.length} posts updated.`,
       });
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -806,6 +813,110 @@ export default function SettingsTab() {
                   {saving ? 'Saving...' : 'Save Settings'}
                 </button>
               </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Profile Visibility Section */}
+      <Card>
+        <CardHeader 
+          className="cursor-pointer hover:bg-gray-50 transition-colors py-1"
+          onClick={() => toggleSection('profileVisibility')}
+        >
+          <CardTitle className="flex items-center justify-between text-sm !font-normal text-gray-800">
+            <div className="flex items-center gap-2">
+              <Settings className="h-3 w-3" />
+              Profile Visibility
+            </div>
+            <ChevronDown 
+              className={`h-3 w-3 transition-transform ${
+                openSections.profileVisibility ? 'rotate-180' : ''
+              }`}
+            />
+          </CardTitle>
+          <CardDescription className="text-xs text-gray-600">
+            Control who can view your profile and posts
+          </CardDescription>
+        </CardHeader>
+        {openSections.profileVisibility && (
+          <CardContent className="space-y-6 py-6">
+            <div className="space-y-3">
+              <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="profileVisibility"
+                  value="public"
+                  checked={profileVisibility === 'public'}
+                  onChange={(e) => setProfileVisibility(e.target.value as 'public' | 'subscribers_only')}
+                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <div className="flex items-center space-x-2 flex-1">
+                  <Globe className="h-4 w-4 text-gray-600" />
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">Public</div>
+                    <div className="text-xs text-gray-600">Anyone can see your profile and posts</div>
+                  </div>
+                </div>
+              </label>
+              
+              <label className="flex items-center space-x-3 cursor-pointer p-3 rounded-lg hover:bg-gray-50 transition-colors">
+                <input
+                  type="radio"
+                  name="profileVisibility"
+                  value="subscribers_only"
+                  checked={profileVisibility === 'subscribers_only'}
+                  onChange={(e) => setProfileVisibility(e.target.value as 'public' | 'subscribers_only')}
+                  className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                />
+                <div className="flex items-center space-x-2 flex-1">
+                  <Lock className="h-4 w-4 text-gray-600" />
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">Subscribers Only</div>
+                    <div className="text-xs text-gray-600">Only your subscribers can see your profile and posts</div>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex justify-center">
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="save-message-btn"
+                style={{
+                  border: 'none',
+                  color: '#fff',
+                  backgroundImage: 'linear-gradient(30deg, #3b82f6, #1d4ed8)',
+                  backgroundColor: 'transparent',
+                  borderRadius: '16px',
+                  backgroundSize: '100% auto',
+                  fontFamily: 'inherit',
+                  fontSize: '10px',
+                  padding: '4px 10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                  transition: 'all 0.3s ease-in-out',
+                  boxShadow: 'none',
+                  margin: '0',
+                  width: 'auto',
+                  height: 'auto',
+                  fontWeight: '600',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {saving ? 'Saving...' : 'Save Settings'}
+              </button>
             </div>
           </CardContent>
         )}

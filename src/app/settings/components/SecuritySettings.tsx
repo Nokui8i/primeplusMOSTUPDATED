@@ -284,9 +284,9 @@ export default function SecuritySettings() {
       if (auth.currentUser) {
         await auth.currentUser.delete();
       }
-      // 4. Sign out and redirect
+      // 4. Sign out and redirect with full page reload
       await signOut(auth);
-      router.push('/');
+      window.location.href = '/';
     } catch (error: any) {
       if (error.code === 'auth/requires-recent-login') {
         setDeleteError('Please log out and log in again before deleting your account.');

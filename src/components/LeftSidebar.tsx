@@ -92,7 +92,8 @@ export function LeftSidebar({ isLoading = false }: LeftSidebarProps) {
   const handleLogout = async () => {
     try {
       await logout();
-      router.push('/');
+      // Force full page reload after logout to clear all state
+      window.location.href = '/';
     } catch (error) {
       console.error('Error signing out:', error);
     }

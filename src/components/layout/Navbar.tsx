@@ -79,7 +79,10 @@ export function Navbar() {
                     <Link href="/settings">Settings</Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => signOut()}>
+                  <DropdownMenuItem onClick={async () => {
+                    await signOut();
+                    window.location.href = '/';
+                  }}>
                     Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
