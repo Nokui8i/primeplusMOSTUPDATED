@@ -79,17 +79,21 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
         <head>
           <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
           <style>
-            body { 
+            html, body { 
               margin: 0; 
               padding: 0; 
               touch-action: none;
               -webkit-touch-callout: none;
               -webkit-user-select: none;
               user-select: none;
+              overflow: hidden;
             }
             a-scene { 
               width: 100%; 
               height: 100vh; 
+              touch-action: none;
+            }
+            * {
               touch-action: none;
             }
           </style>
@@ -102,7 +106,7 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
             }
             <a-camera 
               position="0 1.6 0" 
-              look-controls="reverseMouseDrag: true; touchEnabled: true; pointerLockEnabled: false"
+              look-controls="reverseMouseDrag: true; touchEnabled: true; pointerLockEnabled: false; gyroscopeEnabled: true;"
             ></a-camera>
           </a-scene>
         </body>
@@ -232,7 +236,11 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
         position: 'relative',
         backgroundColor: '#f3f4f6',
         borderRadius: '8px',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        touchAction: 'none',
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none'
       }}
     >
       {!isLoaded && (
@@ -262,7 +270,12 @@ export const GoogleVRView: React.FC<GoogleVRViewProps> = ({
           height="100%"
           frameBorder="0"
           className="w-full h-full"
-          style={{ border: 'none', borderRadius: '8px' }}
+          style={{ 
+            border: 'none', 
+            borderRadius: '8px',
+            touchAction: 'none',
+            pointerEvents: 'auto'
+          }}
           onLoad={() => {}}
           onError={() => {
             console.error('❌ A-Frame iframe failed to load')
