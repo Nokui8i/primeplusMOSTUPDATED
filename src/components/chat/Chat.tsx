@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical, UserX, Pin, Search, ChevronUp, ChevronDown, Grid3x3 } from 'lucide-react';
+import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical, UserX, Pin, Search, ChevronUp, ChevronDown, Grid3x3, Check } from 'lucide-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 // Firebase Storage imports removed - now using AWS S3
 import { ImageUploadPreview } from './ImageUploadPreview';
@@ -25,6 +25,7 @@ import { formatDistanceToNow } from 'date-fns';
 import type { MessageAttachment } from '@/lib/types/messages';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { canViewProfile } from '@/lib/utils/profileVisibility';
+import { deleteFromS3, extractS3KeyFromUrl } from '@/lib/aws/s3';
 
 interface Message {
   id: string;
@@ -45,6 +46,7 @@ interface Message {
   attachments?: MessageAttachment[];
   edited?: boolean;
   isWelcomeMessage?: boolean;
+  deleted?: boolean; // WhatsApp-style: true if message was deleted after being seen
 }
 
 interface ChatProps {
@@ -65,25 +67,183 @@ interface ChatProps {
 
 // Add this function before the Chat component
 const ensureChatDocument = async (user: any, recipientId: string) => {
-  const chatId = [user.uid, recipientId].sort().join('_');
-  const chatRef = doc(db, 'chats', chatId);
-  const chatDoc = await getDoc(chatRef);
+  const userChatId = `${user.uid}_${recipientId}`;
+  const recipientChatId = `${recipientId}_${user.uid}`;
+  
+  const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+  const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+  
+  const userChatDoc = await getDoc(userChatRef);
+  const recipientChatDoc = await getDoc(recipientChatRef);
 
-  if (!chatDoc.exists()) {
-    await setDoc(chatRef, {
+  // Check if user deleted this chat (either marked as deleted OR completely deleted)
+  // If user's chat document doesn't exist, it means they deleted it completely
+  const userDeleted = !userChatDoc.exists() || (userChatDoc.exists() && userChatDoc.data().deletedByUser);
+  // Recipient deleted if: their document doesn't exist (completely deleted) OR marked as deleted
+  const recipientDeleted = !recipientChatDoc.exists() || (recipientChatDoc.exists() && recipientChatDoc.data().deletedByUser);
+  
+  // Get user's current sharedChatId
+  const userCurrentSharedChatId = userChatDoc.exists() ? userChatDoc.data().sharedChatId : null;
+  const userHasNewSharedChatId = userCurrentSharedChatId && userCurrentSharedChatId.includes('_') && /_\d{13}$/.test(userCurrentSharedChatId);
+  
+  let sharedChatId: string;
+  
+  // Determine sharedChatId - handle deleted chats properly
+  let recipientSharedChatId: string | null = null; // For recipient if they deleted
+  
+  if (userDeleted) {
+    // User completely deleted - create a NEW shared chat with timestamp ONLY ONCE (first message after deletion)
+    // If they already have a timestamped sharedChatId, they should keep using it (don't create new one every time)
+    if (userHasNewSharedChatId) {
+      // User already has a new sharedChatId from previous deletion - keep using it for continued conversation
+      sharedChatId = userCurrentSharedChatId;
+      console.log('🔍 [Chat] ensureChatDocument: User deleted before but has existing new sharedChatId - keeping it:', sharedChatId);
+    } else {
+      // First message after deletion - create new sharedChatId
+      sharedChatId = `${[user.uid, recipientId].sort().join('_')}_${Date.now()}`;
+      console.log('🔍 [Chat] ensureChatDocument: User deleted - created NEW sharedChatId for fresh start:', sharedChatId);
+    }
+  } else if (recipientDeleted) {
+    // Recipient deleted, but user didn't
+    // User keeps their existing sharedChatId (their history)
+    if (userChatDoc.exists() && userChatDoc.data().sharedChatId) {
+      sharedChatId = userChatDoc.data().sharedChatId;
+    } else {
+      sharedChatId = [user.uid, recipientId].sort().join('_');
+    }
+    
+    // Recipient needs a NEW sharedChatId for fresh start (if they completely deleted)
+    if (!recipientChatDoc.exists()) {
+      recipientSharedChatId = `${[user.uid, recipientId].sort().join('_')}_${Date.now()}`;
+      console.log('🔍 [Chat] ensureChatDocument: Recipient completely deleted - created NEW recipientSharedChatId:', recipientSharedChatId, '(sender keeps:', sharedChatId, ')');
+    } else {
+      console.log('🔍 [Chat] ensureChatDocument: Recipient soft-deleted (has document), no new recipientSharedChatId needed');
+    }
+  } else {
+    // Normal case - both users haven't deleted (according to their personal chat documents)
+    // CRITICAL: ALWAYS prioritize user's own sharedChatId from their personal chat document
+    // This ensures that if user deleted before and has a new sharedChatId, they keep using it
+    // We NEVER use recipient's sharedChatId if user has their own (especially if it's timestamped)
+    if (userChatDoc.exists() && userChatDoc.data().sharedChatId) {
+      // User has their own sharedChatId in their personal chat - ALWAYS use it
+      // This is the key: each user has their own chat folder, and we use THEIR sharedChatId
+      sharedChatId = userChatDoc.data().sharedChatId;
+      console.log('🔍 [Chat] ensureChatDocument: Using user\'s own sharedChatId from their personal chat:', sharedChatId, '(userHasNewSharedChatId:', userHasNewSharedChatId, ')');
+    } else if (recipientChatDoc.exists() && recipientChatDoc.data().sharedChatId) {
+      // User doesn't have their own sharedChatId yet, use recipient's as starting point
+      sharedChatId = recipientChatDoc.data().sharedChatId;
+      console.log('🔍 [Chat] ensureChatDocument: User has no sharedChatId yet, using recipient\'s:', sharedChatId);
+    } else {
+      // Neither user has a sharedChatId - create new standard one
+      sharedChatId = [user.uid, recipientId].sort().join('_');
+      console.log('🔍 [Chat] ensureChatDocument: Creating new standard sharedChatId:', sharedChatId);
+    }
+  }
+  
+  const sharedChatRef = doc(db, 'chats', sharedChatId);
+  const sharedChatDoc = await getDoc(sharedChatRef);
+
+  // Create shared chat document if it doesn't exist
+  if (!sharedChatDoc.exists()) {
+    await setDoc(sharedChatRef, {
       participants: [user.uid, recipientId],
       lastMessage: '',
       lastMessageTime: serverTimestamp(),
-      unreadCounts: {
-        [user.uid]: 0,
-        [recipientId]: 0
-      },
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
   }
 
-  return chatId;
+  // Create or update user's personal chat entry
+  if (!userChatDoc.exists()) {
+    await setDoc(userChatRef, {
+      otherUserId: recipientId,
+      sharedChatId: sharedChatId,
+      lastMessage: '',
+      lastMessageTime: serverTimestamp(),
+      unreadCount: 0,
+      pinned: false,
+      deletedByUser: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    console.log('🔍 [Chat] ensureChatDocument: Created user chat entry with sharedChatId:', sharedChatId);
+  } else {
+    // CRITICAL: Each user has their own chat folder - they should ALWAYS keep their own sharedChatId
+    // NEVER update user's sharedChatId from their personal chat document - it's their own data
+    const currentSharedChatId = userChatDoc.data().sharedChatId;
+    
+    // If user already has a sharedChatId in their personal chat, use THAT one (never override it)
+    // This is the key: each user has their own chat folder with their own sharedChatId
+    if (currentSharedChatId && currentSharedChatId !== sharedChatId) {
+      // User has their own sharedChatId that's different from what we calculated
+      // This means they previously had a conversation (maybe deleted it) - keep using THEIR sharedChatId
+      console.log('🔍 [Chat] ensureChatDocument: User has their own sharedChatId, keeping it:', currentSharedChatId, '(calculated:', sharedChatId, ')');
+      sharedChatId = currentSharedChatId; // Use user's own sharedChatId from their personal chat folder
+    } else if (currentSharedChatId !== sharedChatId) {
+      // User doesn't have a sharedChatId yet, or it matches - update to ensure sync
+      console.log('🔍 [Chat] ensureChatDocument: Updating user sharedChatId from', currentSharedChatId, 'to', sharedChatId);
+      await updateDoc(userChatRef, {
+        sharedChatId: sharedChatId,
+        deletedByUser: false,
+        updatedAt: serverTimestamp()
+      });
+    }
+    // If currentSharedChatId === sharedChatId, no update needed
+  }
+
+  // Create or update recipient's personal chat entry
+  if (!recipientChatDoc.exists()) {
+    // Recipient's chat doesn't exist (they deleted it completely)
+    // Use recipientSharedChatId if it was created (for fresh start), otherwise use sender's sharedChatId
+    const finalRecipientSharedChatId = recipientSharedChatId || sharedChatId;
+    console.log('🔍 [Chat] ensureChatDocument: Creating recipient chat entry with finalRecipientSharedChatId:', finalRecipientSharedChatId, '(recipientSharedChatId:', recipientSharedChatId, ', sharedChatId:', sharedChatId, ')');
+    
+    await setDoc(recipientChatRef, {
+      otherUserId: user.uid,
+      sharedChatId: finalRecipientSharedChatId,
+      lastMessage: '',
+      lastMessageTime: serverTimestamp(),
+      unreadCount: 0,
+      pinned: false,
+      deletedByUser: false,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    
+    // Create shared chat document for recipient's new chat if it doesn't exist
+    if (recipientSharedChatId) {
+      const recipientSharedChatRef = doc(db, 'chats', recipientSharedChatId);
+      const recipientSharedChatDoc = await getDoc(recipientSharedChatRef);
+      
+      if (!recipientSharedChatDoc.exists()) {
+        console.log('🔍 [Chat] ensureChatDocument: Creating shared chat document for recipientSharedChatId:', recipientSharedChatId);
+        await setDoc(recipientSharedChatRef, {
+          participants: [user.uid, recipientId],
+          lastMessage: '',
+          lastMessageTime: serverTimestamp(),
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+    }
+  } else {
+    // Recipient's chat exists - only update if they had soft-deleted it
+    // Don't change their sharedChatId if they didn't delete (they should keep their history)
+    const wasDeleted = recipientChatDoc.data().deletedByUser;
+    
+    if (wasDeleted) {
+      // They had soft-deleted, now receiving message - sync to sender's sharedChatId
+      await updateDoc(recipientChatRef, {
+        sharedChatId: sharedChatId,
+        deletedByUser: false, // Reset deletion status when receiving a new message
+        updatedAt: serverTimestamp()
+      });
+    }
+    // else: Recipient didn't delete - they keep their existing sharedChatId (their history)
+  }
+
+  return { sharedChatId, userChatId, recipientSharedChatId };
 };
 
 // Add this at the top of the file, after the imports
@@ -223,7 +383,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [selectedFiles, setSelectedFiles] = useState<Array<{ file: File; preview: string; type: 'image' | 'video'; locked: boolean; price?: number }>>([]);
   const [isVerifiedCreator, setIsVerifiedCreator] = useState(false);
   const [verifiedCreators, setVerifiedCreators] = useState<Record<string, boolean>>({});
-  const [editText, setEditText] = useState('');
+  // WhatsApp-style edit: when editing, populate input field instead of showing edit UI in message
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -428,38 +588,53 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   useEffect(() => {
     if (!user) return;
 
-    // Create a unique chat ID based on user IDs (sorted to ensure consistency)
-    const chatId = [user.uid, recipientId].sort().join('_');
+    let unsubscribe: (() => void) | null = null;
+    let unsubscribeUserChat: (() => void) | null = null;
+    let currentSharedChatId: string | null = null;
+
+    // Listen to user's personal chat document to get sharedChatId in real-time
+    const userChatId = `${user.uid}_${recipientId}`;
+    const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
     
-    // Ensure chat document exists (it should already be created by openChat)
-    const ensureChatDocument = async () => {
-      const chatRef = doc(db, 'chats', chatId);
-      const chatDoc = await getDoc(chatRef);
+    // Setup chat listener - this will run whenever the personal chat document changes
+    const setupChat = (userChatData: any) => {
+      const sharedChatId = userChatData?.sharedChatId;
       
-      if (!chatDoc.exists()) {
-        await setDoc(chatRef, {
-          participants: [user.uid, recipientId],
-          lastMessage: '',
-          lastMessageTime: serverTimestamp(),
-          unreadCounts: {
-            [user.uid]: 0,
-            [recipientId]: 0
-          },
-          typing: false,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        });
-        console.log('Chat document created in Chat component:', chatId);
+      // If no sharedChatId yet, wait for it to be created
+      if (!sharedChatId) {
+        console.log('🔍 [Chat] No sharedChatId found - waiting for chat to be created');
+        setMessages([]);
+        // Clean up old listener if sharedChatId is null (document was deleted)
+        if (unsubscribe) {
+          console.log('🔍 [Chat] Cleaning up old listener because sharedChatId is null');
+          unsubscribe();
+          unsubscribe = null;
+          currentSharedChatId = null;
+        }
+        return;
       }
-    };
-    
-    ensureChatDocument().catch(error => {
-      console.error('Error ensuring chat document:', error);
-    });
+      
+      console.log('🔍 [Chat] setupChat called with sharedChatId:', sharedChatId, 'currentSharedChatId:', currentSharedChatId);
+      
+      // If sharedChatId changed, unsubscribe from old listener first
+      if (currentSharedChatId && currentSharedChatId !== sharedChatId && unsubscribe) {
+        console.log('🔍 [Chat] SharedChatId changed, unsubscribing from old listener:', currentSharedChatId, '->', sharedChatId);
+        unsubscribe();
+        unsubscribe = null;
+      }
+      
+      // If we already have a listener for this sharedChatId, don't create another one
+      if (currentSharedChatId === sharedChatId && unsubscribe) {
+        console.log('🔍 [Chat] Already listening to sharedChatId:', sharedChatId);
+        return;
+      }
+      
+      console.log('🔍 [Chat] Setting up new listener for sharedChatId:', sharedChatId);
+      currentSharedChatId = sharedChatId;
 
     // Mark all unread messages from the recipient as read
     const markMessagesAsRead = async () => {
-      const messagesRef = collection(db, 'chats', chatId, 'messages');
+        const messagesRef = collection(db, 'chats', sharedChatId, 'messages');
       const unreadQuery = query(
         messagesRef,
         where('senderId', '==', recipientId),
@@ -476,29 +651,59 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       if (!snapshot.empty) {
         await batch.commit();
       }
-    };
-    markMessagesAsRead();
-    
-    // Load current pinned status
-    const loadPinnedStatus = async () => {
-      const chatRef = doc(db, 'chats', chatId);
-      const chatDoc = await getDoc(chatRef);
-      if (chatDoc.exists()) {
-        const pinnedBy = chatDoc.data().pinnedBy || {};
-        setIsPinned(pinnedBy[user.uid] || false);
-      }
-    };
-    loadPinnedStatus();
+        
+        // Always reset user's personal chat unreadCount to 0 when opening chat
+        await updateDoc(userChatRef, {
+          unreadCount: 0,
+          updatedAt: serverTimestamp()
+        }).catch(() => {
+          // Chat might not exist yet, that's ok
+        });
+      };
+      markMessagesAsRead().catch(error => {
+        console.error('Error marking messages as read:', error);
+      });
+      
+      // Load current pinned status from user's personal chat
+      const pinned = userChatData?.pinned || false;
+      setIsPinned(pinned);
 
-    // Listen to messages with real-time updates
-    const messagesRef = collection(db, 'chats', chatId, 'messages');
+      // Listen to messages with real-time updates - ONLY for the current sharedChatId
+      const messagesRef = collection(db, 'chats', sharedChatId, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'desc'));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newMessages = snapshot.docs.map(doc => ({
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        console.log('🔍 [Chat] onSnapshot received', snapshot.docs.length, 'messages for sharedChatId:', sharedChatId);
+        if (snapshot.docs.length > 0) {
+          console.log('🔍 [Chat] First message:', {
+            id: snapshot.docs[0].id,
+            text: snapshot.docs[0].data().text,
+            senderId: snapshot.docs[0].data().senderId,
+            timestamp: snapshot.docs[0].data().timestamp
+          });
+        }
+        
+        // Filter out duplicate messages by ID to prevent showing same message twice
+        const seenIds = new Set<string>();
+        const mappedMessages = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Message[];
+        
+        const newMessages = mappedMessages.filter(msg => {
+          if (seenIds.has(msg.id)) {
+            console.warn('🔍 [Chat] Duplicate message detected:', msg.id);
+            return false;
+          }
+          seenIds.add(msg.id);
+          return true;
+        });
+        
+        console.log('🔍 [Chat] Setting', newMessages.length, 'messages (after filtering duplicates)');
+        if (newMessages.length > 0) {
+          console.log('🔍 [Chat] Messages to display:', newMessages.map(m => ({ id: m.id, text: m.text, senderId: m.senderId })));
+        }
+        
       // Reverse to show oldest first (chronological order)
       setMessages(newMessages.reverse());
       
@@ -514,15 +719,52 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           if (messageData.senderId === user.uid && messageData.status === 'sent') {
             // Update to delivered after a short delay
             setTimeout(async () => {
-              const messageRef = doc(db, 'chats', chatId, 'messages', change.doc.id);
+                const messageRef = doc(db, 'chats', sharedChatId, 'messages', change.doc.id);
               await updateDoc(messageRef, { status: 'delivered' });
             }, 1000);
           }
         }
       });
     });
+    };
 
-    return () => unsubscribe();
+    // Listen to user's personal chat document for real-time updates to sharedChatId
+    // Include metadataChanges to listen for all changes, not just content
+    unsubscribeUserChat = onSnapshot(userChatRef, { includeMetadataChanges: true }, (userChatDoc) => {
+      console.log('🔍 [Chat] User chat document changed, exists:', userChatDoc.exists(), 'hasPendingWrites:', userChatDoc.metadata.hasPendingWrites, 'fromCache:', userChatDoc.metadata.fromCache);
+      
+      if (userChatDoc.exists()) {
+        const userChatData = userChatDoc.data();
+        console.log('🔍 [Chat] User chat data:', { 
+          sharedChatId: userChatData.sharedChatId,
+          lastMessage: userChatData.lastMessage,
+          deletedByUser: userChatData.deletedByUser 
+        });
+        
+        // Setup chat - the onSnapshot will fire again when pending writes are committed
+        // But we still want to setup with the current data (which might be cached or pending)
+        setupChat(userChatData);
+      } else {
+        // Document doesn't exist yet - will be created when first message is sent
+        console.log('🔍 [Chat] Chat document does not exist - will be created when first message is sent');
+        setMessages([]);
+        // Clean up old listener if document was deleted
+        if (unsubscribe) {
+          console.log('🔍 [Chat] Cleaning up message listener because document was deleted');
+          unsubscribe();
+          unsubscribe = null;
+          currentSharedChatId = null;
+        }
+      }
+    }, (error) => {
+      console.error('🔍 [Chat] Error listening to user chat document:', error);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (unsubscribeUserChat) unsubscribeUserChat();
+      currentSharedChatId = null;
+    };
   }, [user, recipientId]);
 
   useEffect(() => {
@@ -608,15 +850,43 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       return;
     }
 
+    // OPTIMISTIC UPDATE: Clear input immediately (especially important on mobile)
+    const captionText = newMessage.trim();
+    const filesToSend = [...selectedFiles]; // Save files before clearing state
+    setNewMessage('');
+    filesToSend.forEach(f => URL.revokeObjectURL(f.preview));
+    setSelectedFiles([]);
+    
+    // Keep input focused on mobile to prevent keyboard from closing
+    const maintainFocusOnMobile = () => {
+      if (isMobile && messageInputRef.current) {
+        messageInputRef.current.focus();
+        requestAnimationFrame(() => {
+          if (messageInputRef.current) {
+            messageInputRef.current.focus();
+          }
+        });
+        setTimeout(() => {
+          if (messageInputRef.current) {
+            messageInputRef.current.focus();
+          }
+        }, 0);
+        setTimeout(() => {
+          if (messageInputRef.current) {
+            messageInputRef.current.focus();
+          }
+        }, 150);
+      }
+    };
+    
+    maintainFocusOnMobile();
+
     setUploading(true);
     
     try {
       // Separate images and videos
-      const images = selectedFiles.filter(f => f.type === 'image');
-      const videos = selectedFiles.filter(f => f.type === 'video');
-      
-      // Get the text message to attach as caption
-      const captionText = newMessage.trim();
+      const images = filesToSend.filter(f => f.type === 'image');
+      const videos = filesToSend.filter(f => f.type === 'video');
       
       // Upload images with caption
       if (images.length > 0) {
@@ -627,11 +897,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       if (videos.length > 0) {
         await handleVideoUpload(videos.map(({ file, locked, price }) => ({ file, locked, price })), captionText);
       }
-      
-      // Clear text message and selected files
-      setNewMessage('');
-      selectedFiles.forEach(f => URL.revokeObjectURL(f.preview));
-      setSelectedFiles([]);
     } catch (error) {
       console.error('Error sending files:', error);
       toast.error('Failed to send files');
@@ -649,6 +914,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       return;
     }
     
+    // If in edit mode, save the edited message instead of sending new one
+    if (editingMessage) {
+      await handleEditMessage();
+      return;
+    }
+    
     // If there are selected files, send them with caption text
     if (selectedFiles.length > 0) {
       await handleSendFiles();
@@ -658,12 +929,119 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     // If no files, send text message only
     if (!newMessage.trim()) return;
     
+    // OPTIMISTIC UPDATE: Clear input immediately (especially important on mobile)
+    const messageTextToSend = newMessage.trim();
+    
+    // CRITICAL: On mobile, keep input focused to prevent keyboard from closing
+    // We'll maintain focus through multiple strategies
+    const maintainFocusOnMobile = () => {
+      if (isMobile && messageInputRef.current) {
+        // Immediate focus
+        messageInputRef.current.focus();
+        
+        // Use requestAnimationFrame for smooth focus restoration
+        requestAnimationFrame(() => {
+          if (messageInputRef.current) {
+            messageInputRef.current.focus();
+          }
+        });
+        
+        // Backup setTimeout for focus restoration
+        setTimeout(() => {
+          if (messageInputRef.current) {
+            messageInputRef.current.focus();
+          }
+        }, 0);
+        
+        // Keep focus after state updates and scrolls
+        setTimeout(() => {
+          if (messageInputRef.current) {
+            messageInputRef.current.focus();
+          }
+        }, 100);
+        
+        setTimeout(() => {
+          if (messageInputRef.current) {
+            messageInputRef.current.focus();
+          }
+        }, 250);
+      }
+    };
+    
+    // Maintain focus BEFORE clearing (important for mobile)
+    maintainFocusOnMobile();
+    
+    setNewMessage('');
+    
+    // Maintain focus AFTER clearing (state update)
+    maintainFocusOnMobile();
+    
     if (user) {
-      const chatId = [user.uid, recipientId].sort().join('_');
-      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      // Run Firestore operations in background to avoid blocking UI
+      // Use setTimeout(0) on mobile to ensure input clearing happens first
+      const executeInBackground = isMobile 
+        ? () => setTimeout(() => {
+            (async () => {
+              try {
+                await sendMessageAsync(user, recipientId, messageTextToSend);
+              } catch (error) {
+                console.error('Error sending message:', error);
+                toast.error('Failed to send message. Please try again.');
+              }
+            })();
+          }, 0)
+        : () => {
+            (async () => {
+              try {
+                await sendMessageAsync(user, recipientId, messageTextToSend);
+              } catch (error) {
+                console.error('Error sending message:', error);
+                toast.error('Failed to send message. Please try again.');
+              }
+            })();
+          };
+      
+      executeInBackground();
+    }
+    
+    // Scroll to bottom after sending message (don't wait for async operations)
+    setTimeout(() => {
+      scrollToBottom();
+      // Maintain focus on mobile after scroll
+      if (isMobile && messageInputRef.current) {
+        messageInputRef.current.focus();
+      }
+    }, 50);
+    setTimeout(() => {
+      scrollToBottom();
+      // Maintain focus on mobile after scroll (backup)
+      if (isMobile && messageInputRef.current) {
+        messageInputRef.current.focus();
+      }
+    }, 150);
+  };
+
+  // Separate async function to send message (allows better control)
+  const sendMessageAsync = async (user: any, recipientId: string, messageTextToSend: string) => {
+    // Check if user has a timestamped sharedChatId BEFORE calling ensureChatDocument
+    // This is to prevent ensureChatDocument from returning an old sharedChatId
+    const userChatIdForSend = `${user.uid}_${recipientId}`;
+    const userChatRefPreCheck = doc(db, 'users', user.uid, 'chats', userChatIdForSend);
+    const userChatDocPreCheck = await getDoc(userChatRefPreCheck);
+    const userCurrentSharedChatIdPreCheck = userChatDocPreCheck.exists() ? userChatDocPreCheck.data().sharedChatId : null;
+    const userHasNewSharedChatIdPreCheck = userCurrentSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck.includes('_') && /_\d{13}$/.test(userCurrentSharedChatIdPreCheck);
+    
+    // Ensure chat documents exist
+    const { sharedChatId, userChatId, recipientSharedChatId } = await ensureChatDocument(user, recipientId);
+      
+    // CRITICAL: If user has a timestamped sharedChatId (from deletion), use it instead of what ensureChatDocument returned
+    // This prevents history from returning when user sends a message
+    const finalSharedChatIdForUser = userHasNewSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck ? userCurrentSharedChatIdPreCheck : sharedChatId;
+    
+    const messagesRef = collection(db, 'chats', finalSharedChatIdForUser, 'messages');
 
       const messageData = {
-        text: newMessage,
+      text: messageTextToSend,
         senderId: user.uid,
         senderName: user.displayName || user.email || 'Anonymous',
         timestamp: serverTimestamp(),
@@ -672,34 +1050,151 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         type: 'text'
       };
 
+    // Get recipient's actual sharedChatId from their personal chat document
+    const recipientChatIdCheck = `${recipientId}_${user.uid}`;
+    const recipientChatRefCheck = doc(db, 'users', recipientId, 'chats', recipientChatIdCheck);
+    const recipientChatDocCheck = await getDoc(recipientChatRefCheck);
+    const recipientActualSharedChatId = recipientChatDocCheck.exists() ? recipientChatDocCheck.data().sharedChatId : null;
+    
+    console.log('🔍 [Chat] handleSendMessage: Final sender sharedChatId:', finalSharedChatIdForUser, '(from ensureChatDocument:', sharedChatId, ', user has timestamped:', userHasNewSharedChatIdPreCheck, ') | Recipient actual sharedChatId:', recipientActualSharedChatId);
+    
+    // Send message to sender's sharedChatId (their history)
       await addDoc(messagesRef, messageData);
       
-      // Update chat metadata with last message
-      const chatRef = doc(db, 'chats', chatId);
-      await updateDoc(chatRef, {
-        lastMessage: newMessage.trim(),
-        lastMessageTime: serverTimestamp(),
-        unreadCounts: {
-          [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
-        }
+    // CRITICAL: If sender and recipient have different sharedChatIds (one deleted), send message to BOTH
+    // This ensures:
+    // - User who deleted sees only new messages in their new sharedChatId
+    // - User who didn't delete sees all messages including history in their old sharedChatId
+    if (recipientActualSharedChatId && recipientActualSharedChatId !== finalSharedChatIdForUser) {
+      console.log('🔍 [Chat] handleSendMessage: ✅ Sender and recipient have different sharedChatIds - sending to BOTH:', {
+        sender: finalSharedChatIdForUser,
+        recipient: recipientActualSharedChatId
       });
       
+      // Send message to recipient's sharedChatId too (for their history)
+      const recipientMessagesRef = collection(db, 'chats', recipientActualSharedChatId, 'messages');
+      await addDoc(recipientMessagesRef, messageData);
       
-      // Force refresh chat metadata by querying the actual last message
+      // Update recipient's shared chat metadata
+      const recipientSharedChatRef = doc(db, 'chats', recipientActualSharedChatId);
+      await updateDoc(recipientSharedChatRef, {
+      lastMessage: messageTextToSend,
+        lastMessageTime: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    
+    // Update sender's shared chat metadata (use finalSharedChatIdForUser)
+    const sharedChatRef = doc(db, 'chats', finalSharedChatIdForUser);
+    await updateDoc(sharedChatRef, {
+      lastMessage: messageTextToSend,
+      lastMessageTime: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    
+    // Update or create user's personal chat entry
+    // This is critical - ensure the document exists with the correct sharedChatId BEFORE returning
+    const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+    const userChatDocCheck = await getDoc(userChatRef);
+    
+    if (userChatDocCheck.exists()) {
+      // CRITICAL: If user has a timestamped sharedChatId (from deletion), NEVER update it
+      const currentUserSharedChatId = userChatDocCheck.data().sharedChatId;
+      const userHasTimestampedIdForSend = currentUserSharedChatId && currentUserSharedChatId.includes('_') && /_\d{13}$/.test(currentUserSharedChatId);
+      
+      // Always use finalSharedChatIdForUser (which respects user's timestamped sharedChatId if they have one)
+      await updateDoc(userChatRef, {
+        sharedChatId: finalSharedChatIdForUser, // Use the final sharedChatId (user's timestamped one if they have it)
+        lastMessage: messageTextToSend,
+        lastMessageTime: serverTimestamp(),
+        unreadCount: 0, // Sender has no unread messages
+        deletedByUser: false, // Reset deletion status if it was set
+        updatedAt: serverTimestamp()
+      });
+    } else {
+      // Create personal chat entry if it doesn't exist (was deleted)
+      // This will trigger the onSnapshot listener in the Chat component
+      await setDoc(userChatRef, {
+        otherUserId: recipientId,
+        sharedChatId: sharedChatId,
+        lastMessage: messageTextToSend,
+        lastMessageTime: serverTimestamp(),
+        unreadCount: 0,
+        pinned: false,
+        deletedByUser: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    
+    // Force a small delay to ensure Firestore has propagated the update
+    // The onSnapshot listener should pick up the change, but this helps ensure it happens
+    console.log('🔍 [Chat] handleSendMessage: Created/updated personal chat entry with sharedChatId:', sharedChatId);
+    
+    // Update recipient's personal chat entry
+    const recipientChatId = `${recipientId}_${user.uid}`;
+    const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+    const recipientChatDoc = await getDoc(recipientChatRef);
+    
+    // Update recipient's personal chat entry
+    // IMPORTANT: If recipientSharedChatId was created (recipient deleted), use it for their fresh start
+    // Otherwise, use sender's sharedChatId
+    const finalRecipientSharedChatId = recipientSharedChatId || sharedChatId;
+    console.log('🔍 [Chat] handleSendMessage: Updating recipient chat entry with finalRecipientSharedChatId:', finalRecipientSharedChatId, '(recipientSharedChatId:', recipientSharedChatId, ', sharedChatId:', sharedChatId, ')');
+    
+    if (recipientChatDoc.exists()) {
+      const currentUnread = recipientChatDoc.data()?.unreadCount || 0;
+      const recipientCurrentSharedChatId = recipientChatDoc.data()?.sharedChatId;
+      const recipientDidNotDelete = !recipientChatDoc.data()?.deletedByUser;
+      
+      // If recipient didn't delete and already has a sharedChatId, keep it (their history)
+      // Otherwise, update to the finalRecipientSharedChatId (especially if they deleted and we created a new one)
+      if (recipientDidNotDelete && recipientCurrentSharedChatId && recipientCurrentSharedChatId !== finalRecipientSharedChatId) {
+        // Recipient didn't delete and has different sharedChatId - keep their existing one (their history)
+        console.log('🔍 [Chat] handleSendMessage: Recipient did not delete - keeping their existing sharedChatId:', recipientCurrentSharedChatId);
+        await updateDoc(recipientChatRef, {
+          lastMessage: messageTextToSend,
+          lastMessageTime: serverTimestamp(),
+          unreadCount: currentUnread + 1,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        // Update with the final sharedChatId (especially if recipient deleted and has new sharedChatId)
+        console.log('🔍 [Chat] handleSendMessage: Updating recipient sharedChatId to:', finalRecipientSharedChatId);
+        await updateDoc(recipientChatRef, {
+          sharedChatId: finalRecipientSharedChatId,
+          lastMessage: messageTextToSend,
+          lastMessageTime: serverTimestamp(),
+          unreadCount: currentUnread + 1,
+          deletedByUser: false, // Reset deletion if they receive a message
+          updatedAt: serverTimestamp()
+        });
+      }
+    } else {
+      // Create recipient's chat entry if it doesn't exist (they deleted it completely)
+      console.log('🔍 [Chat] handleSendMessage: Creating recipient chat entry with sharedChatId:', finalRecipientSharedChatId);
+      await setDoc(recipientChatRef, {
+        otherUserId: user.uid,
+        sharedChatId: finalRecipientSharedChatId,
+        lastMessage: messageTextToSend,
+        lastMessageTime: serverTimestamp(),
+        unreadCount: 1,
+        pinned: false,
+        deletedByUser: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+    
+    // Force refresh chat metadata in background (don't block UI)
+    // Note: Input already cleared at the start of function for immediate feedback
       setTimeout(async () => {
         try {
-          await updateChatMetadataFromActualLastMessage(chatId);
+        await updateChatMetadataFromActualLastMessage(sharedChatId);
         } catch (error) {
           console.error('Error refreshing chat metadata:', error);
         }
       }, 500);
-      
-      setNewMessage('');
-    }
-    
-    // Scroll to bottom after sending message
-    setTimeout(() => scrollToBottom(), 100);
-    setTimeout(() => scrollToBottom(), 300);
   };
 
   const handleImageClick = () => {
@@ -733,9 +1228,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     setUploading(true);
 
     try {
-      await ensureChatDocument(user, recipientId);
-      const chatId = [user.uid, recipientId].sort().join('_');
-      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      // Check if user has a timestamped sharedChatId BEFORE calling ensureChatDocument
+      const userChatIdForImageFunc = `${user.uid}_${recipientId}`;
+      const userChatRefPreCheckImageFunc = doc(db, 'users', user.uid, 'chats', userChatIdForImageFunc);
+      const userChatDocPreCheckImageFunc = await getDoc(userChatRefPreCheckImageFunc);
+      const userCurrentSharedChatIdPreCheckImageFunc = userChatDocPreCheckImageFunc.exists() ? userChatDocPreCheckImageFunc.data().sharedChatId : null;
+      const userHasNewSharedChatIdPreCheckImageFunc = userCurrentSharedChatIdPreCheckImageFunc && userCurrentSharedChatIdPreCheckImageFunc.includes('_') && /_\d{13}$/.test(userCurrentSharedChatIdPreCheckImageFunc);
+      
+      // Ensure chat documents exist
+      const { sharedChatId, userChatId, recipientSharedChatId } = await ensureChatDocument(user, recipientId);
+      
+      // CRITICAL: If user has a timestamped sharedChatId (from deletion), use it instead
+      const finalSharedChatIdForUserImage = userHasNewSharedChatIdPreCheckImageFunc && userCurrentSharedChatIdPreCheckImageFunc ? userCurrentSharedChatIdPreCheckImageFunc : sharedChatId;
+      
+      const messagesRef = collection(db, 'chats', finalSharedChatIdForUserImage, 'messages');
 
       // Fetch sender profile from Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -748,7 +1254,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         try {
           // Import AWS upload function
           const { uploadChatMedia } = await import('@/lib/aws/upload');
-          const url = await uploadChatMedia(file, chatId);
+          const url = await uploadChatMedia(file, finalSharedChatIdForUserImage);
           
           const messageData: any = {
             text: captionText,
@@ -767,21 +1273,112 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             messageData.price = price;
           }
           
+          // Get recipient's actual sharedChatId from their personal chat document
+          const recipientChatIdForImage = `${recipientId}_${user.uid}`;
+          const recipientChatRefForImage = doc(db, 'users', recipientId, 'chats', recipientChatIdForImage);
+          const recipientChatDocForImage = await getDoc(recipientChatRefForImage);
+          const recipientActualSharedChatIdForImage = recipientChatDocForImage.exists() ? recipientChatDocForImage.data().sharedChatId : null;
+          
+          // Send message to sender's sharedChatId (their history) - use finalSharedChatIdForUserImage
           await addDoc(messagesRef, messageData);
           
-          // Update chat metadata
-          const chatRef = doc(db, 'chats', chatId);
-          await updateDoc(chatRef, {
-            lastMessage: '📷 Image',
+          // If sender and recipient have different sharedChatIds, send to BOTH
+          if (recipientActualSharedChatIdForImage && recipientActualSharedChatIdForImage !== finalSharedChatIdForUserImage) {
+            const recipientMessagesRef = collection(db, 'chats', recipientActualSharedChatIdForImage, 'messages');
+            await addDoc(recipientMessagesRef, messageData);
+            
+            // Update recipient's shared chat metadata
+            const recipientSharedChatRef = doc(db, 'chats', recipientActualSharedChatIdForImage);
+            await updateDoc(recipientSharedChatRef, {
+              lastMessage: captionText || '📷 Image',
             lastMessageTime: serverTimestamp(),
-            unreadCounts: {
-              [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
-            }
+              updatedAt: serverTimestamp()
+            });
+          }
+          
+          // Update sender's shared chat metadata (use finalSharedChatIdForUserImage)
+          const sharedChatRef = doc(db, 'chats', finalSharedChatIdForUserImage);
+          await updateDoc(sharedChatRef, {
+            lastMessage: captionText || '📷 Image',
+            lastMessageTime: serverTimestamp(),
+            updatedAt: serverTimestamp()
           });
+          
+          // Update or create user's personal chat entry
+          const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+          const userChatDocCheck = await getDoc(userChatRef);
+          
+          if (userChatDocCheck.exists()) {
+            await updateDoc(userChatRef, {
+              sharedChatId: finalSharedChatIdForUserImage, // Use the final sharedChatId (user's timestamped one if they have it)
+              lastMessage: captionText || '📷 Image',
+              lastMessageTime: serverTimestamp(),
+              unreadCount: 0, // Sender has no unread messages
+              deletedByUser: false,
+              updatedAt: serverTimestamp()
+            });
+          } else {
+            // Create personal chat entry if it doesn't exist (was deleted)
+            await setDoc(userChatRef, {
+              otherUserId: recipientId,
+              sharedChatId: finalSharedChatIdForUserImage,
+              lastMessage: captionText || '📷 Image',
+              lastMessageTime: serverTimestamp(),
+              unreadCount: 0,
+              pinned: false,
+              deletedByUser: false,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
+          
+          // Update recipient's personal chat entry
+          const recipientChatId = `${recipientId}_${user.uid}`;
+          const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+          const recipientChatDoc = await getDoc(recipientChatRef);
+          const finalRecipientSharedChatId = recipientSharedChatId || sharedChatId;
+          
+          if (recipientChatDoc.exists()) {
+            const currentUnread = recipientChatDoc.data()?.unreadCount || 0;
+            const recipientCurrentSharedChatId = recipientChatDoc.data()?.sharedChatId;
+            const recipientDidNotDelete = !recipientChatDoc.data()?.deletedByUser;
+            
+            if (recipientDidNotDelete && recipientCurrentSharedChatId && recipientCurrentSharedChatId !== finalRecipientSharedChatId) {
+              // Recipient didn't delete - keep their existing sharedChatId (their history)
+              await updateDoc(recipientChatRef, {
+                lastMessage: captionText || '📷 Image',
+                lastMessageTime: serverTimestamp(),
+                unreadCount: currentUnread + 1,
+                updatedAt: serverTimestamp()
+              });
+            } else {
+              await updateDoc(recipientChatRef, {
+                sharedChatId: finalRecipientSharedChatId,
+                lastMessage: captionText || '📷 Image',
+                lastMessageTime: serverTimestamp(),
+                unreadCount: currentUnread + 1,
+                deletedByUser: false,
+                updatedAt: serverTimestamp()
+              });
+            }
+          } else {
+            // Create recipient's chat entry if it doesn't exist
+            await setDoc(recipientChatRef, {
+              otherUserId: user.uid,
+              sharedChatId: finalRecipientSharedChatId,
+              lastMessage: captionText || '📷 Image',
+              lastMessageTime: serverTimestamp(),
+              unreadCount: 1,
+              pinned: false,
+              deletedByUser: false,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
           
           // Force refresh to ensure accuracy
           setTimeout(() => {
-            updateChatMetadataFromActualLastMessage(chatId);
+            updateChatMetadataFromActualLastMessage(sharedChatId);
           }, 500);
         } catch (error) {
           console.error('Error uploading image:', error);
@@ -834,9 +1431,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     setUploading(true);
 
     try {
-      await ensureChatDocument(user, recipientId);
-      const chatId = [user.uid, recipientId].sort().join('_');
-      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      // Check if user has a timestamped sharedChatId BEFORE calling ensureChatDocument
+      const userChatIdForVideoFunc = `${user.uid}_${recipientId}`;
+      const userChatRefPreCheckVideoFunc = doc(db, 'users', user.uid, 'chats', userChatIdForVideoFunc);
+      const userChatDocPreCheckVideoFunc = await getDoc(userChatRefPreCheckVideoFunc);
+      const userCurrentSharedChatIdPreCheckVideoFunc = userChatDocPreCheckVideoFunc.exists() ? userChatDocPreCheckVideoFunc.data().sharedChatId : null;
+      const userHasNewSharedChatIdPreCheckVideoFunc = userCurrentSharedChatIdPreCheckVideoFunc && userCurrentSharedChatIdPreCheckVideoFunc.includes('_') && /_\d{13}$/.test(userCurrentSharedChatIdPreCheckVideoFunc);
+      
+      // Ensure chat documents exist
+      const { sharedChatId, userChatId, recipientSharedChatId } = await ensureChatDocument(user, recipientId);
+      
+      // CRITICAL: If user has a timestamped sharedChatId (from deletion), use it instead
+      const finalSharedChatIdForUserVideo = userHasNewSharedChatIdPreCheckVideoFunc && userCurrentSharedChatIdPreCheckVideoFunc ? userCurrentSharedChatIdPreCheckVideoFunc : sharedChatId;
+      
+      const messagesRef = collection(db, 'chats', finalSharedChatIdForUserVideo, 'messages');
 
       // Fetch sender profile from Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -849,7 +1457,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         try {
           // Import AWS upload function
           const { uploadChatMedia } = await import('@/lib/aws/upload');
-          const url = await uploadChatMedia(file, chatId);
+          const url = await uploadChatMedia(file, finalSharedChatIdForUserVideo);
           
           const messageData: any = {
             text: captionText,
@@ -868,21 +1476,112 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             messageData.price = price;
           }
           
+          // Get recipient's actual sharedChatId from their personal chat document
+          const recipientChatIdForVideo = `${recipientId}_${user.uid}`;
+          const recipientChatRefForVideo = doc(db, 'users', recipientId, 'chats', recipientChatIdForVideo);
+          const recipientChatDocForVideo = await getDoc(recipientChatRefForVideo);
+          const recipientActualSharedChatIdForVideo = recipientChatDocForVideo.exists() ? recipientChatDocForVideo.data().sharedChatId : null;
+          
+          // Send message to sender's sharedChatId (their history) - use finalSharedChatIdForUserVideo
           await addDoc(messagesRef, messageData);
           
-          // Update chat metadata
-          const chatRef = doc(db, 'chats', chatId);
-          await updateDoc(chatRef, {
-            lastMessage: '🎥 Video',
+          // If sender and recipient have different sharedChatIds, send to BOTH
+          if (recipientActualSharedChatIdForVideo && recipientActualSharedChatIdForVideo !== finalSharedChatIdForUserVideo) {
+            const recipientMessagesRef = collection(db, 'chats', recipientActualSharedChatIdForVideo, 'messages');
+            await addDoc(recipientMessagesRef, messageData);
+            
+            // Update recipient's shared chat metadata
+            const recipientSharedChatRef = doc(db, 'chats', recipientActualSharedChatIdForVideo);
+            await updateDoc(recipientSharedChatRef, {
+              lastMessage: captionText || '🎥 Video',
             lastMessageTime: serverTimestamp(),
-            unreadCounts: {
-              [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
-            }
+              updatedAt: serverTimestamp()
+            });
+          }
+          
+          // Update sender's shared chat metadata (use finalSharedChatIdForUserVideo)
+          const sharedChatRef = doc(db, 'chats', finalSharedChatIdForUserVideo);
+          await updateDoc(sharedChatRef, {
+            lastMessage: captionText || '🎥 Video',
+            lastMessageTime: serverTimestamp(),
+            updatedAt: serverTimestamp()
           });
+          
+          // Update or create user's personal chat entry
+          const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+          const userChatDocCheck = await getDoc(userChatRef);
+          
+          if (userChatDocCheck.exists()) {
+            await updateDoc(userChatRef, {
+              sharedChatId: finalSharedChatIdForUserVideo, // Use the final sharedChatId (user's timestamped one if they have it)
+              lastMessage: captionText || '🎥 Video',
+              lastMessageTime: serverTimestamp(),
+              unreadCount: 0, // Sender has no unread messages
+              deletedByUser: false,
+              updatedAt: serverTimestamp()
+            });
+          } else {
+            // Create personal chat entry if it doesn't exist (was deleted)
+            await setDoc(userChatRef, {
+              otherUserId: recipientId,
+              sharedChatId: finalSharedChatIdForUserVideo,
+              lastMessage: captionText || '🎥 Video',
+              lastMessageTime: serverTimestamp(),
+              unreadCount: 0,
+              pinned: false,
+              deletedByUser: false,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
+          
+          // Update recipient's personal chat entry
+          const recipientChatId = `${recipientId}_${user.uid}`;
+          const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+          const recipientChatDoc = await getDoc(recipientChatRef);
+          const finalRecipientSharedChatId = recipientSharedChatId || sharedChatId;
+          
+          if (recipientChatDoc.exists()) {
+            const currentUnread = recipientChatDoc.data()?.unreadCount || 0;
+            const recipientCurrentSharedChatId = recipientChatDoc.data()?.sharedChatId;
+            const recipientDidNotDelete = !recipientChatDoc.data()?.deletedByUser;
+            
+            if (recipientDidNotDelete && recipientCurrentSharedChatId && recipientCurrentSharedChatId !== finalRecipientSharedChatId) {
+              // Recipient didn't delete - keep their existing sharedChatId (their history)
+              await updateDoc(recipientChatRef, {
+                lastMessage: captionText || '🎥 Video',
+                lastMessageTime: serverTimestamp(),
+                unreadCount: currentUnread + 1,
+                updatedAt: serverTimestamp()
+              });
+            } else {
+              await updateDoc(recipientChatRef, {
+                sharedChatId: finalRecipientSharedChatId,
+                lastMessage: captionText || '🎥 Video',
+                lastMessageTime: serverTimestamp(),
+                unreadCount: currentUnread + 1,
+                deletedByUser: false,
+                updatedAt: serverTimestamp()
+              });
+            }
+          } else {
+            // Create recipient's chat entry if it doesn't exist
+            await setDoc(recipientChatRef, {
+              otherUserId: user.uid,
+              sharedChatId: finalRecipientSharedChatId,
+              lastMessage: captionText || '🎥 Video',
+              lastMessageTime: serverTimestamp(),
+              unreadCount: 1,
+              pinned: false,
+              deletedByUser: false,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
           
           // Force refresh to ensure accuracy
           setTimeout(() => {
-            updateChatMetadataFromActualLastMessage(chatId);
+            updateChatMetadataFromActualLastMessage(sharedChatId);
           }, 500);
         } catch (error) {
           console.error('Error uploading video:', error);
@@ -1003,16 +1702,26 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     setUploading(true);
 
     try {
-      await ensureChatDocument(user, recipientId);
-      const chatId = [user.uid, recipientId].sort().join('_');
-      const messagesRef = collection(db, 'chats', chatId, 'messages');
+      // Check if user has a timestamped sharedChatId BEFORE calling ensureChatDocument
+      const userChatIdForVoice = `${user.uid}_${recipientId}`;
+      const userChatRefPreCheckVoice = doc(db, 'users', user.uid, 'chats', userChatIdForVoice);
+      const userChatDocPreCheckVoice = await getDoc(userChatRefPreCheckVoice);
+      const userCurrentSharedChatIdPreCheckVoice = userChatDocPreCheckVoice.exists() ? userChatDocPreCheckVoice.data().sharedChatId : null;
+      const userHasNewSharedChatIdPreCheckVoice = userCurrentSharedChatIdPreCheckVoice && userCurrentSharedChatIdPreCheckVoice.includes('_') && /_\d{13}$/.test(userCurrentSharedChatIdPreCheckVoice);
+      
+      const { sharedChatId, userChatId, recipientSharedChatId } = await ensureChatDocument(user, recipientId);
+      
+      // CRITICAL: If user has a timestamped sharedChatId (from deletion), use it instead
+      const finalSharedChatIdForUserVoice = userHasNewSharedChatIdPreCheckVoice && userCurrentSharedChatIdPreCheckVoice ? userCurrentSharedChatIdPreCheckVoice : sharedChatId;
+      
+      const messagesRef = collection(db, 'chats', finalSharedChatIdForUserVoice, 'messages');
 
       // Upload audio file to AWS S3
       const { uploadAudio } = await import('@/lib/aws/upload');
       const url = await uploadAudio(audioBlob);
       
       // Create message with duration
-      await addDoc(messagesRef, {
+      const messageData = {
         text: '',
         audioUrl: url,
         senderId: user.uid,
@@ -1022,21 +1731,112 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         read: false,
         type: 'audio',
         duration: recordingDuration // Add the duration to the message
-      });
-
-      // Update chat metadata with last message
-      const chatRef = doc(db, 'chats', chatId);
-      await updateDoc(chatRef, {
+      };
+      
+      // Get recipient's actual sharedChatId from their personal chat document
+      const recipientChatIdForVoice = `${recipientId}_${user.uid}`;
+      const recipientChatRefForVoice = doc(db, 'users', recipientId, 'chats', recipientChatIdForVoice);
+      const recipientChatDocForVoice = await getDoc(recipientChatRefForVoice);
+      const recipientActualSharedChatIdForVoice = recipientChatDocForVoice.exists() ? recipientChatDocForVoice.data().sharedChatId : null;
+      
+      // Send message to sender's sharedChatId (their history) - use finalSharedChatIdForUserVoice
+      await addDoc(messagesRef, messageData);
+      
+      // If sender and recipient have different sharedChatIds, send to BOTH
+      if (recipientActualSharedChatIdForVoice && recipientActualSharedChatIdForVoice !== finalSharedChatIdForUserVoice) {
+        const recipientMessagesRef = collection(db, 'chats', recipientActualSharedChatIdForVoice, 'messages');
+        await addDoc(recipientMessagesRef, messageData);
+        
+        // Update recipient's shared chat metadata
+        const recipientSharedChatRef = doc(db, 'chats', recipientActualSharedChatIdForVoice);
+        await updateDoc(recipientSharedChatRef, {
+          lastMessage: '🎵 Voice message',
+          lastMessageTime: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      // Update sender's shared chat metadata (use finalSharedChatIdForUserVoice)
+      const sharedChatRef = doc(db, 'chats', finalSharedChatIdForUserVoice);
+      await updateDoc(sharedChatRef, {
         lastMessage: '🎵 Voice message',
         lastMessageTime: serverTimestamp(),
-        unreadCounts: {
-          [recipientId]: (await getDoc(chatRef)).data()?.unreadCounts?.[recipientId] + 1 || 1
-        }
+        updatedAt: serverTimestamp()
       });
+      
+      // Update or create user's personal chat entry
+      const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+      const userChatDocCheck = await getDoc(userChatRef);
+      
+      if (userChatDocCheck.exists()) {
+        await updateDoc(userChatRef, {
+          sharedChatId: finalSharedChatIdForUserVoice, // Use the final sharedChatId (user's timestamped one if they have it)
+          lastMessage: '🎵 Voice message',
+          lastMessageTime: serverTimestamp(),
+          unreadCount: 0,
+          deletedByUser: false,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        await setDoc(userChatRef, {
+          otherUserId: recipientId,
+          sharedChatId: finalSharedChatIdForUserVoice,
+          lastMessage: '🎵 Voice message',
+          lastMessageTime: serverTimestamp(),
+          unreadCount: 0,
+          pinned: false,
+          deletedByUser: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      // Update recipient's personal chat entry
+      const recipientChatId = `${recipientId}_${user.uid}`;
+      const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+      const recipientChatDoc = await getDoc(recipientChatRef);
+      const finalRecipientSharedChatId = recipientSharedChatId || sharedChatId;
+      
+      if (recipientChatDoc.exists()) {
+        const currentUnread = recipientChatDoc.data()?.unreadCount || 0;
+        const recipientCurrentSharedChatId = recipientChatDoc.data()?.sharedChatId;
+        const recipientDidNotDelete = !recipientChatDoc.data()?.deletedByUser;
+        
+        if (recipientDidNotDelete && recipientCurrentSharedChatId && recipientCurrentSharedChatId !== finalRecipientSharedChatId) {
+          // Recipient didn't delete - keep their existing sharedChatId (their history)
+          await updateDoc(recipientChatRef, {
+            lastMessage: '🎵 Voice message',
+            lastMessageTime: serverTimestamp(),
+            unreadCount: currentUnread + 1,
+            updatedAt: serverTimestamp()
+          });
+        } else {
+          await updateDoc(recipientChatRef, {
+            sharedChatId: finalRecipientSharedChatId,
+            lastMessage: '🎵 Voice message',
+            lastMessageTime: serverTimestamp(),
+            unreadCount: currentUnread + 1,
+            deletedByUser: false,
+            updatedAt: serverTimestamp()
+          });
+        }
+      } else {
+        await setDoc(recipientChatRef, {
+          otherUserId: user.uid,
+          sharedChatId: finalRecipientSharedChatId,
+          lastMessage: '🎵 Voice message',
+          lastMessageTime: serverTimestamp(),
+          unreadCount: 1,
+          pinned: false,
+          deletedByUser: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
       
       // Force refresh to ensure accuracy
       setTimeout(() => {
-        updateChatMetadataFromActualLastMessage(chatId);
+        updateChatMetadataFromActualLastMessage(sharedChatId);
       }, 500);
 
     } catch (error) {
@@ -1132,31 +1932,81 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Function to update chat metadata by querying the actual last message
-  const updateChatMetadataFromActualLastMessage = async (chatId: string) => {
+  // Function to update chat metadata by querying the actual last message (skip deleted messages)
+  const updateChatMetadataFromActualLastMessage = async (chatId: string, updatePersonalChats: boolean = true) => {
     try {
       const messagesRef = collection(db, 'chats', chatId, 'messages');
-      const messagesQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(1));
-      const lastMessageSnapshot = await getDocs(messagesQuery);
+      // Get multiple messages to find the first non-deleted one
+      const messagesQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(10));
+      const messagesSnapshot = await getDocs(messagesQuery);
       
       const chatRef = doc(db, 'chats', chatId);
       
-      if (lastMessageSnapshot.empty) {
-        // No messages left, clear last message
+      // Find the first non-deleted message
+      let lastNonDeletedMessage: any = null;
+      for (const msgDoc of messagesSnapshot.docs) {
+        const msgData = msgDoc.data();
+        if (!msgData.deleted) {
+          lastNonDeletedMessage = msgData;
+          break;
+        }
+      }
+      
+      if (!lastNonDeletedMessage) {
+        // No non-deleted messages left, clear last message
         await updateDoc(chatRef, {
           lastMessage: '',
           lastMessageTime: null
         });
+        
+        // Also update personal chat metadata if requested
+        if (updatePersonalChats && user) {
+          const userChatId = `${user.uid}_${recipientId}`;
+          const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+          await updateDoc(userChatRef, {
+            lastMessage: '',
+            lastMessageTime: null,
+            updatedAt: serverTimestamp()
+          }).catch(err => console.warn('Failed to update user chat metadata:', err));
+          
+          const recipientChatId = `${recipientId}_${user.uid}`;
+          const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+          await updateDoc(recipientChatRef, {
+            lastMessage: '',
+            lastMessageTime: null,
+            updatedAt: serverTimestamp()
+          }).catch(err => console.warn('Failed to update recipient chat metadata:', err));
+        }
       } else {
-        // Update with the actual last message
-        const lastMsg = lastMessageSnapshot.docs[0].data();
-        const lastMessageText = lastMsg.text || (lastMsg.imageUrl ? '📷 Image' : lastMsg.videoUrl ? '🎥 Video' : lastMsg.audioUrl ? '🎵 Voice message' : '');
+        // Update with the actual last non-deleted message
+        const lastMessageText = lastNonDeletedMessage.text || 
+          (lastNonDeletedMessage.imageUrl ? '📷 Image' : 
+           lastNonDeletedMessage.videoUrl ? '🎥 Video' : 
+           lastNonDeletedMessage.audioUrl ? '🎵 Voice message' : '');
         
         await updateDoc(chatRef, {
           lastMessage: lastMessageText,
-          lastMessageTime: lastMsg.timestamp
+          lastMessageTime: lastNonDeletedMessage.timestamp
         });
         
+        // Also update personal chat metadata if requested
+        if (updatePersonalChats && user) {
+          const userChatId = `${user.uid}_${recipientId}`;
+          const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+          await updateDoc(userChatRef, {
+            lastMessage: lastMessageText,
+            lastMessageTime: lastNonDeletedMessage.timestamp,
+            updatedAt: serverTimestamp()
+          }).catch(err => console.warn('Failed to update user chat metadata:', err));
+          
+          const recipientChatId = `${recipientId}_${user.uid}`;
+          const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+          await updateDoc(recipientChatRef, {
+            lastMessage: lastMessageText,
+            lastMessageTime: lastNonDeletedMessage.timestamp,
+            updatedAt: serverTimestamp()
+          }).catch(err => console.warn('Failed to update recipient chat metadata:', err));
+        }
       }
     } catch (error) {
       console.error('Error updating chat metadata from actual last message:', error);
@@ -1167,8 +2017,17 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     if (!user) return;
 
     try {
-      const chatId = [user.uid, recipientId].sort().join('_');
-      const messageRef = doc(db, 'chats', chatId, 'messages', messageId);
+      // Get the correct sharedChatId from user's personal chat document
+      const userChatId = `${user.uid}_${recipientId}`;
+      const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+      const userChatDoc = await getDoc(userChatRef);
+      
+      // Get sharedChatId from user's personal chat (they may have different ones if they deleted before)
+      const sharedChatId = userChatDoc.exists() && userChatDoc.data().sharedChatId 
+        ? userChatDoc.data().sharedChatId 
+        : [user.uid, recipientId].sort().join('_');
+      
+      const messageRef = doc(db, 'chats', sharedChatId, 'messages', messageId);
       
       // Get message data to check if it's been read
       const messageDoc = await getDoc(messageRef);
@@ -1179,21 +2038,168 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         return;
       }
       
-      // Check if message has been read by recipient
-      if (messageData.read && messageData.senderId === user.uid) {
-        toast.error('Cannot delete message that has been seen');
+      // WhatsApp-style deletion:
+      // - If message NOT read yet: Delete completely (recipient never saw it)
+      // - If message already read: Mark as deleted (show "This message was deleted")
+      const isRead = messageData.read === true;
+      const isSender = messageData.senderId === user.uid;
+      
+      // Only sender can delete for everyone
+      if (!isSender) {
+        toast.error('You can only delete your own messages');
         return;
       }
       
+      if (!isRead) {
+        // Message not seen yet - delete completely (like WhatsApp)
+        console.log('🗑️ Message not read yet - deleting completely');
+        
+        // Check if recipient has a different sharedChatId (they might have deleted before)
+        const recipientChatId = `${recipientId}_${user.uid}`;
+        const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+        const recipientChatDoc = await getDoc(recipientChatRef);
+        const recipientSharedChatId = recipientChatDoc.exists() && recipientChatDoc.data().sharedChatId 
+          ? recipientChatDoc.data().sharedChatId 
+          : null;
+      
+      // Delete media files from S3 if they exist
+      try {
+        if (messageData.imageUrl) {
+          const s3Key = extractS3KeyFromUrl(messageData.imageUrl);
+          await deleteFromS3(s3Key);
+          console.log(`🗑️ Deleted image from S3: ${s3Key}`);
+        }
+        if (messageData.videoUrl) {
+          const s3Key = extractS3KeyFromUrl(messageData.videoUrl);
+          await deleteFromS3(s3Key);
+          console.log(`🗑️ Deleted video from S3: ${s3Key}`);
+        }
+        if (messageData.audioUrl) {
+          const s3Key = extractS3KeyFromUrl(messageData.audioUrl);
+          await deleteFromS3(s3Key);
+          console.log(`🗑️ Deleted audio from S3: ${s3Key}`);
+        }
+        // Delete attachments
+        if (messageData.attachments && Array.isArray(messageData.attachments)) {
+          for (const attachment of messageData.attachments) {
+            if (attachment.url) {
+              try {
+                const s3Key = extractS3KeyFromUrl(attachment.url);
+                await deleteFromS3(s3Key);
+                console.log(`🗑️ Deleted attachment from S3: ${s3Key}`);
+              } catch (err) {
+                console.warn('Failed to delete attachment:', attachment.url, err);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error deleting media from S3:', err);
+        // Continue with message deletion even if S3 deletion fails
+      }
+      
+        // Delete the message document completely from sender's sharedChatId
       await deleteDoc(messageRef);
+        
+        // If recipient has a different sharedChatId, delete from there too
+        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+          const recipientMessageRef = doc(db, 'chats', recipientSharedChatId, 'messages', messageId);
+          const recipientMessageDoc = await getDoc(recipientMessageRef);
+          if (recipientMessageDoc.exists()) {
+            await deleteDoc(recipientMessageRef);
+            console.log('🗑️ Also deleted from recipient\'s sharedChatId');
+          }
+        }
       
       // Wait a moment for the deletion to propagate
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Update chat metadata by querying the actual last message
-      await updateChatMetadataFromActualLastMessage(chatId);
-      
-      toast.success("Message deleted successfully");
+        // Update chat metadata by querying the actual last non-deleted message
+        await updateChatMetadataFromActualLastMessage(sharedChatId, true);
+        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+          await updateChatMetadataFromActualLastMessage(recipientSharedChatId, true);
+        }
+        
+        toast.success("Message deleted");
+      } else {
+        // Message already read - mark as deleted (WhatsApp-style)
+        console.log('🗑️ Message already read - marking as deleted');
+        
+        // Check if recipient has a different sharedChatId
+        const recipientChatId = `${recipientId}_${user.uid}`;
+        const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+        const recipientChatDoc = await getDoc(recipientChatRef);
+        const recipientSharedChatId = recipientChatDoc.exists() && recipientChatDoc.data().sharedChatId 
+          ? recipientChatDoc.data().sharedChatId 
+          : null;
+        
+        // Update message to show it was deleted (but keep it in database)
+        const deleteUpdate = {
+          deleted: true,
+          text: null, // Clear text content
+          imageUrl: null, // Clear media URLs
+          videoUrl: null,
+          audioUrl: null,
+          attachments: [], // Clear attachments
+          // Keep metadata like timestamp, senderId, read status for context
+        };
+        
+        await updateDoc(messageRef, deleteUpdate);
+        
+        // If recipient has a different sharedChatId, mark as deleted there too
+        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+          const recipientMessageRef = doc(db, 'chats', recipientSharedChatId, 'messages', messageId);
+          const recipientMessageDoc = await getDoc(recipientMessageRef);
+          if (recipientMessageDoc.exists()) {
+            await updateDoc(recipientMessageRef, deleteUpdate);
+            console.log('🗑️ Also marked as deleted in recipient\'s sharedChatId');
+          }
+        }
+        
+        // Delete media files from S3 since content is deleted
+        try {
+          if (messageData.imageUrl) {
+            const s3Key = extractS3KeyFromUrl(messageData.imageUrl);
+            await deleteFromS3(s3Key);
+            console.log(`🗑️ Deleted image from S3: ${s3Key}`);
+          }
+          if (messageData.videoUrl) {
+            const s3Key = extractS3KeyFromUrl(messageData.videoUrl);
+            await deleteFromS3(s3Key);
+            console.log(`🗑️ Deleted video from S3: ${s3Key}`);
+          }
+          if (messageData.audioUrl) {
+            const s3Key = extractS3KeyFromUrl(messageData.audioUrl);
+            await deleteFromS3(s3Key);
+            console.log(`🗑️ Deleted audio from S3: ${s3Key}`);
+          }
+          // Delete attachments
+          if (messageData.attachments && Array.isArray(messageData.attachments)) {
+            for (const attachment of messageData.attachments) {
+              if (attachment.url) {
+                try {
+                  const s3Key = extractS3KeyFromUrl(attachment.url);
+                  await deleteFromS3(s3Key);
+                  console.log(`🗑️ Deleted attachment from S3: ${s3Key}`);
+                } catch (err) {
+                  console.warn('Failed to delete attachment:', attachment.url, err);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Error deleting media from S3:', err);
+          // Continue even if S3 deletion fails
+        }
+        
+        // Update chat metadata after marking as deleted
+        await updateChatMetadataFromActualLastMessage(sharedChatId, true);
+        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+          await updateChatMetadataFromActualLastMessage(recipientSharedChatId, true);
+        }
+        
+        toast.success("Message deleted");
+      }
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error("Failed to delete the message. Please try again.");
@@ -1203,11 +2209,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const handleEditMessage = async () => {
-    if (!editingMessage || !editText.trim() || !user) return;
+    if (!editingMessage || !user) return;
+    
+    // Use newMessage from input field instead of editText
+    const messageText = newMessage.trim();
+    if (!messageText) {
+      toast.error('Message cannot be empty');
+      return;
+    }
 
     try {
-      const chatId = [user.uid, recipientId].sort().join('_');
-      const messageRef = doc(db, 'chats', chatId, 'messages', editingMessage.id);
+      // Get the correct sharedChatId from user's personal chat document
+      const userChatId = `${user.uid}_${recipientId}`;
+      const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+      const userChatDoc = await getDoc(userChatRef);
+      
+      // Get sharedChatId from user's personal chat (they may have different ones if they deleted before)
+      const sharedChatId = userChatDoc.exists() && userChatDoc.data().sharedChatId 
+        ? userChatDoc.data().sharedChatId 
+        : [user.uid, recipientId].sort().join('_');
+      
+      const messageRef = doc(db, 'chats', sharedChatId, 'messages', editingMessage.id);
       
       // Get message data to check if it's been read
       const messageDoc = await getDoc(messageRef);
@@ -1221,25 +2243,53 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       // Check if message has been read by recipient
       if (messageData.read && messageData.senderId === user.uid) {
         toast.error('Cannot edit message that has been seen');
+        cancelEdit();
         return;
       }
       
-      await updateDoc(messageRef, {
-        text: editText.trim(),
+      // Update message content
+      const editUpdate = {
+        text: messageText,
         edited: true,
         editedAt: serverTimestamp()
-      });
+      };
+      
+      await updateDoc(messageRef, editUpdate);
+      
+      // If recipient has a different sharedChatId, update there too
+      const recipientChatId = `${recipientId}_${user.uid}`;
+      const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+      const recipientChatDoc = await getDoc(recipientChatRef);
+      const recipientSharedChatId = recipientChatDoc.exists() && recipientChatDoc.data().sharedChatId 
+        ? recipientChatDoc.data().sharedChatId 
+        : null;
+      
+      if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+        const recipientMessageRef = doc(db, 'chats', recipientSharedChatId, 'messages', editingMessage.id);
+        const recipientMessageDoc = await getDoc(recipientMessageRef);
+        if (recipientMessageDoc.exists()) {
+          await updateDoc(recipientMessageRef, editUpdate);
+          console.log('✅ Also updated message in recipient\'s sharedChatId');
+        }
+      }
       
       // Update chat metadata if this is the last message
-      const chatRef = doc(db, 'chats', chatId);
-      await updateDoc(chatRef, {
-        lastMessage: editText.trim(),
-        lastMessageTime: serverTimestamp()
-      });
+      await updateChatMetadataFromActualLastMessage(sharedChatId, true);
+      if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+        await updateChatMetadataFromActualLastMessage(recipientSharedChatId, true);
+      }
       
+      // Clear edit mode and input
       setEditingMessage(null);
-      setEditText('');
+      setNewMessage('');
       toast.success('Message edited');
+      
+      // Refocus input on mobile
+      if (isMobile && messageInputRef.current) {
+        setTimeout(() => {
+          messageInputRef.current?.focus();
+        }, 100);
+      }
     } catch (error) {
       console.error('Error editing message:', error);
       toast.error('Failed to edit message');
@@ -1248,12 +2298,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
   const startEditMessage = (messageId: string, currentText: string) => {
     setEditingMessage({ id: messageId, text: currentText });
-    setEditText(currentText);
+    // Copy message text to input field (WhatsApp-style)
+    setNewMessage(currentText);
+    // Focus input field
+    setTimeout(() => {
+      if (messageInputRef.current) {
+        messageInputRef.current.focus();
+        // Move cursor to end
+        messageInputRef.current.setSelectionRange(currentText.length, currentText.length);
+      }
+    }, 50);
   };
 
   const cancelEdit = () => {
     setEditingMessage(null);
-    setEditText('');
+    setNewMessage('');
+    // Refocus input on mobile
+    if (isMobile && messageInputRef.current) {
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 100);
+    }
   };
 
   // Typing indicator Firestore logic
@@ -1322,10 +2387,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   }
 
   return (
-    <div className="flex flex-col h-full w-full relative chat-container" style={{ width: '100%' }}>
+    <div className="flex flex-col h-full w-full relative chat-container" style={{ width: '100%', overflow: 'hidden', height: '100%' }}>
       {/* Chat Title Bar */}
       {!hideHeader && (
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 sticky top-0 z-10 bg-white"
+        <div className={`flex items-center gap-3 px-4 py-3 border-b border-gray-200 ${isMobile ? 'fixed top-0 left-0 right-0' : 'sticky top-0'} z-50 bg-white`}
              style={{ borderBottom: '1px solid #e5e7eb', minHeight: '56px', maxHeight: '56px' }}>
           {/* Mobile Back Button */}
           {isMobile && onClose && (
@@ -1489,7 +2554,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       
       {/* Search Bar */}
       {showSearch && (
-        <div className="px-4 py-2 border-b border-gray-200">
+        <div className="px-4 py-2 border-b border-gray-200 bg-white" style={{ position: isMobile ? 'fixed' : 'relative', top: isMobile ? '56px' : 'auto', left: isMobile ? '0' : 'auto', right: isMobile ? '0' : 'auto', zIndex: 45, border: '3px solid red !important' as any }}>
           <div className="relative flex items-center gap-2">
             <div className="relative flex-1">
               <input
@@ -1601,8 +2666,30 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       
       {/* Gallery View */}
       {showGallery && (
-        <div className="flex-1 overflow-y-auto p-2" style={{ height: '100%' }}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className={`${isMobile ? 'absolute inset-0' : 'flex-1'} ${isMobile ? 'z-50' : ''} flex flex-col bg-white`} style={{ height: '100%' }}>
+          {/* Mobile Gallery Header */}
+          {isMobile && (
+            <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3" style={{ minHeight: '48px', maxHeight: '48px' }}>
+              <button
+                onClick={() => {
+                  setShowGallery(false);
+                  // Scroll to bottom when closing gallery on mobile
+                  setTimeout(() => {
+                    scrollToBottom();
+                  }, 0);
+                }}
+                className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                aria-label="Back to chat"
+              >
+                <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h2 className="text-base font-semibold text-gray-900">Gallery</h2>
+            </div>
+          )}
+          <div className="flex-1 overflow-y-auto p-2" style={{ paddingTop: isMobile ? '48px' : '0', paddingBottom: '0', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'none' }}>
+            <div className="grid grid-cols-3 gap-2">
             {messages
               .filter(m => (m.type === 'image' && m.imageUrl) || (m.type === 'video' && m.videoUrl))
               .map((message) => {
@@ -1610,13 +2697,19 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 const isLocked = message.locked && !isSender && (!message.unlockedBy || !user?.uid || !message.unlockedBy.includes(user.uid));
                 
                 return (
-                <div key={message.id} className="relative aspect-square group cursor-pointer">
+                <div key={message.id} className="relative aspect-square group cursor-pointer overflow-hidden rounded-2xl" style={{
+                  boxShadow: isLocked 
+                    ? 'none' 
+                    : '0 8px 32px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.1) inset, 0 1px 0 rgba(255, 255, 255, 0.5) inset',
+                  border: 'none',
+                  background: isLocked ? 'transparent' : 'transparent'
+                }}>
                   {message.type === 'image' && message.imageUrl ? (
                     <>
                       <img
                         src={message.imageUrl}
                         alt="Gallery image"
-                        className="w-full h-full object-cover rounded-lg"
+                        className="w-full h-full object-cover"
                         style={isLocked ? { filter: 'blur(20px)', pointerEvents: 'none' } : {}}
                         onClick={() => {
                           if (!isLocked && message.imageUrl) {
@@ -1624,12 +2717,65 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                           }
                         }}
                       />
-                      {!isLocked && message.locked && isSender && (
+                      {message.locked && isSender && !isLocked && (
                         <div className="absolute top-2 right-2 text-white text-xs font-bold px-2 py-1 rounded shadow-lg z-10" style={{ backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)' }}>
                           PPV
                         </div>
                       )}
-                      {isLocked && (
+                      {message.locked && isSender && !isLocked ? (
+                        /* PPV sent by current user - show preview with overlay but no blur in gallery */
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '8px',
+                          pointerEvents: 'none'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '8px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={20} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
+                            </div>
+                            <p style={{ 
+                              color: '#ffffff',
+                              fontWeight: 800,
+                              fontSize: '12px',
+                              marginBottom: '8px',
+                              textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                              letterSpacing: '0.5px'
+                            }}>${message.price?.toFixed(2) ?? '0.00'}</p>
+                            <div
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              UNLOCK
+                            </div>
+                          </div>
+                        </div>
+                      ) : isLocked && (
                         <div style={{
                           position: 'absolute',
                           inset: 0,
@@ -1705,7 +2851,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   ) : message.type === 'video' && message.videoUrl ? (
                     <div className="w-full h-full relative">
                       <video
-                        className="w-full h-full object-cover rounded-lg"
+                        className="w-full h-full object-cover"
                         style={isLocked ? { filter: 'blur(20px)', pointerEvents: 'none' } : {}}
                         controls={false}
                         muted
@@ -1713,12 +2859,60 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       >
                         <source src={message.videoUrl} type="video/mp4" />
                       </video>
-                      {!isLocked && message.locked && isSender && (
-                        <div className="absolute top-2 right-2 text-white text-xs font-bold px-2 py-1 rounded shadow-lg z-10" style={{ backgroundImage: 'linear-gradient(30deg, #0400ff, #4ce3f7)' }}>
-                          PPV
+                      {message.locked && isSender && !isLocked ? (
+                        /* PPV video sent by current user - show preview with overlay but no blur in gallery */
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '8px',
+                          pointerEvents: 'none'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '8px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '8px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={20} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
                         </div>
-                      )}
-                      {isLocked ? (
+                            <p style={{ 
+                              color: '#ffffff',
+                              fontWeight: 800,
+                              fontSize: '12px',
+                              marginBottom: '8px',
+                              textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                              letterSpacing: '0.5px'
+                            }}>${message.price?.toFixed(2) ?? '0.00'}</p>
+                            <div
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              UNLOCK
+                            </div>
+                          </div>
+                        </div>
+                      ) : isLocked ? (
                         <div style={{
                           position: 'absolute',
                           inset: 0,
@@ -1797,19 +2991,22 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 </div>
                   );
                 })}
+            </div>
           </div>
         </div>
       )}
       
       {/* Messages Container */}
-      {!showGallery && (
+      {!showGallery ? (
           <div 
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto px-2 py-4 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container relative" 
+            className="flex-1 overflow-y-auto px-2 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container relative" 
             style={{ 
               scrollBehavior: 'smooth', 
               scrollbarWidth: 'none', 
-              msOverflowStyle: 'none',
+              paddingTop: isMobile && !hideHeader ? '72px' : (isMobile ? '16px' : '8px'),
+              paddingBottom: '0',
+              msOverflowStyle: 'none' as any,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'flex-start',
@@ -1817,7 +3014,9 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               height: '100%',
               minHeight: '0',
               overflowY: 'auto',
-              width: '100%'
+              width: '100%',
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'none'
             }}
             onScroll={(e) => {
               // Show scroll to bottom button when user scrolls up
@@ -1850,6 +3049,9 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   // Check if this message matches search query
                   const isHighlighted = searchQuery && message.text?.toLowerCase().includes(searchQuery.toLowerCase());
                   
+                  // Check if message is deleted
+                  const isDeleted = message.deleted === true;
+                  
                   return (
                     <div key={message.id} id={`message-${message.id}`}>
                     {/* Moved the existing message rendering code inside this wrapper */}
@@ -1857,11 +3059,31 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             key={message.id}
               className={`flex w-full chat-message-item ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
             >
-            {/* Render image message without frame */}
-            {message.type === 'image' && message.imageUrl ? (
+            {/* Show deleted message placeholder */}
+            {isDeleted ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for image - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && (
+                <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
+                  message.senderId === user?.uid 
+                    ? 'text-white shadow-sm'
+                    : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                }`} style={{
+                  ...(message.senderId === user?.uid ? { 
+                    backgroundColor: '#2389FF', 
+                    borderColor: '#2389FF',
+                    background: '#2389FF'
+                  } : {}),
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  fontStyle: 'italic'
+                } as React.CSSProperties}>
+                  <span className={`text-sm ${message.senderId === user?.uid ? 'text-white' : 'text-gray-500'}`}>This message was deleted</span>
+                </div>
+              </div>
+            ) : message.type === 'image' && message.imageUrl ? (
+              <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
+                {/* Message actions for image - allow deletion even if read */}
+                {message.senderId === user?.uid && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -1877,7 +3099,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 )}
                 
                 <div className="relative">
-                  {/* Check if image is locked and user is receiver */}
+                  {/* Check if image is locked and user is receiver OR if sender sent PPV */}
                   {message.locked && message.senderId !== user?.uid ? (
                     <div 
                       className="overflow-hidden"
@@ -1962,11 +3184,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       
                       {/* Caption text below locked content */}
                       {message.text && (
-                        <div style={{
-                          padding: '8px 12px',
-                          fontSize: '14px',
+                        <div className="px-3 py-2 text-sm md:text-sm leading-relaxed" style={{
                           color: '#1a1a1a',
-                          lineHeight: '1.5'
                         }}>
                           {message.text}
                         </div>
@@ -1998,6 +3217,98 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                         </div>
                       )}
                     </div>
+                  ) : message.locked && message.senderId === user?.uid ? (
+                    /* PPV sent by current user - show preview with overlay but no blur */
+                    <div 
+                      className="overflow-hidden"
+                      style={{
+                        borderRadius: '18px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                        padding: '4px'
+                      }}
+                    >
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <img
+                          src={message.imageUrl}
+                          alt="PPV image"
+                          style={{
+                            borderRadius: '14px',
+                            maxWidth: '100%',
+                            maxHeight: '400px',
+                            cursor: 'pointer',
+                            display: 'block'
+                          }}
+                          className="hover:opacity-90 transition-opacity"
+                          onClick={() => setSelectedImage(message.imageUrl!)}
+                        />
+                        
+                        {/* PPV overlay for sender - same as locked but without blur */}
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '14px',
+                          pointerEvents: 'none'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '12px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={24} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
+                            </div>
+                            {message.price && (
+                              <p style={{ 
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '12px',
+                                marginBottom: '10px',
+                                textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                                letterSpacing: '0.5px'
+                              }}>${message.price.toFixed(2)}</p>
+                            )}
+                            <div
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              UNLOCK
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Caption text below PPV content */}
+                      {message.text && (
+                        <div className="px-3 py-2 text-sm md:text-sm leading-relaxed" style={{
+                          color: '#1a1a1a',
+                        }}>
+                          {message.text}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <div 
                       className="overflow-hidden"
@@ -2025,11 +3336,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       
                       {/* Caption text if present */}
                       {message.text && (
-                        <div style={{
-                          padding: '8px 12px',
-                          fontSize: '14px',
+                        <div className="px-3 py-2 text-sm md:text-sm leading-relaxed" style={{
                           color: '#1a1a1a',
-                          lineHeight: '1.5'
                         }}>
                           {message.text}
                         </div>
@@ -2066,8 +3374,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               </div>
             ) : message.type === 'video' && message.videoUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for video - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && (
+                {/* Message actions for video - allow deletion even if read */}
+                {message.senderId === user?.uid && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -2083,7 +3391,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 )}
                 
                 <div className="relative">
-                  {/* Check if video is locked and user is receiver */}
+                  {/* Check if video is locked and user is receiver OR if sender sent PPV */}
                   {message.locked && message.senderId !== user?.uid ? (
                     <div 
                       className="overflow-hidden"
@@ -2170,11 +3478,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       
                       {/* Caption text below locked content */}
                       {message.text && (
-                        <div style={{
-                          padding: '8px 12px',
-                          fontSize: '14px',
+                        <div className="px-3 py-2 text-sm md:text-sm leading-relaxed" style={{
                           color: '#1a1a1a',
-                          lineHeight: '1.5'
                         }}>
                           {message.text}
                         </div>
@@ -2203,6 +3508,101 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                               className="scale-100"
                             />
                           </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : message.locked && message.senderId === user?.uid ? (
+                    /* PPV video sent by current user - show preview with overlay but no blur */
+                    <div 
+                      className="overflow-hidden"
+                      style={{
+                        borderRadius: '18px',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                        border: '1px solid rgba(255, 255, 255, 0.3)',
+                        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%)',
+                        padding: '4px'
+                      }}
+                    >
+                      <div style={{ position: 'relative', display: 'inline-block' }}>
+                        <video
+                          style={{
+                            borderRadius: '14px',
+                            maxWidth: '100%',
+                            maxHeight: '400px',
+                            cursor: 'pointer',
+                            display: 'block'
+                          }}
+                          className="hover:opacity-90 transition-opacity"
+                          onClick={() => setSelectedVideo(message.videoUrl!)}
+                          playsInline
+                          preload="metadata"
+                        >
+                          <source src={message.videoUrl} type="video/mp4" />
+                          Your browser does not support the video tag.
+                        </video>
+                        
+                        {/* PPV overlay for sender - same as locked but without blur */}
+                        <div style={{
+                          position: 'absolute',
+                          inset: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          background: 'rgba(0, 0, 0, 0.3)',
+                          borderRadius: '14px',
+                          pointerEvents: 'none'
+                        }}>
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            zIndex: 20
+                          }}>
+                            <div style={{
+                              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
+                              backdropFilter: 'blur(10px)',
+                              borderRadius: '50%',
+                              padding: '12px',
+                              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                              marginBottom: '12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid rgba(255, 255, 255, 0.3)'
+                            }}>
+                              <Lock size={24} strokeWidth={2} style={{ color: '#6437ff', filter: 'drop-shadow(0 2px 4px rgba(100, 55, 255, 0.3))' }} />
+                            </div>
+                            {message.price && (
+                              <p style={{ 
+                                color: '#ffffff',
+                                fontWeight: 800,
+                                fontSize: '12px',
+                                marginBottom: '10px',
+                                textShadow: '0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 8px rgba(0, 0, 0, 0.4), 0 -1px 1px rgba(255, 255, 255, 0.3)',
+                                letterSpacing: '0.5px'
+                              }}>${message.price.toFixed(2)}</p>
+                            )}
+                            <div
+                              className="profile-btn subscribe"
+                              style={{
+                                fontSize: '12px',
+                                padding: '6px 16px',
+                                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                                pointerEvents: 'none'
+                              }}
+                            >
+                              UNLOCK
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Caption text below PPV content */}
+                      {message.text && (
+                        <div className="px-3 py-2 text-sm md:text-sm leading-relaxed" style={{
+                          color: '#1a1a1a',
+                        }}>
+                          {message.text}
                         </div>
                       )}
                     </div>
@@ -2236,11 +3636,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       
                       {/* Caption text if present */}
                       {message.text && (
-                        <div style={{
-                          padding: '8px 12px',
-                          fontSize: '14px',
+                        <div className="px-3 py-2 text-sm md:text-sm leading-relaxed" style={{
                           color: '#1a1a1a',
-                          lineHeight: '1.5'
                         }}>
                           {message.text}
                         </div>
@@ -2277,8 +3674,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               </div>
             ) : message.type === 'audio' && message.audioUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for voice - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && (
+                {/* Message actions for voice - allow deletion even if read */}
+                {message.senderId === user?.uid && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -2293,19 +3690,23 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   </div>
                 )}
                 
-                <div className={`relative rounded-2xl p-3 border shadow chat-message-bubble ${
+                <div className={`relative rounded-2xl px-2 py-1 md:px-2 md:py-1.5 border shadow chat-message-bubble ${
                   message.senderId === user?.uid 
                     ? 'text-white shadow-sm'
                     : 'bg-gray-100 text-black border-gray-100 shadow-sm'
                 }`} style={{
-                  ...(message.senderId === user?.uid ? { backgroundColor: '#0F77FF', borderColor: '#0F77FF' } : {}),
+                  ...(message.senderId === user?.uid ? { 
+                    backgroundColor: '#2389FF', 
+                    borderColor: '#2389FF',
+                    background: '#2389FF'
+                  } : {}),
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'flex-start',
                   justifyContent: 'flex-start',
                   textAlign: 'left',
                   minWidth: 'fit-content'
-                }}>
+                } as React.CSSProperties}>
                   <div className="flex items-center gap-2">
                     {/* Play/Pause Button */}
                     <button
@@ -2360,9 +3761,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               </div>
             ) : (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for text - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && !editingMessage && (
+                {/* Message actions for text - allow deletion even if read (edit only if not read) */}
+                {message.senderId === user?.uid && !editingMessage && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {!message.read && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2373,6 +3775,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     >
                       <Edit className="w-4 h-4" />
                     </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2386,45 +3789,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   </div>
                 )}
                 
-                <div className={`relative rounded-2xl p-3 border shadow chat-message-bubble ${
+                <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
                   message.senderId === user?.uid 
                     ? 'text-white shadow-sm'
                     : 'bg-gray-100 text-black border-gray-100 shadow-sm'
                 }`} style={{
-                  ...(message.senderId === user?.uid ? { backgroundColor: '#0F77FF', borderColor: '#0F77FF' } : {}),
+                  ...(message.senderId === user?.uid ? { 
+                    backgroundColor: '#2389FF', 
+                    borderColor: '#2389FF',
+                    background: '#2389FF'
+                  } : {}),
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'flex-start',
                   justifyContent: 'flex-start',
                   textAlign: 'left',
                   minWidth: 'fit-content'
-                }}>
-                  {/* Text content - editable if not read */}
-                  {editingMessage?.id === message.id ? (
-                    <div className="flex flex-col gap-2">
-                      <textarea
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                        className="w-full p-2 text-xs md:text-sm bg-white text-black rounded border resize-none"
-                        rows={3}
-                        autoFocus
-                      />
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={cancelEdit}
-                          className="px-3 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={handleEditMessage}
-                          className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+                } as React.CSSProperties}>
+                  {/* Text content - WhatsApp-style: editing happens in input field */}
                     <div className="text-left">
                       {/* Welcome message with image support */}
                       {message.isWelcomeMessage && message.imageUrl ? (
@@ -2434,7 +3816,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                             alt="Welcome image"
                             className="w-full max-w-sm h-48 object-cover rounded-lg border border-gray-200"
                           />
-                          <p className="text-xs md:text-sm break-words whitespace-normal">
+                          <p className="text-sm md:text-sm break-words whitespace-normal">
                             {searchQuery ? highlightText(message.text || '', searchQuery) : message.text}
                             {message.edited && (
                               <span className="text-xs text-gray-400 ml-1">(edited)</span>
@@ -2442,7 +3824,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                           </p>
                         </div>
                       ) : (
-                        <p className="text-xs md:text-sm break-words whitespace-normal">
+                        <p className="text-sm md:text-sm break-words whitespace-normal">
                           {searchQuery ? highlightText(message.text || '', searchQuery) : message.text}
                           {message.edited && (
                             <span className="text-xs text-gray-400 ml-1">(edited)</span>
@@ -2450,7 +3832,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                         </p>
                       )}
                     </div>
-                  )}
                 </div>
               </div>
             )}
@@ -2608,7 +3989,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         <div ref={messagesEndRef} />
         
       </div>
-        )}
+        ) : null}
         
         {/* Scroll to Bottom Button - Floating above chat */}
         {showScrollToBottom && !showGallery && (
@@ -2714,10 +4095,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-gray-500">
-                  Are you sure you want to delete this {messageToDelete?.type === 'audio' ? 'voice message' : messageToDelete?.type === 'image' ? 'image' : messageToDelete?.type === 'video' ? 'video' : 'message'}? This action cannot be undone.
+                  Delete this {messageToDelete?.type === 'audio' ? 'voice message' : messageToDelete?.type === 'image' ? 'image' : messageToDelete?.type === 'video' ? 'video' : 'message'}?
                 </p>
-                <p className="text-xs text-red-500 mt-2">
-                  Note: You can only delete messages that haven't been seen by the recipient.
+                <p className="text-xs text-gray-500 mt-2">
+                  • If not seen yet: Message will be deleted completely
+                  <br />
+                  • If already seen: Recipient will see "This message was deleted"
             </p>
           </div>
           <div className="flex justify-end gap-3">
@@ -2732,16 +4115,31 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               variant="destructive"
               onClick={() => messageToDelete && handleDeleteMessage(messageToDelete.id)}
             >
-              Delete
+              Delete for Everyone
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <form onSubmit={handleSendMessage} className="p-1 md:p-2 bg-white/80" style={{ 
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleSendMessage(e);
+        }}
+        onKeyDown={(e) => {
+          // Prevent form submission on Enter if on mobile (to keep keyboard open)
+          // This is handled by the Input's onKeyDown or the Send button
+          if (e.key === 'Enter' && isMobile) {
+            // Let the form handle it, but prevent default blur behavior
+          }
+        }}
+        className={`p-1 md:p-2 bg-white/80 ${isMobile ? 'sticky bottom-0 left-0 right-0 z-40' : ''}`} 
+        style={{ 
         backdropFilter: 'none !important',
         filter: 'none !important',
-        boxShadow: 'none !important'
+        boxShadow: 'none !important',
+        touchAction: 'auto'
       }}>
         {/* File Preview Section */}
         {selectedFiles.length > 0 && (
@@ -2895,6 +4293,34 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               ref={messageInputRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
+              onBlur={(e) => {
+                // On mobile, prevent keyboard from closing by refocusing immediately
+                // Only if user is still in chat view (not navigating away)
+                if (isMobile && !uploading && !isRecording) {
+                  // Small delay to check if blur was intentional (e.g., user tapped outside)
+                  const target = e.relatedTarget as HTMLElement | null;
+                  // Don't refocus if user clicked on a button or interactive element
+                  if (!target || (!target.closest('button') && !target.closest('[role="button"]'))) {
+                    setTimeout(() => {
+                      if (messageInputRef.current && document.activeElement !== messageInputRef.current) {
+                        // Only refocus if we're still in the chat and input is available
+                        const chatContainer = messageInputRef.current.closest('.chat-container, [class*="chat"]');
+                        if (chatContainer) {
+                          messageInputRef.current.focus();
+                        }
+                      }
+                    }, 50);
+                  }
+                }
+              }}
+              onFocus={(e) => {
+                // Ensure input scrolls into view on mobile when focused
+                if (isMobile) {
+                  setTimeout(() => {
+                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 100);
+                }
+              }}
               placeholder={
                 isBlocked 
                   ? "You cannot send messages to this user" 
@@ -2907,13 +4333,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 height: '40px',
                 minHeight: '40px',
                 maxHeight: '40px',
-                fontSize: '14px',
+                fontSize: '16px',
                 lineHeight: '1.5',
                 border: 'none !important',
                 outline: 'none !important',
                 backgroundColor: '#f3f4f6 !important',
                 boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1) !important',
                 borderRadius: '20px !important',
+                touchAction: 'auto'
               }}
               disabled={uploading || isRecording || isBlocked || !canChat}
             />
@@ -2973,34 +4400,208 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             </div>
           </div>
           
-          {(newMessage.trim() || selectedFiles.length > 0) ? (
-            <Button 
-              type="submit" 
-              size="icon" 
-              className="h-6 w-6 md:h-7 md:w-7 rounded-full border-none focus:outline-none send-button-animated" 
+          {editingMessage ? (
+            // Edit mode: Show X (cancel) and ✓ (save) buttons - WhatsApp-style
+            <div className="icon-btn-container" style={{ gap: '8px', display: 'flex', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="icon-btn"
+                disabled={uploading}
               style={{
-                backgroundColor: '#2389e9',
-                color: 'white',
+                  width: '24px',
+                  height: '24px',
+                  fontSize: '0.85rem',
                 border: 'none',
-                transition: 'all 0.5s ease-in-out',
+                  borderRadius: '50%',
+                  backgroundColor: '#9ca3af',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                  color: '#ffffff',
+                  transition: 'all 0.3s ease',
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                  outline: 'none',
                 display: 'flex',
+                  alignItems: 'center',
                 justifyContent: 'center',
+                  opacity: uploading ? 0.6 : 1,
+                  transform: 'scale(1)'
+                }}
+                onMouseDown={(e) => {
+                  if (!uploading) {
+                    e.currentTarget.style.transform = 'scale(0.95)';
+                    e.currentTarget.style.boxShadow = '0 1px 1px rgba(0, 0, 0, 0.1)';
+                  }
+                }}
+                onMouseUp={(e) => {
+                  if (!uploading) {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!uploading) {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
+                  }
+                }}
+              >
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '13px', height: '13px' }}>
+                  <path
+                    d="M5.1716 8.00003L1.08582 3.91424L3.91424 1.08582L8.00003 5.1716L12.0858 1.08582L14.9142 3.91424L10.8285 8.00003L14.9142 12.0858L12.0858 14.9142L8.00003 10.8285L3.91424 14.9142L1.08582 12.0858L5.1716 8.00003Z"
+                    fill="#FFFFFF"
+                  />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={handleEditMessage}
+                className="icon-btn"
+                disabled={uploading || !newMessage.trim() || isBlocked || !canChat}
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  fontSize: '0.85rem',
+                  border: 'none',
+                  borderRadius: '50%',
+                  backgroundColor: '#2389e9',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
+                  color: '#ffffff',
+                  transition: 'all 0.3s ease',
+                  cursor: (uploading || !newMessage.trim() || isBlocked || !canChat) ? 'not-allowed' : 'pointer',
+                  outline: 'none',
+                  display: 'flex',
                 alignItems: 'center',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderRadius = '50%';
-                e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+                  justifyContent: 'center',
+                  opacity: (uploading || !newMessage.trim() || isBlocked || !canChat) ? 0.6 : 1,
+                  transform: 'scale(1)'
+                }}
+                onMouseDown={(e) => {
+                  if (!uploading && newMessage.trim() && !isBlocked && canChat) {
+                    e.currentTarget.style.transform = 'scale(0.95)';
+                    e.currentTarget.style.boxShadow = '0 1px 1px rgba(0, 0, 0, 0.1)';
+                  }
+                }}
+                onMouseUp={(e) => {
+                  if (!uploading && newMessage.trim() && !isBlocked && canChat) {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderRadius = '50%';
-                e.currentTarget.style.transition = 'all 0.5s ease-in-out';
-              }}
+                  if (!uploading && newMessage.trim() && !isBlocked && canChat) {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
+                  }
+                }}
+              >
+                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '13px', height: '13px' }}>
+                  <path
+                    d="M15.4141 4.91424L5.99991 14.3285L0.585693 8.91424L3.41412 6.08582L5.99991 8.6716L12.5857 2.08582L15.4141 4.91424Z"
+                    fill="#ffffff"
+                  />
+                </svg>
+              </button>
+            </div>
+          ) : (newMessage.trim() || selectedFiles.length > 0) ? (
+            <button
+              type="submit"
               disabled={uploading || isBlocked || !canChat}
+              style={{
+                fontFamily: 'inherit',
+                fontSize: '13px',
+                backgroundColor: '#2389FF',
+                background: '#2389FF',
+                color: 'white',
+                padding: '0.5em 0.75em',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '22px',
+                boxShadow: '0px 5px 10px rgba(35, 137, 255, 0.3)',
+                transition: 'all 0.3s',
+                cursor: (uploading || isBlocked || !canChat) ? 'not-allowed' : 'pointer',
+                opacity: (uploading || isBlocked || !canChat) ? 0.6 : 1,
+                transform: 'translateY(0)',
+                minWidth: 'auto',
+                height: 'auto'
+              }}
+              onMouseEnter={(e) => {
+                if (!uploading && !isBlocked && canChat) {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0px 8px 15px rgba(35, 137, 255, 0.4)';
+                  e.currentTarget.style.backgroundColor = '#2389FF';
+                  const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
+                  const svg = e.currentTarget.querySelector('svg') as SVGSVGElement;
+                  if (svgWrapper) svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+                  if (svg) svg.style.transform = 'rotate(45deg)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0px 5px 10px rgba(35, 137, 255, 0.3)';
+                e.currentTarget.style.backgroundColor = '#2389FF';
+                const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
+                const svg = e.currentTarget.querySelector('svg') as SVGSVGElement;
+                if (svgWrapper) svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                if (svg) svg.style.transform = 'rotate(0deg)';
+              }}
+              onMouseDown={(e) => {
+                if (!uploading && !isBlocked && canChat) {
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.boxShadow = '0px 2px 5px rgba(35, 137, 255, 0.3)';
+                  e.currentTarget.style.backgroundColor = '#2389FF';
+                }
+              }}
+              onMouseUp={(e) => {
+                if (!uploading && !isBlocked && canChat) {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0px 8px 15px rgba(35, 137, 255, 0.4)';
+                  e.currentTarget.style.backgroundColor = '#2389FF';
+                }
+              }}
             >
-              <Send className="h-2 w-2 md:h-3 md:w-3" style={{ opacity: 0 }} />
-            </Button>
+              <div className="svg-wrapper-1">
+                <div 
+                  className="svg-wrapper"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    marginRight: '0.35em',
+                    transition: 'all 0.3s'
+                  }}
+                >
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 24 24" 
+                    width="15" 
+                    height="15"
+                    style={{
+                      fill: 'white',
+                      transition: 'all 0.3s',
+                      transform: 'rotate(0deg)'
+                    }}
+                  >
+                    <path fill="none" d="M0 0h24v24H0z"></path>
+                    <path fill="currentColor" d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"></path>
+                  </svg>
+                </div>
+              </div>
+              <span style={{ 
+                display: 'block',
+                marginLeft: '0.15em',
+                transition: 'all 0.3s',
+                fontSize: '13px',
+                fontWeight: '500'
+              }}>
+                Send
+              </span>
+            </button>
           ) : (
             <div className="relative" style={{
               boxShadow: 'none !important',

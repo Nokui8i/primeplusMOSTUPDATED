@@ -61,6 +61,8 @@ export async function createChat(participants: string[]) {
       createdAt: serverTimestamp(),
       typing: false,
       unreadCounts: realUIDs.reduce((acc, id) => ({ ...acc, [id]: 0 }), {}),
+      deletedBy: [], // Track which users have deleted this chat
+      pinnedBy: {},
     });
     return chatRef.id;
   } catch (error) {
@@ -308,24 +310,22 @@ export function useTotalUnreadMessagesCount() {
       return;
     }
 
-    const chatsRef = collection(db, 'chats');
-    const q = query(chatsRef, where('participants', 'array-contains', auth.user.uid));
+    // Query user's personal chat list (only non-deleted chats)
+    const userChatsRef = collection(db, 'users', auth.user.uid, 'chats');
+    const q = query(userChatsRef);
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       let totalUnread = 0;
-      const chatDocs = snapshot.docs;
-      await Promise.all(chatDocs.map(async (chatDoc) => {
-        const chatId = chatDoc.id;
-        const messagesRef = collection(db, `chats/${chatId}/messages`);
-        // Only count messages not sent by the current user and not read
-        const unreadQuery = query(
-          messagesRef,
-          where('read', '==', false),
-          where('senderId', '!=', auth.user!.uid)
-        );
-        const unreadSnapshot = await getDocs(unreadQuery);
-        totalUnread += unreadSnapshot.size;
-      }));
+      
+      // Sum up unreadCount from all non-deleted chats
+      snapshot.docs.forEach((chatDoc) => {
+        const data = chatDoc.data();
+        // Only count if chat is not deleted
+        if (!data.deletedByUser) {
+          totalUnread += data.unreadCount || 0;
+        }
+      });
+      
       setUnreadCount(totalUnread);
     });
 

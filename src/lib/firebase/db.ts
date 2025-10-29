@@ -290,16 +290,37 @@ export async function deletePost(postId: string, userId?: string) {
       }
     }
 
+    // Delete all comments for this post FIRST (before deleting the post)
+    // Comments are stored in the 'comments' collection (not as subcollection)
+    const commentsRef = collection(db, 'comments');
+    const commentsQuery = query(commentsRef, where('postId', '==', postId));
+    const commentsSnapshot = await getDocs(commentsQuery);
+    
+    if (commentsSnapshot.size > 0) {
+      const deleteCommentsPromises = commentsSnapshot.docs.map(commentDoc => deleteDoc(commentDoc.ref));
+      await Promise.all(deleteCommentsPromises);
+      console.log('[deletePost] Deleted comments:', commentsSnapshot.size);
+    } else {
+      console.log('[deletePost] No comments found to delete');
+    }
+    
+    // Also check for subcollection comments (if any exist from old structure)
+    try {
+      const subcollectionCommentsRef = collection(db, `posts/${postId}/comments`);
+      const subcollectionSnapshot = await getDocs(subcollectionCommentsRef);
+      if (subcollectionSnapshot.size > 0) {
+        const deleteSubPromises = subcollectionSnapshot.docs.map(commentDoc => deleteDoc(commentDoc.ref));
+        await Promise.all(deleteSubPromises);
+        console.log('[deletePost] Deleted subcollection comments:', subcollectionSnapshot.size);
+      }
+    } catch (err) {
+      // Subcollection might not exist, that's fine
+      console.log('[deletePost] No subcollection comments found (or error):', err);
+    }
+
     // Delete the post document
     await deleteDoc(doc(db, 'posts', postId));
     console.log('[deletePost] Deleted post document');
-    
-    // Delete all comments for this post
-    const commentsRef = collection(db, `posts/${postId}/comments`);
-    const commentsSnapshot = await getDocs(commentsRef);
-    const deletePromises = commentsSnapshot.docs.map(commentDoc => deleteDoc(commentDoc.ref));
-    await Promise.all(deletePromises);
-    console.log('[deletePost] Deleted comments:', commentsSnapshot.size);
     
     // Delete all likes for this post
     const likesRef = collection(db, `posts/${postId}/likes`);

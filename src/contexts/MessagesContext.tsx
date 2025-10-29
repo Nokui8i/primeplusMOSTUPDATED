@@ -7,6 +7,8 @@ interface MessagesContextType {
   setSearchQuery: (query: string) => void;
   filterType: 'all' | 'unread' | 'pinned';
   setFilterType: (type: 'all' | 'unread' | 'pinned') => void;
+  selectedChat: { recipientId: string; recipientName: string; recipientProfile?: any; sharedChatId?: string } | null;
+  setSelectedChat: (chat: { recipientId: string; recipientName: string; recipientProfile?: any; sharedChatId?: string } | null) => void;
 }
 
 const MessagesContext = createContext<MessagesContextType | undefined>(undefined);
@@ -18,9 +20,10 @@ interface MessagesProviderProps {
 export function MessagesProvider({ children }: MessagesProviderProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'pinned'>('all');
+  const [selectedChat, setSelectedChat] = useState<{ recipientId: string; recipientName: string; recipientProfile?: any; sharedChatId?: string } | null>(null);
 
   return (
-    <MessagesContext.Provider value={{ searchQuery, setSearchQuery, filterType, setFilterType }}>
+    <MessagesContext.Provider value={{ searchQuery, setSearchQuery, filterType, setFilterType, selectedChat, setSelectedChat }}>
       {children}
     </MessagesContext.Provider>
   );

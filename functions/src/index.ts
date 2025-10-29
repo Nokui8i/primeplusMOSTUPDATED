@@ -40,19 +40,19 @@ interface PostData {
 }
 
 /**
- * Cloud Function to automatically delete files from Storage when a post is deleted
+ * Cloud Function to automatically delete files from Storage and comments when a post is deleted
  * This function triggers whenever a document in the 'posts' collection is deleted
  */
 export const cleanupStorageOnPostDelete = onDocumentDeleted('posts/{postId}', async (event) => {
+  const postId = event.params.postId;
   const data = event.data?.data() as PostData;
-  if (!data) return;
-
+  
   const bucket = admin.storage().bucket();
   const deletedFiles: string[] = [];
 
   try {
     // Handle media files
-    if (data.mediaFiles && Array.isArray(data.mediaFiles)) {
+    if (data?.mediaFiles && Array.isArray(data.mediaFiles)) {
       for (const file of data.mediaFiles) {
         if (file.path) {
           const fileRef = bucket.file(file.path);
@@ -63,23 +63,73 @@ export const cleanupStorageOnPostDelete = onDocumentDeleted('posts/{postId}', as
     }
 
     // Handle thumbnail if exists
-    if (data.thumbnailPath) {
+    if (data?.thumbnailPath) {
       const thumbnailRef = bucket.file(data.thumbnailPath);
       await thumbnailRef.delete();
       deletedFiles.push(data.thumbnailPath);
     }
 
     // Handle main image if exists
-    if (data.imagePath) {
+    if (data?.imagePath) {
       const imageRef = bucket.file(data.imagePath);
       await imageRef.delete();
       deletedFiles.push(data.imagePath);
     }
 
+    // Delete all comments for this post (comments are in the 'comments' collection)
+    const db = admin.firestore();
+    const commentsRef = db.collection('comments');
+    const commentsQuery = commentsRef.where('postId', '==', postId);
+    const commentsSnapshot = await commentsQuery.get();
+    
+    if (!commentsSnapshot.empty) {
+      const batch = db.batch();
+      commentsSnapshot.docs.forEach(commentDoc => {
+        batch.delete(commentDoc.ref);
+      });
+      await batch.commit();
+      console.log(`Successfully deleted ${commentsSnapshot.size} comments for post ${postId}`);
+    }
+
+    // Also delete subcollection comments (if any exist from old structure)
+    try {
+      const subcollectionCommentsRef = db.collection(`posts/${postId}/comments`);
+      const subcollectionSnapshot = await subcollectionCommentsRef.get();
+      
+      if (!subcollectionSnapshot.empty) {
+        const subBatch = db.batch();
+        subcollectionSnapshot.docs.forEach(commentDoc => {
+          subBatch.delete(commentDoc.ref);
+        });
+        await subBatch.commit();
+        console.log(`Successfully deleted ${subcollectionSnapshot.size} subcollection comments for post ${postId}`);
+      }
+    } catch (subError) {
+      // Subcollection might not exist, that's fine
+      console.log(`No subcollection comments found for post ${postId}`);
+    }
+
+    // Also delete likes for this post
+    try {
+      const likesRef = db.collection(`posts/${postId}/likes`);
+      const likesSnapshot = await likesRef.get();
+      
+      if (!likesSnapshot.empty) {
+        const likesBatch = db.batch();
+        likesSnapshot.docs.forEach(likeDoc => {
+          likesBatch.delete(likeDoc.ref);
+        });
+        await likesBatch.commit();
+        console.log(`Successfully deleted ${likesSnapshot.size} likes for post ${postId}`);
+      }
+    } catch (likesError) {
+      console.log(`No likes found for post ${postId}`);
+    }
+
     // Log successful deletions
-    console.log(`Successfully deleted ${deletedFiles.length} files for post ${event.params.postId}:`, deletedFiles);
+    console.log(`Successfully deleted ${deletedFiles.length} files for post ${postId}:`, deletedFiles);
   } catch (error) {
-    console.error(`Error deleting files for post ${event.params.postId}:`, error);
+    console.error(`Error deleting files/comments for post ${postId}:`, error);
     throw error;
   }
 });

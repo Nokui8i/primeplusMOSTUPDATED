@@ -160,7 +160,8 @@ export function FullChatInput({ onSend, uploading }: FullChatInputProps) {
               size="icon" 
               className="h-6 w-6 md:h-7 md:w-7 rounded-full border-none focus:outline-none send-button-animated" 
               style={{
-                backgroundColor: '#2389e9',
+                backgroundColor: '#2389FF',
+                background: '#2389FF',
                 color: 'white',
                 border: 'none',
                 transition: 'all 0.5s ease-in-out',
@@ -171,12 +172,16 @@ export function FullChatInput({ onSend, uploading }: FullChatInputProps) {
                 overflow: 'hidden'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderRadius = '50%';
-                e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+                if (e.currentTarget) {
+                  e.currentTarget.style.borderRadius = '50%';
+                  e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+                }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderRadius = '50%';
-                e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+                if (e.currentTarget) {
+                  e.currentTarget.style.borderRadius = '50%';
+                  e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+                }
               }}
               disabled={uploading}
             >

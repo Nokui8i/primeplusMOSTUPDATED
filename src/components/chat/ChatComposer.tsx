@@ -119,7 +119,8 @@ export function ChatComposer({ onSend, disabled, uploading, recording }: ChatCom
         size="icon" 
         className="h-7 w-7 rounded-full border-none focus:outline-none send-button-animated" 
         style={{
-          backgroundColor: '#2389e9',
+          backgroundColor: '#2389FF',
+          background: '#2389FF',
           color: 'white',
           border: 'none',
           transition: 'all 0.5s ease-in-out',
@@ -130,12 +131,16 @@ export function ChatComposer({ onSend, disabled, uploading, recording }: ChatCom
           overflow: 'hidden'
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.borderRadius = '50%';
-          e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+          if (e.currentTarget) {
+            e.currentTarget.style.borderRadius = '50%';
+            e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+          }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.borderRadius = '50%';
-          e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+          if (e.currentTarget) {
+            e.currentTarget.style.borderRadius = '50%';
+            e.currentTarget.style.transition = 'all 0.5s ease-in-out';
+          }
         }}
         disabled={uploading || (!message.trim() && selectedFiles.length === 0)}
       >

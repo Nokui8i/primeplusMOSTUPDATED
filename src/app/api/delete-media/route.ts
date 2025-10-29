@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront';
 
 const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+  },
+});
+
+const cloudfrontClient = new CloudFrontClient({
   region: process.env.AWS_REGION || 'us-east-1',
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
@@ -40,16 +49,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Delete from S3
     const command = new DeleteObjectCommand({
       Bucket: bucketName,
       Key: key,
     });
 
     await s3Client.send(command);
-
     console.log('[delete-media] Successfully deleted from S3:', key);
 
-    return NextResponse.json({ success: true });
+    // Invalidate CloudFront cache for this file
+    const distributionId = process.env.CLOUDFRONT_DISTRIBUTION_ID;
+    if (distributionId) {
+      try {
+        console.log('[delete-media] Invalidating CloudFront cache for:', key);
+        
+        const invalidationCommand = new CreateInvalidationCommand({
+          DistributionId: distributionId,
+          InvalidationBatch: {
+            Paths: {
+              Quantity: 1,
+              Items: [`/${key}`], // CloudFront paths must start with /
+            },
+            CallerReference: `invalidation-${Date.now()}-${key}`,
+          },
+        });
+
+        await cloudfrontClient.send(invalidationCommand);
+        console.log('[delete-media] ✅ CloudFront cache invalidated for:', key);
+      } catch (cfError: any) {
+        console.warn('[delete-media] ⚠️ Failed to invalidate CloudFront cache:', cfError.message);
+        // Don't fail the delete if cache invalidation fails
+      }
+    } else {
+      console.warn('[delete-media] ⚠️ CloudFront Distribution ID not configured, skipping cache invalidation');
+    }
+
+    return NextResponse.json({ success: true, message: 'Media deleted and cache invalidated' });
   } catch (error: any) {
     console.error('[delete-media] Error deleting from S3:', error);
     console.error('[delete-media] Error details:', {

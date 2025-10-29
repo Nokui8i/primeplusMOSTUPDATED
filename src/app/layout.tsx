@@ -16,13 +16,14 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'PrimePlus+',
   description: 'Connect with fellow developers',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-    viewportFit: 'cover' // For iOS safe areas
-  },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover' as const,
 }
 
 export default function RootLayout({
@@ -45,7 +46,7 @@ export default function RootLayout({
             height: 40px !important;
             min-height: 40px !important;
             max-height: 40px !important;
-            font-size: 14px !important;
+            font-size: 16px !important;
             line-height: 1.5 !important;
           }
           .chat-recipient-name {

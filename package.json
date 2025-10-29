@@ -10,6 +10,7 @@
     "migrate:comments": "node scripts/migrateComments.js"
   },
   "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.911.0",
     "@aws-sdk/client-s3": "^3.911.0",
     "@aws-sdk/cloudfront-signer": "^3.893.0",
     "@aws-sdk/s3-request-presigner": "^3.894.0",
@@ -65,7 +66,6 @@
     "cors": "^2.8.5",
     "cropperjs": "^1.5.13",
     "date-fns": "^4.1.0",
-    "dotenv": "^17.2.2",
     "emoji-mart": "^5.6.0",
     "emoji-picker-react": "^4.14.2",
     "encoding": "0.1.13",
@@ -73,7 +73,6 @@
     "eslint-config-next": "14.0.4",
     "express": "^5.1.0",
     "firebase": "^11.7.1",
-    "firebase-admin": "11.11.1",
     "firebase-functions": "4.5.0",
     "framer-motion": "^12.6.3",
     "hls.js": "^1.6.13",
@@ -126,6 +125,8 @@
     "browserify-zlib": "^0.2.0",
     "buffer": "^6.0.3",
     "crypto-browserify": "^3.12.1",
+    "dotenv": "^17.2.3",
+    "firebase-admin": "^13.5.0",
     "https-browserify": "^1.0.0",
     "os-browserify": "^0.3.0",
     "path-browserify": "^1.0.1",

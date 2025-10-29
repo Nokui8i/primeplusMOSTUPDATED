@@ -2682,7 +2682,8 @@ div.notification-status-badge {
   flex-direction: column !important;
   justify-content: flex-start !important;
   align-items: stretch !important;
-  height: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
   scroll-behavior: smooth !important;
 }
@@ -2693,10 +2694,18 @@ div.notification-status-badge {
   flex-direction: column !important;
   justify-content: flex-start !important;
   align-items: stretch !important;
-  height: 100% !important;
+  flex: 1 1 0% !important;
   min-height: 0 !important;
   overflow-y: auto !important;
   scroll-behavior: smooth !important;
+}
+
+/* Ensure chat container takes full height from parent */
+.chat-container {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
 }
 
 /* Force messages wrapper to stick to top */
@@ -3049,6 +3058,38 @@ html body div .profile-btn {
   line-height: 1.4 !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* Ensure user's own message bubble background color is applied - override any Tailwind classes */
+.chat-message-bubble.text-white.shadow-sm {
+  background-color: #2389FF !important;
+  border-color: #2389FF !important;
+  background: #2389FF !important;
+}
+
+/* Additional override for mobile and desktop */
+@media (max-width: 767px) {
+  .chat-message-bubble.text-white.shadow-sm {
+    background-color: #2389FF !important;
+    border-color: #2389FF !important;
+    background: #2389FF !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .chat-message-bubble.text-white.shadow-sm {
+    background-color: #2389FF !important;
+    border-color: #2389FF !important;
+    background: #2389FF !important;
+  }
+}
+
+/* Ensure send button matches message bubble color on mobile and desktop */
+button.send-button-animated[style*="2389FF"],
+button.send-button-animated[style*="2389e9"],
+.send-button-animated {
+  background-color: #2389FF !important;
+  background: #2389FF !important;
 }
 
 /* CHAT UPLOAD MODAL BUTTON OVERRIDES - ULTRA HIGH SPECIFICITY */

@@ -60,6 +60,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
   // Hide right sidebar on messages page
   const isMessagesPage = pathname === '/messages';
   const isSubscriptionsPage = pathname === '/subscriptions';
+  
+  // Check if we're in a chat conversation on mobile
+  const isInMobileChat = isMessagesPage && messages.selectedChat;
 
 
   useEffect(() => {
@@ -250,6 +253,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           {/* Center Area with Header and Main Content */}
           <div className={`flex-1 flex flex-col ${!isMessagesPage ? 'border-l border-gray-200' : ''} bg-white overflow-hidden h-full`}>
             {/* Mobile Header - Page Name with Search Icon */}
+            {!isInMobileChat && (
             <div className="md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 bg-white border-b border-gray-200 flex-shrink-0" style={{ paddingTop: 'max(6px, env(safe-area-inset-top, 6px))', paddingBottom: '6px' }}>
               <h1 className="text-base font-bold text-gray-900">
                 {pathname === '/home' && 'Home'}
@@ -395,6 +399,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 )}
               </div>
             </div>
+            )}
 
             {/* Desktop Header - Responsive */}
               {!isMessagesPage && (
@@ -618,11 +623,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
       <ChatWindows />
       
       {/* Bottom Navigation - Mobile Only */}
+      {!isInMobileChat && (
       <BottomNavigation 
         onMenuClick={() => setShowMobileLeft(!showMobileLeft)} 
         isMenuOpen={showMobileLeft}
         onUploadClick={() => setShowUploadDialog(true)}
       />
+      )}
       
       {/* Upload Dialog */}
       <ContentUploadDialog 

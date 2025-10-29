@@ -1,6 +1,7 @@
 /* Animated Send Button - From Uiverse.io by ercnersoy */
 .send-button-animated {
-  background: #2389e9 !important;
+  background: #2389FF !important;
+  background-color: #2389FF !important;
   color: #FFFFFF !important;
   display: flex !important;
   justify-content: center !important;

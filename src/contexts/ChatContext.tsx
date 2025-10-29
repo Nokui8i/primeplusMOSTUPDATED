@@ -274,21 +274,26 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (!snapshot.empty) {
         console.log('🔍 Found', snapshot.size, 'unread messages, committing batch');
         await batch.commit();
-        
-        // Update chat metadata unread count
-        const chatRef = doc(db, 'chats', chatId);
-        console.log('🔍 Updating chat metadata unread count for chatId:', chatId);
-        await updateDoc(chatRef, {
-          [`unreadCounts.${currentUser.uid}`]: 0
+      }
+      
+      // Update chat metadata unread count in shared chat
+      const chatRef = doc(db, 'chats', chatId);
+      console.log('🔍 Updating chat metadata unread count for chatId:', chatId);
+      await updateDoc(chatRef, {
+        [`unreadCounts.${currentUser.uid}`]: 0
+      });
+      
+      // Update user's personal chat unreadCount
+      const userChatId = `${currentUser.uid}_${userId}`;
+      const userChatRef = doc(db, 'users', currentUser.uid, 'chats', userChatId);
+      const userChatDoc = await getDoc(userChatRef);
+      
+      if (userChatDoc.exists()) {
+        await updateDoc(userChatRef, {
+          unreadCount: 0,
+          updatedAt: serverTimestamp()
         });
-        console.log('🔍 Successfully updated chat metadata');
-      } else {
-        console.log('🔍 No unread messages found, still updating chat metadata');
-        // Update chat metadata unread count even if no messages to mark as read
-        const chatRef = doc(db, 'chats', chatId);
-        await updateDoc(chatRef, {
-          [`unreadCounts.${currentUser.uid}`]: 0
-        });
+        console.log('🔍 Successfully updated personal chat unreadCount');
       }
     } catch (error) {
       console.error('Error marking messages as read:', error);
