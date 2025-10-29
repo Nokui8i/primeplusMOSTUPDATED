@@ -383,7 +383,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [selectedFiles, setSelectedFiles] = useState<Array<{ file: File; preview: string; type: 'image' | 'video'; locked: boolean; price?: number }>>([]);
   const [isVerifiedCreator, setIsVerifiedCreator] = useState(false);
   const [verifiedCreators, setVerifiedCreators] = useState<Record<string, boolean>>({});
-  // WhatsApp-style edit: when editing, populate input field instead of showing edit UI in message
+  const [editText, setEditText] = useState('');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -911,12 +911,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     // Check if user can chat with this profile (profile visibility check)
     if (!canChat) {
       toast.error('You need to subscribe to chat with this creator');
-      return;
-    }
-    
-    // If in edit mode, save the edited message instead of sending new one
-    if (editingMessage) {
-      await handleEditMessage();
       return;
     }
     
@@ -1932,80 +1926,71 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Function to update chat metadata by querying the actual last message (skip deleted messages)
-  const updateChatMetadataFromActualLastMessage = async (chatId: string, updatePersonalChats: boolean = true) => {
+  // Function to update chat metadata by querying the actual last message
+  const updateChatMetadataFromActualLastMessage = async (chatId: string, excludeDeleted: boolean = false) => {
     try {
       const messagesRef = collection(db, 'chats', chatId, 'messages');
-      // Get multiple messages to find the first non-deleted one
-      const messagesQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(10));
-      const messagesSnapshot = await getDocs(messagesQuery);
+      let messagesQuery;
+      
+      const lastMessageSnapshot = excludeDeleted 
+        ? await (async () => {
+            // Query up to 10 messages and filter out deleted ones client-side
+            // (Firestore doesn't support != with null/undefined efficiently)
+            const tempQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(10));
+            const tempSnapshot = await getDocs(tempQuery);
+            // Filter out deleted messages
+            const nonDeletedDocs = tempSnapshot.docs.filter(doc => {
+              const data = doc.data();
+              return !data.deleted;
+            });
+            // Return the first non-deleted message
+            return { docs: nonDeletedDocs.slice(0, 1) } as any;
+          })()
+        : await getDocs(query(messagesRef, orderBy('timestamp', 'desc'), limit(1)));
       
       const chatRef = doc(db, 'chats', chatId);
       
-      // Find the first non-deleted message
-      let lastNonDeletedMessage: any = null;
-      for (const msgDoc of messagesSnapshot.docs) {
-        const msgData = msgDoc.data();
-        if (!msgData.deleted) {
-          lastNonDeletedMessage = msgData;
-          break;
-        }
-      }
-      
-      if (!lastNonDeletedMessage) {
-        // No non-deleted messages left, clear last message
+      if (lastMessageSnapshot.empty) {
+        // No messages left, clear last message
         await updateDoc(chatRef, {
           lastMessage: '',
           lastMessageTime: null
         });
-        
-        // Also update personal chat metadata if requested
-        if (updatePersonalChats && user) {
-          const userChatId = `${user.uid}_${recipientId}`;
-          const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
-          await updateDoc(userChatRef, {
-            lastMessage: '',
-            lastMessageTime: null,
-            updatedAt: serverTimestamp()
-          }).catch(err => console.warn('Failed to update user chat metadata:', err));
-          
-          const recipientChatId = `${recipientId}_${user.uid}`;
-          const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
-          await updateDoc(recipientChatRef, {
-            lastMessage: '',
-            lastMessageTime: null,
-            updatedAt: serverTimestamp()
-          }).catch(err => console.warn('Failed to update recipient chat metadata:', err));
-        }
       } else {
-        // Update with the actual last non-deleted message
-        const lastMessageText = lastNonDeletedMessage.text || 
-          (lastNonDeletedMessage.imageUrl ? '📷 Image' : 
-           lastNonDeletedMessage.videoUrl ? '🎥 Video' : 
-           lastNonDeletedMessage.audioUrl ? '🎵 Voice message' : '');
+        // Update with the actual last message
+        const lastMsg = lastMessageSnapshot.docs[0].data();
+        const lastMessageText = lastMsg.text || (lastMsg.imageUrl ? '📷 Image' : lastMsg.videoUrl ? '🎥 Video' : lastMsg.audioUrl ? '🎵 Voice message' : '');
         
         await updateDoc(chatRef, {
           lastMessage: lastMessageText,
-          lastMessageTime: lastNonDeletedMessage.timestamp
+          lastMessageTime: lastMsg.timestamp
         });
         
-        // Also update personal chat metadata if requested
-        if (updatePersonalChats && user) {
+        // Also update user's personal chat metadata
+        if (user) {
           const userChatId = `${user.uid}_${recipientId}`;
           const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
-          await updateDoc(userChatRef, {
-            lastMessage: lastMessageText,
-            lastMessageTime: lastNonDeletedMessage.timestamp,
-            updatedAt: serverTimestamp()
-          }).catch(err => console.warn('Failed to update user chat metadata:', err));
+          const userChatDoc = await getDoc(userChatRef);
+          if (userChatDoc.exists()) {
+            await updateDoc(userChatRef, {
+              lastMessage: lastMessageText,
+              lastMessageTime: lastMsg.timestamp
+            });
+          }
           
+          // Also update recipient's personal chat metadata if different sharedChatId
           const recipientChatId = `${recipientId}_${user.uid}`;
           const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
-          await updateDoc(recipientChatRef, {
-            lastMessage: lastMessageText,
-            lastMessageTime: lastNonDeletedMessage.timestamp,
-            updatedAt: serverTimestamp()
-          }).catch(err => console.warn('Failed to update recipient chat metadata:', err));
+          const recipientChatDoc = await getDoc(recipientChatRef);
+          if (recipientChatDoc.exists()) {
+            const recipientSharedChatId = recipientChatDoc.data().sharedChatId;
+            if (!recipientSharedChatId || recipientSharedChatId === chatId) {
+              await updateDoc(recipientChatRef, {
+                lastMessage: lastMessageText,
+                lastMessageTime: lastMsg.timestamp
+              });
+            }
+          }
         }
       }
     } catch (error) {
@@ -2038,29 +2023,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         return;
       }
       
-      // WhatsApp-style deletion:
-      // - If message NOT read yet: Delete completely (recipient never saw it)
-      // - If message already read: Mark as deleted (show "This message was deleted")
-      const isRead = messageData.read === true;
-      const isSender = messageData.senderId === user.uid;
-      
-      // Only sender can delete for everyone
-      if (!isSender) {
-        toast.error('You can only delete your own messages');
-        return;
-      }
-      
-      if (!isRead) {
-        // Message not seen yet - delete completely (like WhatsApp)
-        console.log('🗑️ Message not read yet - deleting completely');
-        
-        // Check if recipient has a different sharedChatId (they might have deleted before)
-        const recipientChatId = `${recipientId}_${user.uid}`;
-        const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
-        const recipientChatDoc = await getDoc(recipientChatRef);
-        const recipientSharedChatId = recipientChatDoc.exists() && recipientChatDoc.data().sharedChatId 
-          ? recipientChatDoc.data().sharedChatId 
-          : null;
+      // Check if message has been read by recipient
+      const isRead = messageData.read && messageData.senderId === user.uid;
       
       // Delete media files from S3 if they exist
       try {
@@ -2098,34 +2062,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         // Continue with message deletion even if S3 deletion fails
       }
       
-        // Delete the message document completely from sender's sharedChatId
-      await deleteDoc(messageRef);
+      // WhatsApp-style deletion: If unread, delete completely. If read, mark as deleted.
+      if (!isRead) {
+        // Message hasn't been read - delete completely
+        await deleteDoc(messageRef);
         
-        // If recipient has a different sharedChatId, delete from there too
-        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
-          const recipientMessageRef = doc(db, 'chats', recipientSharedChatId, 'messages', messageId);
-          const recipientMessageDoc = await getDoc(recipientMessageRef);
-          if (recipientMessageDoc.exists()) {
-            await deleteDoc(recipientMessageRef);
-            console.log('🗑️ Also deleted from recipient\'s sharedChatId');
-          }
-        }
-      
-      // Wait a moment for the deletion to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-        // Update chat metadata by querying the actual last non-deleted message
-        await updateChatMetadataFromActualLastMessage(sharedChatId, true);
-        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
-          await updateChatMetadataFromActualLastMessage(recipientSharedChatId, true);
-        }
-        
-        toast.success("Message deleted");
-      } else {
-        // Message already read - mark as deleted (WhatsApp-style)
-        console.log('🗑️ Message already read - marking as deleted');
-        
-        // Check if recipient has a different sharedChatId
+        // If recipient has a different sharedChatId, delete there too
         const recipientChatId = `${recipientId}_${user.uid}`;
         const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
         const recipientChatDoc = await getDoc(recipientChatRef);
@@ -2133,73 +2075,62 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           ? recipientChatDoc.data().sharedChatId 
           : null;
         
-        // Update message to show it was deleted (but keep it in database)
+        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+          const recipientMessageRef = doc(db, 'chats', recipientSharedChatId, 'messages', messageId);
+          const recipientMessageDoc = await getDoc(recipientMessageRef);
+          if (recipientMessageDoc.exists()) {
+            await deleteDoc(recipientMessageRef);
+            console.log('✅ Also deleted message from recipient\'s sharedChatId');
+          }
+        }
+      } else {
+        // Message has been read - mark as deleted (WhatsApp-style)
         const deleteUpdate = {
           deleted: true,
-          text: null, // Clear text content
-          imageUrl: null, // Clear media URLs
+          text: '',
+          imageUrl: null,
           videoUrl: null,
           audioUrl: null,
-          attachments: [], // Clear attachments
-          // Keep metadata like timestamp, senderId, read status for context
+          attachments: null,
+          deletedAt: serverTimestamp()
         };
         
         await updateDoc(messageRef, deleteUpdate);
         
-        // If recipient has a different sharedChatId, mark as deleted there too
+        // If recipient has a different sharedChatId, update there too
+        const recipientChatId = `${recipientId}_${user.uid}`;
+        const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+        const recipientChatDoc = await getDoc(recipientChatRef);
+        const recipientSharedChatId = recipientChatDoc.exists() && recipientChatDoc.data().sharedChatId 
+          ? recipientChatDoc.data().sharedChatId 
+          : null;
+        
         if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
           const recipientMessageRef = doc(db, 'chats', recipientSharedChatId, 'messages', messageId);
           const recipientMessageDoc = await getDoc(recipientMessageRef);
           if (recipientMessageDoc.exists()) {
             await updateDoc(recipientMessageRef, deleteUpdate);
-            console.log('🗑️ Also marked as deleted in recipient\'s sharedChatId');
+            console.log('✅ Also updated message in recipient\'s sharedChatId');
           }
         }
-        
-        // Delete media files from S3 since content is deleted
-        try {
-          if (messageData.imageUrl) {
-            const s3Key = extractS3KeyFromUrl(messageData.imageUrl);
-            await deleteFromS3(s3Key);
-            console.log(`🗑️ Deleted image from S3: ${s3Key}`);
-          }
-          if (messageData.videoUrl) {
-            const s3Key = extractS3KeyFromUrl(messageData.videoUrl);
-            await deleteFromS3(s3Key);
-            console.log(`🗑️ Deleted video from S3: ${s3Key}`);
-          }
-          if (messageData.audioUrl) {
-            const s3Key = extractS3KeyFromUrl(messageData.audioUrl);
-            await deleteFromS3(s3Key);
-            console.log(`🗑️ Deleted audio from S3: ${s3Key}`);
-          }
-          // Delete attachments
-          if (messageData.attachments && Array.isArray(messageData.attachments)) {
-            for (const attachment of messageData.attachments) {
-              if (attachment.url) {
-                try {
-                  const s3Key = extractS3KeyFromUrl(attachment.url);
-                  await deleteFromS3(s3Key);
-                  console.log(`🗑️ Deleted attachment from S3: ${s3Key}`);
-                } catch (err) {
-                  console.warn('Failed to delete attachment:', attachment.url, err);
-                }
-              }
-            }
-          }
-        } catch (err) {
-          console.error('Error deleting media from S3:', err);
-          // Continue even if S3 deletion fails
-        }
-        
-        // Update chat metadata after marking as deleted
-        await updateChatMetadataFromActualLastMessage(sharedChatId, true);
-        if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
-          await updateChatMetadataFromActualLastMessage(recipientSharedChatId, true);
-        }
-        
-        toast.success("Message deleted");
       }
+      
+      // Wait a moment for the deletion to propagate
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Update chat metadata by querying the actual last non-deleted message
+      await updateChatMetadataFromActualLastMessage(sharedChatId, true);
+      const recipientChatId = `${recipientId}_${user.uid}`;
+      const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+      const recipientChatDoc = await getDoc(recipientChatRef);
+      const recipientSharedChatId = recipientChatDoc.exists() && recipientChatDoc.data().sharedChatId 
+        ? recipientChatDoc.data().sharedChatId 
+        : null;
+      if (recipientSharedChatId && recipientSharedChatId !== sharedChatId) {
+        await updateChatMetadataFromActualLastMessage(recipientSharedChatId, true);
+      }
+      
+      toast.success(isRead ? "Message deleted" : "Message deleted");
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error("Failed to delete the message. Please try again.");
@@ -2298,27 +2229,22 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
   const startEditMessage = (messageId: string, currentText: string) => {
     setEditingMessage({ id: messageId, text: currentText });
-    // Copy message text to input field (WhatsApp-style)
+    // Copy message text to newMessage input field (WhatsApp-style)
     setNewMessage(currentText);
-    // Focus input field
+    // Focus the input field and move cursor to end
     setTimeout(() => {
       if (messageInputRef.current) {
         messageInputRef.current.focus();
-        // Move cursor to end
-        messageInputRef.current.setSelectionRange(currentText.length, currentText.length);
+        // Move cursor to end of text
+        const length = currentText.length;
+        messageInputRef.current.setSelectionRange(length, length);
       }
-    }, 50);
+    }, 100);
   };
 
   const cancelEdit = () => {
     setEditingMessage(null);
     setNewMessage('');
-    // Refocus input on mobile
-    if (isMobile && messageInputRef.current) {
-      setTimeout(() => {
-        messageInputRef.current?.focus();
-      }, 100);
-    }
   };
 
   // Typing indicator Firestore logic
@@ -2387,7 +2313,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   }
 
   return (
-    <div className="flex flex-col h-full w-full relative chat-container" style={{ width: '100%', overflow: 'hidden', height: '100%' }}>
+    <div className="flex flex-col h-screen w-full relative chat-container" style={{ width: '100%', overflow: 'hidden' }}>
       {/* Chat Title Bar */}
       {!hideHeader && (
         <div className={`flex items-center gap-3 px-4 py-3 border-b border-gray-200 ${isMobile ? 'fixed top-0 left-0 right-0' : 'sticky top-0'} z-50 bg-white`}
@@ -3000,11 +2926,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       {!showGallery ? (
           <div 
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto px-2 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container relative" 
+            className="flex-1 overflow-y-auto px-2 py-4 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container relative" 
             style={{ 
               scrollBehavior: 'smooth', 
-              scrollbarWidth: 'none', 
-              paddingTop: isMobile && !hideHeader ? '72px' : (isMobile ? '16px' : '8px'),
+              scrollbarWidth: 'none',
+              paddingTop: isMobile && !hideHeader ? 'calc(56px + 1.5rem)' : '1.5rem',
               paddingBottom: '0',
               msOverflowStyle: 'none' as any,
               display: 'flex',
@@ -3049,9 +2975,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   // Check if this message matches search query
                   const isHighlighted = searchQuery && message.text?.toLowerCase().includes(searchQuery.toLowerCase());
                   
-                  // Check if message is deleted
-                  const isDeleted = message.deleted === true;
-                  
                   return (
                     <div key={message.id} id={`message-${message.id}`}>
                     {/* Moved the existing message rendering code inside this wrapper */}
@@ -3059,31 +2982,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             key={message.id}
               className={`flex w-full chat-message-item ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}
             >
-            {/* Show deleted message placeholder */}
-            {isDeleted ? (
+            {/* Render image message without frame */}
+            {message.type === 'image' && message.imageUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
-                  message.senderId === user?.uid 
-                    ? 'text-white shadow-sm'
-                    : 'bg-gray-100 text-black border-gray-100 shadow-sm'
-                }`} style={{
-                  ...(message.senderId === user?.uid ? { 
-                    backgroundColor: '#2389FF', 
-                    borderColor: '#2389FF',
-                    background: '#2389FF'
-                  } : {}),
-                  display: 'flex',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  fontStyle: 'italic'
-                } as React.CSSProperties}>
-                  <span className={`text-sm ${message.senderId === user?.uid ? 'text-white' : 'text-gray-500'}`}>This message was deleted</span>
-                </div>
-              </div>
-            ) : message.type === 'image' && message.imageUrl ? (
-              <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for image - allow deletion even if read */}
-                {message.senderId === user?.uid && (
+                {/* Message actions for image - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && !message.deleted && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -3097,6 +3000,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </button>
                   </div>
                 )}
+                {message.deleted ? (
+                  <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
+                    message.senderId === user?.uid 
+                      ? 'text-white shadow-sm'
+                      : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                  }`} style={{
+                    ...(message.senderId === user?.uid ? { 
+                      backgroundColor: '#2389FF', 
+                      borderColor: '#2389FF' 
+                    } : {}),
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    fontStyle: 'italic'
+                  } as React.CSSProperties}>
+                    <span className={`text-sm ${message.senderId === user?.uid ? 'text-white' : 'text-gray-500'}`}>This message was deleted</span>
+                  </div>
+                ) : (
                 
                 <div className="relative">
                   {/* Check if image is locked and user is receiver OR if sender sent PPV */}
@@ -3371,11 +3292,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </div>
                   )}
                 </div>
+                )}
               </div>
             ) : message.type === 'video' && message.videoUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for video - allow deletion even if read */}
-                {message.senderId === user?.uid && (
+                {/* Message actions for video - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && !message.deleted && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -3389,6 +3311,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </button>
                   </div>
                 )}
+                {message.deleted ? (
+                  <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
+                    message.senderId === user?.uid 
+                      ? 'text-white shadow-sm'
+                      : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                  }`} style={{
+                    ...(message.senderId === user?.uid ? { 
+                      backgroundColor: '#2389FF', 
+                      borderColor: '#2389FF' 
+                    } : {}),
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    fontStyle: 'italic'
+                  } as React.CSSProperties}>
+                    <span className={`text-sm ${message.senderId === user?.uid ? 'text-white' : 'text-gray-500'}`}>This message was deleted</span>
+                  </div>
+                ) : (
                 
                 <div className="relative">
                   {/* Check if video is locked and user is receiver OR if sender sent PPV */}
@@ -3671,11 +3611,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </div>
                   )}
                 </div>
+                )}
               </div>
             ) : message.type === 'audio' && message.audioUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for voice - allow deletion even if read */}
-                {message.senderId === user?.uid && (
+                {/* Message actions for voice - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && !message.deleted && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -3689,17 +3630,30 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </button>
                   </div>
                 )}
-                
+                {message.deleted ? (
+                  <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
+                    message.senderId === user?.uid 
+                      ? 'text-white shadow-sm'
+                      : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                  }`} style={{
+                    ...(message.senderId === user?.uid ? { 
+                      backgroundColor: '#2389FF', 
+                      borderColor: '#2389FF' 
+                    } : {}),
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    fontStyle: 'italic'
+                  } as React.CSSProperties}>
+                    <span className={`text-sm ${message.senderId === user?.uid ? 'text-white' : 'text-gray-500'}`}>This message was deleted</span>
+                  </div>
+                ) : (
                 <div className={`relative rounded-2xl px-2 py-1 md:px-2 md:py-1.5 border shadow chat-message-bubble ${
                   message.senderId === user?.uid 
                     ? 'text-white shadow-sm'
                     : 'bg-gray-100 text-black border-gray-100 shadow-sm'
                 }`} style={{
-                  ...(message.senderId === user?.uid ? { 
-                    backgroundColor: '#2389FF', 
-                    borderColor: '#2389FF',
-                    background: '#2389FF'
-                  } : {}),
+                  ...(message.senderId === user?.uid ? { backgroundColor: '#2389FF', borderColor: '#2389FF', background: '#2389FF' } : {}),
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'flex-start',
@@ -3758,13 +3712,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     </span>
                   </div>
                 </div>
+                )}
               </div>
             ) : (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
-                {/* Message actions for text - allow deletion even if read (edit only if not read) */}
-                {message.senderId === user?.uid && !editingMessage && (
+                {/* Message actions for text - on white background (left side) */}
+                {message.senderId === user?.uid && !message.read && !editingMessage && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {!message.read && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -3775,7 +3729,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     >
                       <Edit className="w-4 h-4" />
                     </button>
-                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -3789,24 +3742,42 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   </div>
                 )}
                 
-                <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
-                  message.senderId === user?.uid 
-                    ? 'text-white shadow-sm'
-                    : 'bg-gray-100 text-black border-gray-100 shadow-sm'
-                }`} style={{
-                  ...(message.senderId === user?.uid ? { 
-                    backgroundColor: '#2389FF', 
-                    borderColor: '#2389FF',
-                    background: '#2389FF'
-                  } : {}),
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  justifyContent: 'flex-start',
-                  textAlign: 'left',
-                  minWidth: 'fit-content'
-                } as React.CSSProperties}>
-                  {/* Text content - WhatsApp-style: editing happens in input field */}
+                {message.deleted ? (
+                  <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
+                    message.senderId === user?.uid 
+                      ? 'text-white shadow-sm'
+                      : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                  }`} style={{
+                    ...(message.senderId === user?.uid ? { 
+                      backgroundColor: '#2389FF', 
+                      borderColor: '#2389FF' 
+                    } : {}),
+                    display: 'flex',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    fontStyle: 'italic'
+                  } as React.CSSProperties}>
+                    <span className={`text-sm ${message.senderId === user?.uid ? 'text-white' : 'text-gray-500'}`}>This message was deleted</span>
+                  </div>
+                ) : (
+                  <div className={`relative rounded-2xl px-2.5 py-1.5 md:px-2 md:py-1 border shadow chat-message-bubble ${
+                    message.senderId === user?.uid 
+                      ? 'text-white shadow-sm'
+                      : 'bg-gray-100 text-black border-gray-100 shadow-sm'
+                  }`} style={{
+                    ...(message.senderId === user?.uid ? { 
+                      backgroundColor: '#2389FF', 
+                      borderColor: '#2389FF',
+                      background: '#2389FF'
+                    } : {}),
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'flex-start',
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    minWidth: 'fit-content'
+                  } as React.CSSProperties}>
+                    {/* Text content - WhatsApp-style: editing happens in input field */}
                     <div className="text-left">
                       {/* Welcome message with image support */}
                       {message.isWelcomeMessage && message.imageUrl ? (
@@ -3832,7 +3803,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                         </p>
                       )}
                     </div>
-                </div>
+                  </div>
+                )}
               </div>
             )}
               
@@ -4095,12 +4067,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           </DialogHeader>
           <div className="py-4">
             <p className="text-sm text-gray-500">
-                  Delete this {messageToDelete?.type === 'audio' ? 'voice message' : messageToDelete?.type === 'image' ? 'image' : messageToDelete?.type === 'video' ? 'video' : 'message'}?
+                  Are you sure you want to delete this {messageToDelete?.type === 'audio' ? 'voice message' : messageToDelete?.type === 'image' ? 'image' : messageToDelete?.type === 'video' ? 'video' : 'message'}? This action cannot be undone.
                 </p>
-                <p className="text-xs text-gray-500 mt-2">
-                  • If not seen yet: Message will be deleted completely
-                  <br />
-                  • If already seen: Recipient will see "This message was deleted"
+                <p className="text-xs text-red-500 mt-2">
+                  Note: You can only delete messages that haven't been seen by the recipient.
             </p>
           </div>
           <div className="flex justify-end gap-3">
@@ -4115,7 +4085,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               variant="destructive"
               onClick={() => messageToDelete && handleDeleteMessage(messageToDelete.id)}
             >
-              Delete for Everyone
+              Delete
             </Button>
           </div>
         </DialogContent>
@@ -4401,207 +4371,80 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           </div>
           
           {editingMessage ? (
-            // Edit mode: Show X (cancel) and ✓ (save) buttons - WhatsApp-style
-            <div className="icon-btn-container" style={{ gap: '8px', display: 'flex', alignItems: 'center' }}>
+            <div className="flex items-center gap-1.5">
+              {/* Cancel button (X) */}
               <button
                 type="button"
-                onClick={cancelEdit}
-                className="icon-btn"
-                disabled={uploading}
-              style={{
-                  width: '24px',
-                  height: '24px',
-                  fontSize: '0.85rem',
-                border: 'none',
-                  borderRadius: '50%',
-                  backgroundColor: '#9ca3af',
-                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-                  color: '#ffffff',
-                  transition: 'all 0.3s ease',
-                  cursor: uploading ? 'not-allowed' : 'pointer',
-                  outline: 'none',
-                display: 'flex',
-                  alignItems: 'center',
-                justifyContent: 'center',
-                  opacity: uploading ? 0.6 : 1,
-                  transform: 'scale(1)'
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  cancelEdit();
                 }}
-                onMouseDown={(e) => {
-                  if (!uploading) {
-                    e.currentTarget.style.transform = 'scale(0.95)';
-                    e.currentTarget.style.boxShadow = '0 1px 1px rgba(0, 0, 0, 0.1)';
-                  }
-                }}
-                onMouseUp={(e) => {
-                  if (!uploading) {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!uploading) {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
-                  }
-                }}
-              >
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '13px', height: '13px' }}>
-                  <path
-                    d="M5.1716 8.00003L1.08582 3.91424L3.91424 1.08582L8.00003 5.1716L12.0858 1.08582L14.9142 3.91424L10.8285 8.00003L14.9142 12.0858L12.0858 14.9142L8.00003 10.8285L3.91424 14.9142L1.08582 12.0858L5.1716 8.00003Z"
-                    fill="#FFFFFF"
-                  />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={handleEditMessage}
-                className="icon-btn"
-                disabled={uploading || !newMessage.trim() || isBlocked || !canChat}
+                className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 rounded-full transition-all duration-200 hover:scale-110 active:scale-95"
                 style={{
-                  width: '24px',
-                  height: '24px',
-                  fontSize: '0.85rem',
+                  backgroundColor: 'transparent',
                   border: 'none',
-                  borderRadius: '50%',
-                  backgroundColor: '#2389e9',
-                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.1)',
-                  color: '#ffffff',
-                  transition: 'all 0.3s ease',
-                  cursor: (uploading || !newMessage.trim() || isBlocked || !canChat) ? 'not-allowed' : 'pointer',
-                  outline: 'none',
-                  display: 'flex',
-                alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: (uploading || !newMessage.trim() || isBlocked || !canChat) ? 0.6 : 1,
-                  transform: 'scale(1)'
-                }}
-                onMouseDown={(e) => {
-                  if (!uploading && newMessage.trim() && !isBlocked && canChat) {
-                    e.currentTarget.style.transform = 'scale(0.95)';
-                    e.currentTarget.style.boxShadow = '0 1px 1px rgba(0, 0, 0, 0.1)';
-                  }
-                }}
-                onMouseUp={(e) => {
-                  if (!uploading && newMessage.trim() && !isBlocked && canChat) {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                  if (!uploading && newMessage.trim() && !isBlocked && canChat) {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
-                  }
+                  color: '#6b7280',
+                  cursor: 'pointer'
                 }}
               >
-                <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: '13px', height: '13px' }}>
-                  <path
-                    d="M15.4141 4.91424L5.99991 14.3285L0.585693 8.91424L3.41412 6.08582L5.99991 8.6716L12.5857 2.08582L15.4141 4.91424Z"
-                    fill="#ffffff"
-                  />
-                </svg>
+                <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              </button>
+              {/* Save button (✓) */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleEditMessage();
+                }}
+                disabled={!newMessage.trim()}
+                className="flex items-center justify-center w-5 h-5 md:w-6 md:h-6 rounded-full transition-all duration-200 hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  color: newMessage.trim() ? '#2389FF' : '#9ca3af',
+                  cursor: newMessage.trim() ? 'pointer' : 'not-allowed'
+                }}
+              >
+                <Check className="w-3.5 h-3.5 md:w-4 md:h-4" />
               </button>
             </div>
           ) : (newMessage.trim() || selectedFiles.length > 0) ? (
-            <button
-              type="submit"
-              disabled={uploading || isBlocked || !canChat}
+            <Button 
+              type="submit" 
+              size="icon" 
+              className="h-6 w-6 md:h-7 md:w-7 rounded-full border-none focus:outline-none send-button-animated" 
               style={{
-                fontFamily: 'inherit',
-                fontSize: '13px',
                 backgroundColor: '#2389FF',
                 background: '#2389FF',
                 color: 'white',
-                padding: '0.5em 0.75em',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
                 border: 'none',
-                borderRadius: '22px',
-                boxShadow: '0px 5px 10px rgba(35, 137, 255, 0.3)',
-                transition: 'all 0.3s',
-                cursor: (uploading || isBlocked || !canChat) ? 'not-allowed' : 'pointer',
-                opacity: (uploading || isBlocked || !canChat) ? 0.6 : 1,
-                transform: 'translateY(0)',
-                minWidth: 'auto',
-                height: 'auto'
+                transition: 'all 0.5s ease-in-out',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                position: 'relative',
+                overflow: 'hidden'
               }}
               onMouseEnter={(e) => {
-                if (!uploading && !isBlocked && canChat) {
-                  e.currentTarget.style.transform = 'translateY(-3px)';
-                  e.currentTarget.style.boxShadow = '0px 8px 15px rgba(35, 137, 255, 0.4)';
+                if (e.currentTarget) {
+                  e.currentTarget.style.borderRadius = '50%';
+                  e.currentTarget.style.transition = 'all 0.5s ease-in-out';
                   e.currentTarget.style.backgroundColor = '#2389FF';
-                  const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
-                  const svg = e.currentTarget.querySelector('svg') as SVGSVGElement;
-                  if (svgWrapper) svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-                  if (svg) svg.style.transform = 'rotate(45deg)';
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0px 5px 10px rgba(35, 137, 255, 0.3)';
-                e.currentTarget.style.backgroundColor = '#2389FF';
-                const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
-                const svg = e.currentTarget.querySelector('svg') as SVGSVGElement;
-                if (svgWrapper) svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-                if (svg) svg.style.transform = 'rotate(0deg)';
-              }}
-              onMouseDown={(e) => {
-                if (!uploading && !isBlocked && canChat) {
-                  e.currentTarget.style.transform = 'scale(0.95)';
-                  e.currentTarget.style.boxShadow = '0px 2px 5px rgba(35, 137, 255, 0.3)';
+                if (e.currentTarget) {
+                  e.currentTarget.style.borderRadius = '50%';
+                  e.currentTarget.style.transition = 'all 0.5s ease-in-out';
                   e.currentTarget.style.backgroundColor = '#2389FF';
                 }
               }}
-              onMouseUp={(e) => {
-                if (!uploading && !isBlocked && canChat) {
-                  e.currentTarget.style.transform = 'translateY(-3px)';
-                  e.currentTarget.style.boxShadow = '0px 8px 15px rgba(35, 137, 255, 0.4)';
-                  e.currentTarget.style.backgroundColor = '#2389FF';
-                }
-              }}
+              disabled={uploading || isBlocked || !canChat}
             >
-              <div className="svg-wrapper-1">
-                <div 
-                  className="svg-wrapper"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                    marginRight: '0.35em',
-                    transition: 'all 0.3s'
-                  }}
-                >
-                  <svg 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    viewBox="0 0 24 24" 
-                    width="15" 
-                    height="15"
-                    style={{
-                      fill: 'white',
-                      transition: 'all 0.3s',
-                      transform: 'rotate(0deg)'
-                    }}
-                  >
-                    <path fill="none" d="M0 0h24v24H0z"></path>
-                    <path fill="currentColor" d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"></path>
-                  </svg>
-                </div>
-              </div>
-              <span style={{ 
-                display: 'block',
-                marginLeft: '0.15em',
-                transition: 'all 0.3s',
-                fontSize: '13px',
-                fontWeight: '500'
-              }}>
-                Send
-              </span>
-            </button>
+              <Send className="h-2 w-2 md:h-3 md:w-3" style={{ opacity: 0 }} />
+            </Button>
           ) : (
             <div className="relative" style={{
               boxShadow: 'none !important',

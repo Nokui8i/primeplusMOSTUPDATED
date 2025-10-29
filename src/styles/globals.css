@@ -3092,6 +3092,11 @@ button.send-button-animated[style*="2389e9"],
   background: #2389FF !important;
 }
 
+/* Ensure deleted message background matches sender's message color */
+.chat-message-bubble[style*="2389FF"] {
+  background-color: #2389FF !important;
+}
+
 /* CHAT UPLOAD MODAL BUTTON OVERRIDES - ULTRA HIGH SPECIFICITY */
 div[class*="fixed"][class*="inset-0"][class*="bg-black"] div[class*="bg-white"][class*="rounded-xl"] button[class*="px-4"][class*="py-2"] {
   background: linear-gradient(to right, #8b5cf6, #3b82f6) !important;

@@ -106,62 +106,34 @@ export function ChatList({ onSelectChat, onChatDeleted, searchQuery = '', filter
           let finalLastMessageTime = updatedData.lastMessageTime;
           const currentSharedChatId = updatedData.sharedChatId;
           
-          // Verify lastMessage if we have it, or fetch if missing
-          // This ensures deleted messages don't show in chat preview
-          if (currentSharedChatId) {
-            // Quick check: if lastMessage exists, verify it's still valid
-            // If missing or empty, fetch from messages
-            const shouldVerify = lastMessage || !updatedData.lastMessage; // Verify if we have one or if it's explicitly missing
-            
-            if (shouldVerify) {
-              // Fetch last messages and find first non-deleted one
-              try {
-                const messagesRef = collection(db, 'chats', currentSharedChatId, 'messages');
-                // Get multiple messages to find the first non-deleted one
-                const messagesQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(10));
-                const messagesSnapshot = await getDocs(messagesQuery);
+          // Skip expensive query if we already have lastMessage - improves performance
+          // The metadata should be kept up-to-date by Chat.tsx when messages are sent
+          if (!lastMessage && currentSharedChatId) {
+            // Only fetch if really needed (limit to 1 message for speed)
+            try {
+              const messagesRef = collection(db, 'chats', currentSharedChatId, 'messages');
+              // Query for first non-deleted message (exclude deleted messages from preview)
+              // Query up to 10 and filter client-side (Firestore != doesn't work well with null/undefined)
+              const tempQuery = query(messagesRef, orderBy('timestamp', 'desc'), limit(10));
+              const tempSnapshot = await getDocs(tempQuery);
+              const nonDeletedDocs = tempSnapshot.docs.filter(doc => {
+                const data = doc.data();
+                return !data.deleted;
+              });
+              
+              if (nonDeletedDocs.length > 0) {
+                const lastMsg = nonDeletedDocs[0].data();
+                lastMessage = lastMsg.text || (lastMsg.imageUrl ? '📷 Image' : lastMsg.videoUrl ? '🎥 Video' : lastMsg.audioUrl ? '🎵 Voice message' : '');
+                finalLastMessageTime = lastMsg.timestamp;
                 
-                // Find the first non-deleted message
-                let lastNonDeletedMsg: any = null;
-                for (const msgDoc of messagesSnapshot.docs) {
-                  const msgData = msgDoc.data();
-                  if (!msgData.deleted) {
-                    lastNonDeletedMsg = msgData;
-                    break;
-                  }
-                }
-                
-                if (lastNonDeletedMsg) {
-                  const newLastMessage = lastNonDeletedMsg.text || 
-                    (lastNonDeletedMsg.imageUrl ? '📷 Image' : 
-                     lastNonDeletedMsg.videoUrl ? '🎥 Video' : 
-                     lastNonDeletedMsg.audioUrl ? '🎵 Voice message' : '');
-                  
-                  // Only update if different (avoid unnecessary writes)
-                  if (newLastMessage !== lastMessage) {
-                    lastMessage = newLastMessage;
-                    finalLastMessageTime = lastNonDeletedMsg.timestamp;
-                    
-                    // Update metadata in background (don't block UI)
-                    updateDoc(chatDoc.ref, {
-                      lastMessage: lastMessage,
-                      lastMessageTime: finalLastMessageTime
-                    }).catch(err => console.warn('Failed to update chat metadata:', err));
-                  }
-                } else if (lastMessage) {
-                  // Had a message before but now all are deleted - clear it
-                  lastMessage = '';
-                  finalLastMessageTime = null;
-                  
-                  // Update metadata in background
-                  updateDoc(chatDoc.ref, {
-                    lastMessage: '',
-                    lastMessageTime: null
-                  }).catch(err => console.warn('Failed to update chat metadata:', err));
-                }
-              } catch (error) {
-                console.error('Error fetching last message:', error);
+                // Update metadata in background (don't block UI)
+                updateDoc(chatDoc.ref, {
+                  lastMessage: lastMessage,
+                  lastMessageTime: finalLastMessageTime
+                }).catch(err => console.warn('Failed to update chat metadata:', err));
               }
+            } catch (error) {
+              console.error('Error fetching last message:', error);
             }
           }
           
