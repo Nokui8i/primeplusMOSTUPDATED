@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, getDocs, doc, setDoc, updateDoc, getDoc, DocumentData, deleteDoc, Timestamp, writeBatch, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,8 +25,9 @@ import { formatDistanceToNow } from 'date-fns';
 import type { MessageAttachment } from '@/lib/types/messages';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { canViewProfile } from '@/lib/utils/profileVisibility';
+import { useSmartScrollOnKeyboard } from '@/hooks/useSmartScrollOnKeyboard';
 import { deleteFromS3, extractS3KeyFromUrl } from '@/lib/aws/s3';
-import { useKeyboardViewportFix } from '@/hooks/useKeyboardViewportFix';
+// Removed useKeyboardViewportFix - using native dvh instead
 
 interface Message {
   id: string;
@@ -262,9 +263,10 @@ if (typeof window !== 'undefined') {
   document.head.appendChild(style);
 }
 
+
 export function Chat({ recipientId, recipientName, hideHeader = false, customWidth, onClose, recipientProfile }: ChatProps) {
-  useKeyboardViewportFix();
   const { user } = useAuth();
+  
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingBlock, setCheckingBlock] = useState(true);
   // Initialize mobile state immediately (SSR-safe)
@@ -274,40 +276,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     }
     return false;
   });
-
-  // Check if mobile
-  useEffect(() => {
-    // Maintain bottom anchoring across keyboard open/close like WhatsApp
-    if (!(typeof window !== 'undefined' && 'visualViewport' in window)) return;
-    if (!isMobile) return;
-    const c = messagesContainerRef.current;
-    if (!c) return;
-
-    const wasAtBottom = () => (c.scrollHeight - c.scrollTop - c.clientHeight) < 2;
-
-    const handleVv = () => {
-      const atBottom = wasAtBottom();
-      const prevBottom = c.scrollHeight - c.scrollTop;
-      // Adjust after layout settles
-      requestAnimationFrame(() => {
-        if (atBottom) {
-          c.scrollTop = c.scrollHeight;
-        } else {
-          c.scrollTop = Math.max(0, c.scrollHeight - prevBottom);
-        }
-      });
-    };
-
-    const vv = (window as any).visualViewport as VisualViewport;
-    vv.addEventListener('resize', handleVv);
-    vv.addEventListener('scroll', handleVv);
-    window.addEventListener('orientationchange', handleVv);
-    return () => {
-      vv.removeEventListener('resize', handleVv);
-      vv.removeEventListener('scroll', handleVv);
-      window.removeEventListener('orientationchange', handleVv);
-    };
-  }, [isMobile]);
 
   // moved below messages declaration
 
@@ -499,17 +467,42 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [showGallery, setShowGallery] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   
-  // If new messages arrive and user is at bottom, keep anchored
+  // Keep scroll at bottom when new messages arrive (silent, user doesn't notice)
+  // CRITICAL: Always keep at bottom if user was at bottom, even with keyboard open
   useEffect(() => {
     const c = messagesContainerRef.current;
     if (!c) return;
+    
+    // Check if keyboard might be open (mobile only)
+    const keyboardOpen = isMobile && typeof window !== 'undefined' && window.visualViewport 
+      ? (window.innerHeight - window.visualViewport.height) > 150
+      : false;
+    
+    // Check if user is at bottom
     const atBottom = (c.scrollHeight - c.scrollTop - c.clientHeight) < 100;
+    
+    // CRITICAL: If user is at bottom, ALWAYS scroll to bottom (even with keyboard open)
+    // This ensures they stay at bottom when new messages arrive
     if (atBottom) {
+      // Use multiple methods for reliability (especially important on mobile)
       requestAnimationFrame(() => {
         c.scrollTop = c.scrollHeight;
+        requestAnimationFrame(() => {
+          c.scrollTop = c.scrollHeight;
+        });
       });
+      setTimeout(() => {
+        c.scrollTop = c.scrollHeight;
+      }, 0);
+      setTimeout(() => {
+        // Final check after layout settles
+        if ((c.scrollHeight - c.scrollTop - c.clientHeight) < 100) {
+          c.scrollTop = c.scrollHeight;
+        }
+      }, 50);
     }
-  }, [messages.length]);
+    // If user is NOT at bottom and keyboard is open, don't scroll (let them read)
+  }, [messages.length, isMobile]);
 
   // Function to highlight matching text
   const highlightText = (text: string, query: string) => {
@@ -538,6 +531,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const videoInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Smart scroll management for Messages Container when keyboard opens/closes
+  // Must be after messagesContainerRef is defined
+  useSmartScrollOnKeyboard(messagesContainerRef, isMobile);
+  
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -883,8 +881,105 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           })));
         }
         
-      // Reverse to show oldest first (chronological order)
-      setMessages(newMessages.reverse());
+      // OPTIMIZED FOR MOBILE: Silent background update (hide backend processing from UI)
+      // Use requestAnimationFrame to batch with browser rendering
+      requestAnimationFrame(() => {
+        // Use messages from Firestore directly - these are the source of truth
+        // Reverse to show oldest first (chronological order)
+        const realMessages = newMessages.reverse();
+        
+        // Quick deduplication by ID
+        const realMessageIds = new Set<string>();
+        const deduplicatedRealMessages: Message[] = [];
+        for (const msg of realMessages) {
+          if (!realMessageIds.has(msg.id)) {
+            realMessageIds.add(msg.id);
+            deduplicatedRealMessages.push(msg);
+          }
+        }
+        
+        // Silent merge with optimistic messages (user doesn't see this happening)
+        setMessages(prev => {
+          // Separate real messages and optimistic messages
+          const existingRealMessages: Message[] = [];
+          const optimisticMessages: Message[] = [];
+          
+          for (const m of prev) {
+            if (m.id.startsWith('temp-')) {
+              optimisticMessages.push(m);
+            } else {
+              existingRealMessages.push(m);
+            }
+          }
+          
+          // CRITICAL: Match optimistic with real messages for replacement
+          const matchedOptimisticMap = new Map<string, Message>(); // optId -> realMessage
+          
+          // Build map of optimistic to real message matches
+          for (const opt of optimisticMessages) {
+            const matchedReal = deduplicatedRealMessages.find(real => 
+              real.senderId === opt.senderId && 
+              real.text === opt.text
+            );
+            if (matchedReal) {
+              matchedOptimisticMap.set(opt.id, matchedReal);
+            }
+          }
+          
+          // Get real messages that don't match optimistic (new incoming messages)
+          const newRealMessages = deduplicatedRealMessages.filter(real => {
+            return !Array.from(matchedOptimisticMap.values()).some(matched => matched.id === real.id);
+          });
+          
+          // Remove matched optimistic messages from existing (they'll be replaced by real ones)
+          const existingWithoutMatched = existingRealMessages.filter(msg => 
+            !msg.id.startsWith('temp-') || !matchedOptimisticMap.has(msg.id)
+          );
+          
+          // Get matched real messages (to replace optimistic)
+          const matchedRealMessages = Array.from(matchedOptimisticMap.values());
+          
+          // Combine all real messages: existing + matched replacements + new
+          const allRealMessages = [...existingWithoutMatched, ...matchedRealMessages, ...newRealMessages];
+          const realIds = new Set<string>();
+          const uniqueRealMessages: Message[] = [];
+          
+          // Deduplicate by ID
+          for (const msg of allRealMessages) {
+            if (!realIds.has(msg.id)) {
+              realIds.add(msg.id);
+              uniqueRealMessages.push(msg);
+            }
+          }
+          
+          // Sort real messages chronologically
+          uniqueRealMessages.sort((a, b) => {
+            const aTime = a.timestamp?.seconds || 0;
+            const bTime = b.timestamp?.seconds || 0;
+            return aTime - bTime;
+          });
+          
+          // Keep unmatched optimistic messages (still being sent)
+          const pendingOptimistic = optimisticMessages.filter(opt => !matchedOptimisticMap.has(opt.id));
+          
+          // CRITICAL: Real messages first (sorted), then optimistic at end (bottom)
+          // Optimistic have high timestamps so they visually stay at bottom
+          // When replaced by real message, user sees no movement - real message appears at correct chronological position
+          return [...uniqueRealMessages, ...pendingOptimistic];
+        });
+        
+        // Silent scroll to bottom (if needed) - user won't notice
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            const container = messagesContainerRef.current;
+            // Only scroll if we're near the bottom (don't interrupt user if they scrolled up)
+            const atBottom = (container.scrollHeight - container.scrollTop - container.clientHeight) < 100;
+            if (atBottom) {
+              container.scrollTop = container.scrollHeight;
+            }
+          }
+        });
+      });
       
       // Immediately set scroll position to bottom with no animation
       setTimeout(() => {
@@ -1106,75 +1201,89 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     const messageTextToSend = newMessage.trim();
     
     // CRITICAL: On mobile, keep input focused to prevent keyboard from closing
-    // We'll maintain focus through multiple strategies
     const maintainFocusOnMobile = () => {
       if (isMobile && messageInputRef.current) {
-        // Immediate focus
         messageInputRef.current.focus();
-        
-        // Use requestAnimationFrame for smooth focus restoration
         requestAnimationFrame(() => {
           if (messageInputRef.current) {
             messageInputRef.current.focus();
           }
         });
-        
-        // Backup setTimeout for focus restoration
-        setTimeout(() => {
-          if (messageInputRef.current) {
-            messageInputRef.current.focus();
-          }
-        }, 0);
-        
-        // Keep focus after state updates and scrolls
-        setTimeout(() => {
-          if (messageInputRef.current) {
-            messageInputRef.current.focus();
-          }
-        }, 100);
-        
-        setTimeout(() => {
-          if (messageInputRef.current) {
-            messageInputRef.current.focus();
-          }
-        }, 250);
       }
     };
     
-    // Maintain focus BEFORE clearing (important for mobile)
-    maintainFocusOnMobile();
-    
+    // Clear input IMMEDIATELY for instant feedback
     setNewMessage('');
-    
-    // Maintain focus AFTER clearing (state update)
     maintainFocusOnMobile();
+    
+    // INSTANT OPTIMISTIC UPDATE: Show message at bottom immediately
+    // CRITICAL: Give it a very high timestamp so it always stays at bottom
+    const optimisticMessageId = `temp-${Date.now()}`;
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const optimisticMessage: Message = {
+      id: optimisticMessageId,
+      text: messageTextToSend,
+      senderId: user!.uid,
+      senderName: user!.displayName || user!.email || 'Anonymous',
+      timestamp: { 
+        seconds: currentTimestamp + 1000000, // Very high timestamp to ensure it stays at bottom
+        nanoseconds: 0 
+      } as any,
+      read: false,
+      status: 'sent',
+      type: 'text'
+    };
+    
+    // Add optimistic message at END of array (always bottom, never sort it)
+    setMessages(prev => {
+      // Quick duplicate check
+      const exists = prev.some(m => 
+        m.id === optimisticMessageId || 
+        (m.id.startsWith('temp-') && m.text === messageTextToSend && m.senderId === user!.uid)
+      );
+      if (exists) return prev;
+      
+      // CRITICAL: Separate real messages from optimistic
+      const realMsgs = prev.filter(m => !m.id.startsWith('temp-'));
+      const optMsgs = prev.filter(m => m.id.startsWith('temp-'));
+      
+      // Always add optimistic at the very end (after all other optimistic too)
+      // This ensures it appears at bottom and stays there
+      return [...realMsgs, ...optMsgs, optimisticMessage];
+    });
+    
+    // CRITICAL: Force scroll to bottom immediately (multiple attempts for reliability)
+    const forceScrollToBottom = () => {
+      if (messagesContainerRef.current) {
+        const container = messagesContainerRef.current;
+        container.scrollTop = container.scrollHeight;
+      }
+      // Also scroll messagesEndRef if it exists
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'auto', block: 'end' });
+      }
+    };
+    
+    // Immediate scroll
+    forceScrollToBottom();
+    requestAnimationFrame(forceScrollToBottom);
+    setTimeout(forceScrollToBottom, 0);
+    setTimeout(forceScrollToBottom, 10);
     
     if (user) {
-      // Run Firestore operations in background to avoid blocking UI
-      // Use setTimeout(0) on mobile to ensure input clearing happens first
-      const executeInBackground = isMobile 
-        ? () => setTimeout(() => {
-            (async () => {
-              try {
-                await sendMessageAsync(user, recipientId, messageTextToSend);
-              } catch (error) {
-                console.error('Error sending message:', error);
-                toast.error('Failed to send message. Please try again.');
-              }
-            })();
-          }, 0)
-        : () => {
-            (async () => {
-              try {
-                await sendMessageAsync(user, recipientId, messageTextToSend);
-              } catch (error) {
-                console.error('Error sending message:', error);
-                toast.error('Failed to send message. Please try again.');
-              }
-            })();
-          };
-      
-      executeInBackground();
+      // Send to Firestore in background (non-blocking)
+      setTimeout(() => {
+        (async () => {
+          try {
+            await sendMessageAsync(user, recipientId, messageTextToSend, optimisticMessageId);
+          } catch (error) {
+            console.error('Error sending message:', error);
+            // Remove optimistic message on error
+            setMessages(prev => prev.filter(m => m.id !== optimisticMessageId));
+            toast.error('Failed to send message. Please try again.');
+          }
+        })();
+      }, 0);
     }
     
     // Scroll to bottom after sending message (don't wait for async operations)
@@ -1194,27 +1303,35 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     }, 150);
   };
 
-  // Separate async function to send message (allows better control)
-  const sendMessageAsync = async (user: any, recipientId: string, messageTextToSend: string) => {
-    // Check if user has a timestamped sharedChatId BEFORE calling ensureChatDocument
-    // This is to prevent ensureChatDocument from returning an old sharedChatId
-    const userChatIdForSend = `${user.uid}_${recipientId}`;
-    const userChatRefPreCheck = doc(db, 'users', user.uid, 'chats', userChatIdForSend);
-    const userChatDocPreCheck = await getDoc(userChatRefPreCheck);
-    const userCurrentSharedChatIdPreCheck = userChatDocPreCheck.exists() ? userChatDocPreCheck.data().sharedChatId : null;
-    const userHasNewSharedChatIdPreCheck = userCurrentSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck.includes('_') && /_\d{13}$/.test(userCurrentSharedChatIdPreCheck);
-    
-    // Ensure chat documents exist
-    const { sharedChatId, userChatId, recipientSharedChatId } = await ensureChatDocument(user, recipientId);
+  // Separate async function to send message (optimized for mobile performance)
+  const sendMessageAsync = async (user: any, recipientId: string, messageTextToSend: string, optimisticMessageId: string) => {
+    try {
+      // OPTIMIZED: Parallel reads instead of sequential
+      const userChatIdForSend = `${user.uid}_${recipientId}`;
+      const recipientChatIdCheck = `${recipientId}_${user.uid}`;
+      const userChatRefPreCheck = doc(db, 'users', user.uid, 'chats', userChatIdForSend);
+      const recipientChatRefCheck = doc(db, 'users', recipientId, 'chats', recipientChatIdCheck);
       
-    // CRITICAL: If user has a timestamped sharedChatId (from deletion), use it instead of what ensureChatDocument returned
-    // This prevents history from returning when user sends a message
-    const finalSharedChatIdForUser = userHasNewSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck ? userCurrentSharedChatIdPreCheck : sharedChatId;
-    
-    const messagesRef = collection(db, 'chats', finalSharedChatIdForUser, 'messages');
+      // Parallel read operations for better performance
+      const [userChatDocPreCheck, recipientChatDocCheck] = await Promise.all([
+        getDoc(userChatRefPreCheck),
+        getDoc(recipientChatRefCheck)
+      ]);
+      
+      const userCurrentSharedChatIdPreCheck = userChatDocPreCheck.exists() ? userChatDocPreCheck.data().sharedChatId : null;
+      const userHasNewSharedChatIdPreCheck = userCurrentSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck.includes('_') && /_\d{13}$/.test(userCurrentSharedChatIdPreCheck);
+      const recipientActualSharedChatId = recipientChatDocCheck.exists() ? recipientChatDocCheck.data().sharedChatId : null;
+      
+      // Ensure chat documents exist (optimized version)
+      const { sharedChatId, userChatId, recipientSharedChatId } = await ensureChatDocument(user, recipientId);
+        
+      // CRITICAL: If user has a timestamped sharedChatId (from deletion), use it instead of what ensureChatDocument returned
+      const finalSharedChatIdForUser = userHasNewSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck ? userCurrentSharedChatIdPreCheck : sharedChatId;
+      
+      const messagesRef = collection(db, 'chats', finalSharedChatIdForUser, 'messages');
 
       const messageData = {
-      text: messageTextToSend,
+        text: messageTextToSend,
         senderId: user.uid,
         senderName: user.displayName || user.email || 'Anonymous',
         timestamp: serverTimestamp(),
@@ -1223,151 +1340,119 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         type: 'text'
       };
 
-    // Get recipient's actual sharedChatId from their personal chat document
-    const recipientChatIdCheck = `${recipientId}_${user.uid}`;
-    const recipientChatRefCheck = doc(db, 'users', recipientId, 'chats', recipientChatIdCheck);
-    const recipientChatDocCheck = await getDoc(recipientChatRefCheck);
-    const recipientActualSharedChatId = recipientChatDocCheck.exists() ? recipientChatDocCheck.data().sharedChatId : null;
-    
-    console.log('🔍 [Chat] handleSendMessage: Final sender sharedChatId:', finalSharedChatIdForUser, '(from ensureChatDocument:', sharedChatId, ', user has timestamped:', userHasNewSharedChatIdPreCheck, ') | Recipient actual sharedChatId:', recipientActualSharedChatId);
-    
-    // Send message to sender's sharedChatId (their history)
+      // CRITICAL: Send message FIRST (most important operation)
       await addDoc(messagesRef, messageData);
       
-    // CRITICAL: If sender and recipient have different sharedChatIds (one deleted), send message to BOTH
-    // This ensures:
-    // - User who deleted sees only new messages in their new sharedChatId
-    // - User who didn't delete sees all messages including history in their old sharedChatId
-    if (recipientActualSharedChatId && recipientActualSharedChatId !== finalSharedChatIdForUser) {
-      console.log('🔍 [Chat] handleSendMessage: ✅ Sender and recipient have different sharedChatIds - sending to BOTH:', {
-        sender: finalSharedChatIdForUser,
-        recipient: recipientActualSharedChatId
-      });
-      
-      // Send message to recipient's sharedChatId too (for their history)
-      const recipientMessagesRef = collection(db, 'chats', recipientActualSharedChatId, 'messages');
-      await addDoc(recipientMessagesRef, messageData);
-      
-      // Update recipient's shared chat metadata
-      const recipientSharedChatRef = doc(db, 'chats', recipientActualSharedChatId);
-      await updateDoc(recipientSharedChatRef, {
-      lastMessage: messageTextToSend,
-        lastMessageTime: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
+      // Note: Don't manually replace optimistic message here
+      // The onSnapshot listener will automatically replace it when Firestore sends the real message
     
-    // Update sender's shared chat metadata (use finalSharedChatIdForUser)
-    const sharedChatRef = doc(db, 'chats', finalSharedChatIdForUser);
-    await updateDoc(sharedChatRef, {
-      lastMessage: messageTextToSend,
-      lastMessageTime: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    
-    // Update or create user's personal chat entry
-    // This is critical - ensure the document exists with the correct sharedChatId BEFORE returning
-    const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
-    const userChatDocCheck = await getDoc(userChatRef);
-    
-    if (userChatDocCheck.exists()) {
-      // CRITICAL: If user has a timestamped sharedChatId (from deletion), NEVER update it
-      const currentUserSharedChatId = userChatDocCheck.data().sharedChatId;
-      const userHasTimestampedIdForSend = currentUserSharedChatId && currentUserSharedChatId.includes('_') && /_\d{13}$/.test(currentUserSharedChatId);
+      // If sender and recipient have different sharedChatIds, send to both (background)
+      if (recipientActualSharedChatId && recipientActualSharedChatId !== finalSharedChatIdForUser) {
+        const recipientMessagesRef = collection(db, 'chats', recipientActualSharedChatId, 'messages');
+        addDoc(recipientMessagesRef, messageData).catch(err => console.error('Failed to send to recipient chat:', err));
+      }
       
-      // Always use finalSharedChatIdForUser (which respects user's timestamped sharedChatId if they have one)
-      await updateDoc(userChatRef, {
-        sharedChatId: finalSharedChatIdForUser, // Use the final sharedChatId (user's timestamped one if they have it)
+      // OPTIMIZED: Use batch write for metadata updates (faster, atomic)
+      const batch = writeBatch(db);
+      
+      // Update sender's shared chat metadata
+      const sharedChatRef = doc(db, 'chats', finalSharedChatIdForUser);
+      batch.update(sharedChatRef, {
         lastMessage: messageTextToSend,
         lastMessageTime: serverTimestamp(),
-        unreadCount: 0, // Sender has no unread messages
-        deletedByUser: false, // Reset deletion status if it was set
         updatedAt: serverTimestamp()
       });
-    } else {
-      // Create personal chat entry if it doesn't exist (was deleted)
-      // This will trigger the onSnapshot listener in the Chat component
-      await setDoc(userChatRef, {
-        otherUserId: recipientId,
-        sharedChatId: sharedChatId,
-        lastMessage: messageTextToSend,
-        lastMessageTime: serverTimestamp(),
-        unreadCount: 0,
-        pinned: false,
-        deletedByUser: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
-    
-    // Force a small delay to ensure Firestore has propagated the update
-    // The onSnapshot listener should pick up the change, but this helps ensure it happens
-    console.log('🔍 [Chat] handleSendMessage: Created/updated personal chat entry with sharedChatId:', sharedChatId);
-    
-    // Update recipient's personal chat entry
-    const recipientChatId = `${recipientId}_${user.uid}`;
-    const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
-    const recipientChatDoc = await getDoc(recipientChatRef);
-    
-    // Update recipient's personal chat entry
-    // IMPORTANT: If recipientSharedChatId was created (recipient deleted), use it for their fresh start
-    // Otherwise, use sender's sharedChatId
-    const finalRecipientSharedChatId = recipientSharedChatId || sharedChatId;
-    console.log('🔍 [Chat] handleSendMessage: Updating recipient chat entry with finalRecipientSharedChatId:', finalRecipientSharedChatId, '(recipientSharedChatId:', recipientSharedChatId, ', sharedChatId:', sharedChatId, ')');
-    
-    if (recipientChatDoc.exists()) {
-      const currentUnread = recipientChatDoc.data()?.unreadCount || 0;
-      const recipientCurrentSharedChatId = recipientChatDoc.data()?.sharedChatId;
-      const recipientDidNotDelete = !recipientChatDoc.data()?.deletedByUser;
       
-      // If recipient didn't delete and already has a sharedChatId, keep it (their history)
-      // Otherwise, update to the finalRecipientSharedChatId (especially if they deleted and we created a new one)
-      if (recipientDidNotDelete && recipientCurrentSharedChatId && recipientCurrentSharedChatId !== finalRecipientSharedChatId) {
-        // Recipient didn't delete and has different sharedChatId - keep their existing one (their history)
-        console.log('🔍 [Chat] handleSendMessage: Recipient did not delete - keeping their existing sharedChatId:', recipientCurrentSharedChatId);
-        await updateDoc(recipientChatRef, {
+      // Update user's personal chat entry
+      const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+      if (userChatDocPreCheck.exists()) {
+        batch.update(userChatRef, {
+          sharedChatId: finalSharedChatIdForUser,
           lastMessage: messageTextToSend,
           lastMessageTime: serverTimestamp(),
-          unreadCount: currentUnread + 1,
+          unreadCount: 0,
+          deletedByUser: false,
           updatedAt: serverTimestamp()
         });
       } else {
-        // Update with the final sharedChatId (especially if recipient deleted and has new sharedChatId)
-        console.log('🔍 [Chat] handleSendMessage: Updating recipient sharedChatId to:', finalRecipientSharedChatId);
-        await updateDoc(recipientChatRef, {
-          sharedChatId: finalRecipientSharedChatId,
+        batch.set(userChatRef, {
+          otherUserId: recipientId,
+          sharedChatId: finalSharedChatIdForUser,
           lastMessage: messageTextToSend,
           lastMessageTime: serverTimestamp(),
-          unreadCount: currentUnread + 1,
-          deletedByUser: false, // Reset deletion if they receive a message
+          unreadCount: 0,
+          pinned: false,
+          deletedByUser: false,
+          createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
       }
-    } else {
-      // Create recipient's chat entry if it doesn't exist (they deleted it completely)
-      console.log('🔍 [Chat] handleSendMessage: Creating recipient chat entry with sharedChatId:', finalRecipientSharedChatId);
-      await setDoc(recipientChatRef, {
-        otherUserId: user.uid,
-        sharedChatId: finalRecipientSharedChatId,
-        lastMessage: messageTextToSend,
-        lastMessageTime: serverTimestamp(),
-        unreadCount: 1,
-        pinned: false,
-        deletedByUser: false,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-    }
-    
-    // Force refresh chat metadata in background (don't block UI)
-    // Note: Input already cleared at the start of function for immediate feedback
-      setTimeout(async () => {
-        try {
-        await updateChatMetadataFromActualLastMessage(sharedChatId);
-        } catch (error) {
-          console.error('Error refreshing chat metadata:', error);
+      
+      // Update recipient's personal chat entry (background - less critical)
+      const recipientChatId = `${recipientId}_${user.uid}`;
+      const recipientChatRef = doc(db, 'users', recipientId, 'chats', recipientChatId);
+      const finalRecipientSharedChatId = recipientSharedChatId || sharedChatId;
+      
+      if (recipientChatDocCheck.exists()) {
+        const currentUnread = recipientChatDocCheck.data()?.unreadCount || 0;
+        const recipientCurrentSharedChatId = recipientChatDocCheck.data()?.sharedChatId;
+        const recipientDidNotDelete = !recipientChatDocCheck.data()?.deletedByUser;
+        
+        if (recipientDidNotDelete && recipientCurrentSharedChatId && recipientCurrentSharedChatId !== finalRecipientSharedChatId) {
+          // Don't update sharedChatId if recipient didn't delete
+          batch.update(recipientChatRef, {
+            lastMessage: messageTextToSend,
+            lastMessageTime: serverTimestamp(),
+            unreadCount: currentUnread + 1,
+            updatedAt: serverTimestamp()
+          });
+        } else {
+          batch.update(recipientChatRef, {
+            sharedChatId: finalRecipientSharedChatId,
+            lastMessage: messageTextToSend,
+            lastMessageTime: serverTimestamp(),
+            unreadCount: currentUnread + 1,
+            deletedByUser: false,
+            updatedAt: serverTimestamp()
+          });
         }
-      }, 500);
+      } else {
+        batch.set(recipientChatRef, {
+          otherUserId: user.uid,
+          sharedChatId: finalRecipientSharedChatId,
+          lastMessage: messageTextToSend,
+          lastMessageTime: serverTimestamp(),
+          unreadCount: 1,
+          pinned: false,
+          deletedByUser: false,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+      
+      // Commit batch (fast, atomic operation)
+      await batch.commit();
+      
+      // Background: Update recipient's shared chat if different (non-critical)
+      if (recipientActualSharedChatId && recipientActualSharedChatId !== finalSharedChatIdForUser) {
+        setTimeout(async () => {
+          try {
+            const recipientSharedChatRef = doc(db, 'chats', recipientActualSharedChatId);
+            await updateDoc(recipientSharedChatRef, {
+              lastMessage: messageTextToSend,
+              lastMessageTime: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          } catch (err) {
+            console.warn('Failed to update recipient shared chat:', err);
+          }
+        }, 0);
+      }
+      
+    } catch (error) {
+      console.error('Error in sendMessageAsync:', error);
+      throw error; // Re-throw to be caught by caller
+    }
   };
 
   const handleImageClick = () => {
@@ -2493,66 +2578,42 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
   return (
     <div
-      className="flex flex-col w-full chat-container bg-white"
+      className="flex flex-col w-full h-full chat-container bg-white"
       style={{
         position: 'relative',
         overflow: 'hidden',
-        backgroundColor: '#fff',
-        height: isMobile ? 'var(--vvh, 100vh)' : '100%',
-        minHeight: isMobile ? 'var(--vvh, 100vh)' : '100%',
-        maxHeight: isMobile ? 'var(--vvh, 100vh)' : '100%',
+        height: '100%',
+        maxHeight: '100%',
         width: '100%',
-        margin: 0,
-        padding: 0,
         display: 'flex',
         flexDirection: 'column',
-        transition: isMobile ? 'height 0.15s ease-out, min-height 0.15s ease-out, max-height 0.15s ease-out' : 'none'
-      }}
-      onFocusCapture={(e) => {
-        // When input/textarea in composer gets focus, anchor to bottom like WhatsApp
-        const tag = (e.target as HTMLElement).tagName;
-        if ((tag === 'INPUT' || tag === 'TEXTAREA') && messagesContainerRef.current) {
-          const c = messagesContainerRef.current;
-          // Smoothly settle at bottom after layout
-          requestAnimationFrame(() => {
-            c.scrollTop = c.scrollHeight;
-          });
-        }
+        boxSizing: 'border-box',
+        /* Prevent container from exceeding parent */
+        contain: 'layout style paint',
+        // Debug: Blue border for chat container
+        border: '3px solid #0066ff',
+        // WhatsApp-style: No transitions, container shrinks naturally with keyboard
+        transition: 'none'
       }}
     >
       {/* Chat Title Bar */}
       {!hideHeader && (
         <div
           className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white chat-header"
-          style={isMobile ? {
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: '56px',
-            minHeight: '56px',
-            maxHeight: '56px',
-            flexShrink: 0,
-            borderBottom: '1px solid #e5e7eb',
-            paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
-            zIndex: 50,
-            backgroundColor: '#fff',
-            transform: 'translateY(0)',
-            contain: 'layout style paint',
-            willChange: 'auto'
-          } : {
+          style={{
             position: 'sticky',
             top: 0,
             height: '56px',
             minHeight: '56px',
             maxHeight: '56px',
             flexShrink: 0,
-            borderBottom: '1px solid #e5e7eb',
             paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
             zIndex: 50,
             backgroundColor: '#fff',
-            transform: 'translateY(0)',
-            contain: 'layout style paint'
+            boxSizing: 'border-box',
+            // Debug: Purple border for header
+            border: '3px solid #8800ff',
+            borderBottom: '3px solid #8800ff'
           }}
         >
           {/* Mobile Back Button */}
@@ -2720,10 +2781,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         <div
           className="px-4 py-2 border-b border-gray-200 bg-white"
           style={{
-            position: isMobile ? 'fixed' : 'relative',
-            top: isMobile ? '56px' : 'auto',
-            left: isMobile ? '0' : 'auto',
-            right: isMobile ? '0' : 'auto',
+            position: 'sticky',
+            top: isMobile ? '56px' : '0',
             zIndex: isMobile ? 9998 : 45,
             transform: isMobile ? 'translateZ(0)' : undefined,
             willChange: isMobile ? 'transform' : undefined,
@@ -3178,10 +3237,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             ref={messagesContainerRef}
             className="flex-1 overflow-y-auto px-2 pt-0 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container chat-messages relative" 
             style={{ 
-              scrollBehavior: 'smooth', 
+              scrollBehavior: 'auto', // Changed from 'smooth' - WhatsApp doesn't animate scroll on keyboard
               scrollbarWidth: 'none',
-              // With fixed header on mobile, offset feed just below it (and search bar if shown)
-              paddingTop: !hideHeader ? (isMobile ? (showSearch ? '108px' : '60px') : '4px') : (isMobile && showSearch ? '48px' : '0'),
+              // Messages start at the top of the messages area
+              paddingTop: '0',
               paddingBottom: isMobile ? '0' : '0',
               msOverflowStyle: 'none' as any,
               display: 'flex',
@@ -3189,11 +3248,21 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               justifyContent: 'flex-start',
               alignItems: 'stretch',
               minHeight: '0',
+              flexShrink: 1, // Allow container to shrink with keyboard
               overflowY: 'auto',
               width: '100%',
               WebkitOverflowScrolling: 'touch',
               overscrollBehavior: 'none',
-              overflowAnchor: 'none' as any
+              overflowAnchor: 'auto' as any, // WhatsApp-style: Content moves with container naturally
+              boxSizing: 'border-box',
+              // WhatsApp-style: Container shrinks but content position stays stable
+              willChange: 'auto', // Let browser optimize naturally
+              // Debug: Green border for messages container
+              border: '3px solid #00ff00',
+              // WhatsApp-style: No transitions, container shrinks naturally
+              transition: 'none',
+              // WhatsApp-style: Content should move with container when it shrinks
+              position: 'relative'
             }}
             onScroll={(e) => {
               // Show scroll to bottom button when user scrolls up
@@ -3219,12 +3288,18 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                   alignItems: 'stretch',
                   width: '100%',
                   gap: '0.1rem',
-                  filter: searchQuery ? 'none' : 'none'
+                  filter: searchQuery ? 'none' : 'none',
+                  // WhatsApp-style: Wrapper maintains content size
+                  // When container shrinks, wrapper keeps same height
+                  // Browser automatically adjusts scroll to keep visible content in view
+                  flexShrink: 0, // Content doesn't shrink
+                  position: 'relative',
+                  boxSizing: 'border-box'
                 }}
               >
             {messages.map((message, idx) => {
-                  // Check if this message matches search query
-                  const isHighlighted = searchQuery && message.text?.toLowerCase().includes(searchQuery.toLowerCase());
+                  // Check if this message matches search query (memoized in useMemo below)
+                  const isHighlighted = searchQuery ? message.text?.toLowerCase().includes(searchQuery.toLowerCase()) : false;
                   
                   return (
                     <div key={message.id} id={`message-${message.id}`}>
@@ -4484,12 +4559,17 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           paddingRight: '8px',
           paddingTop: '8px',
           boxSizing: 'border-box',
-          borderTop: '1px solid #e5e7eb'
+          // Debug: Orange border for composer container
+          border: '3px solid #ff8800',
+          borderTop: '3px solid #ff8800'
         } : {
           backdropFilter: 'none',
           filter: 'none',
           boxShadow: 'none',
-          touchAction: 'auto'
+          touchAction: 'auto',
+          // Debug: Orange border for composer container (desktop)
+          border: '3px solid #ff8800',
+          borderTop: '3px solid #ff8800'
         }}>
         {/* File Preview Section */}
         {selectedFiles.length > 0 && (
