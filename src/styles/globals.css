@@ -1,4 +1,19 @@
-﻿@tailwind base;
+﻿html,
+body {
+  position: fixed;
+  inset: 0;
+  height: var(--vvh, 100vh);
+  min-height: var(--vvh, 100vh);
+  max-height: var(--vvh, 100vh);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  background: #fff;
+}
+
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -63,9 +78,9 @@ div[class*="grid"][class*="overflow"] {
 
 /* Chat Message Input - Force consistent sizing */
 .chat-message-input {
-  height: 40px !important;
-  min-height: 40px !important;
-  max-height: 40px !important;
+  height: 36px !important;
+  min-height: 36px !important;
+  max-height: 36px !important;
   font-size: 14px !important;
   line-height: 1.5 !important;
   border: none !important;
@@ -2773,6 +2788,10 @@ div[class*="flex-1"][class*="overflow-y-auto"] {
   overflow-y: auto !important;
 }
 
+/* (Debug outlines removed) */
+
+/* Keyboard overlay handled by VisualViewport API via CSS variables */
+
 /* Force all chat message containers */
 div[class*="chat-messages"] {
   display: flex !important;
@@ -3297,5 +3316,11 @@ html body div .profile-btn {
 
 .pb-safe {
   padding-bottom: max(var(--safe-area-inset-bottom), 0.5rem);
+}
+
+/* Chat container isolation */
+.chat-container {
+  isolation: isolate;
+  contain: layout paint;
 }
 

@@ -1,7 +1,7 @@
-﻿"use client";
+﻿﻿"use client";
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ChatList } from '@/components/chat/ChatList';
 import { Chat } from '@/components/chat/Chat';
 import { doc, getDoc } from 'firebase/firestore';
@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { markAsRead } = useChat();
   const [isMobileView, setIsMobileView] = useState(false);
   const { searchQuery, filterType, setSearchQuery, setFilterType, selectedChat, setSelectedChat } = useMessages();
@@ -77,6 +78,12 @@ export default function MessagesPage() {
 
     console.log('🔍 Calling markAsRead for:', recipientId);
     markAsRead(recipientId);
+
+    // On mobile, navigate to dedicated thread route like OnlyFans
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      router.push(`/messages/${recipientId}`);
+      return;
+    }
   };
 
   return (

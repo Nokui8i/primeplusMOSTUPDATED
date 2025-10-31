@@ -62,7 +62,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const isSubscriptionsPage = pathname === '/subscriptions';
   
   // Check if we're in a chat conversation on mobile
-  const isInMobileChat = isMessagesPage && messages.selectedChat;
+  const isInMobileChat = (isMessagesPage && messages.selectedChat) || (pathname?.startsWith('/messages/') ?? false);
 
 
   useEffect(() => {
@@ -241,12 +241,22 @@ export default function MainLayout({ children }: MainLayoutProps) {
   }, []);
 
   return (
-    <div className="h-screen bg-white overflow-hidden">
+    <div 
+      className="bg-white overflow-hidden"
+      style={{
+        height: 'var(--vvh, 100vh)',
+        minHeight: 'var(--vvh, 100vh)',
+        maxHeight: 'var(--vvh, 100vh)'
+      }}
+    >
       {/* Content Layer */}
       <div className="flex justify-center h-full">
         <div className="flex w-full max-w-7xl h-full">
           {/* Left Sidebar - Responsive Widths */}
-          <aside className="hidden md:block w-64 h-screen sticky top-0 bg-white">
+          <aside 
+            className="hidden md:block w-64 sticky top-0 bg-white"
+            style={{ height: 'var(--vvh, 100vh)' }}
+          >
             <LeftSidebar />
           </aside>
 
@@ -542,7 +552,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 {/* Main Content - Responsive */}
                 <main 
                   ref={mainContentRef} 
-                  className={`flex-1 w-full invisible-scrollbar relative pb-16 md:pb-0 pt-[48px] md:pt-0 ${isSubscriptionsPage ? 'overflow-hidden subscriptions-page-main' : 'overflow-y-auto'}`}
+                  className={`flex-1 w-full invisible-scrollbar relative pb-16 md:pb-0 pt-[48px] md:pt-0 ${isInMobileChat ? 'overflow-hidden' : (isSubscriptionsPage ? 'overflow-hidden subscriptions-page-main' : 'overflow-y-auto')}`}
                   style={{ 
                     scrollBehavior: 'smooth',
                     scrollbarWidth: 'none',
@@ -560,7 +570,10 @@ export default function MainLayout({ children }: MainLayoutProps) {
 
           {/* Right Sidebar - Responsive Widths */}
           {!isMessagesPage && (
-            <aside className="hidden lg:block w-80 h-screen sticky top-0 bg-white border-l border-gray-200">
+            <aside 
+              className="hidden lg:block w-80 sticky top-0 bg-white border-l border-gray-200"
+              style={{ height: 'var(--vvh, 100vh)' }}
+            >
               <RightSidebar
                 suggestedCreators={suggestedCreators}
                 trendingTopics={trendingTopics}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { collection, query, orderBy, onSnapshot, getDocs, where, doc, setDoc, getDoc, deleteDoc, serverTimestamp, updateDoc, writeBatch, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/hooks/useAuth';
@@ -33,6 +34,7 @@ interface ChatListProps {
 export function ChatList({ onSelectChat, onChatDeleted, searchQuery = '', filterType = 'all' }: ChatListProps) {
   const { user } = useAuth();
   const { toast } = useToast();
+  const router = useRouter();
   const [chats, setChats] = useState<ChatMetadata[]>([]);
   const [filteredChats, setFilteredChats] = useState<ChatMetadata[]>([]);
   const [deletingChatId, setDeletingChatId] = useState<string | null>(null);
@@ -533,7 +535,13 @@ export function ChatList({ onSelectChat, onChatDeleted, searchQuery = '', filter
               <div
                 key={chat.id}
                 className="group flex items-center gap-3 p-3 hover:bg-blue-50/50 cursor-pointer transition-colors relative"
-                onClick={() => onSelectChat(chat.recipientId, chat.recipientName, chat.sharedChatId)}
+                onClick={() => {
+                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                    router.push(`/messages/${chat.recipientId}`);
+                  } else {
+                    onSelectChat(chat.recipientId, chat.recipientName, chat.sharedChatId);
+                  }
+                }}
               >
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">

@@ -57,7 +57,7 @@ export default function RootLayout({
           }
         `}} />
       </head>
-      <body className={inter.className} style={{ backgroundColor: '#ffffff', margin: 0, padding: 0, overflow: 'hidden', height: '100vh' }}>
+      <body className={inter.className} style={{ backgroundColor: '#ffffff', margin: 0, padding: 0, overflow: 'hidden' }}>
         <AuthProvider>
           <ChatProvider>
             <NotificationProvider>

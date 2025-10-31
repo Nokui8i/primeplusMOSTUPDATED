@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { VideoUploadPreview } from './VideoUploadPreview';
 import { VoiceRecorder } from './VoiceRecorder';
 import { TipButton } from '@/components/tips/TipButton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useRouter } from 'next/navigation';
 import { useChat } from '@/contexts/ChatContext';
 import { FiMessageSquare } from 'react-icons/fi';
@@ -26,6 +26,7 @@ import type { MessageAttachment } from '@/lib/types/messages';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { canViewProfile } from '@/lib/utils/profileVisibility';
 import { deleteFromS3, extractS3KeyFromUrl } from '@/lib/aws/s3';
+import { useKeyboardViewportFix } from '@/hooks/useKeyboardViewportFix';
 
 interface Message {
   id: string;
@@ -262,12 +263,54 @@ if (typeof window !== 'undefined') {
 }
 
 export function Chat({ recipientId, recipientName, hideHeader = false, customWidth, onClose, recipientProfile }: ChatProps) {
+  useKeyboardViewportFix();
   const { user } = useAuth();
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingBlock, setCheckingBlock] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  // Initialize mobile state immediately (SSR-safe)
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
+  });
 
   // Check if mobile
+  useEffect(() => {
+    // Maintain bottom anchoring across keyboard open/close like WhatsApp
+    if (!(typeof window !== 'undefined' && 'visualViewport' in window)) return;
+    if (!isMobile) return;
+    const c = messagesContainerRef.current;
+    if (!c) return;
+
+    const wasAtBottom = () => (c.scrollHeight - c.scrollTop - c.clientHeight) < 2;
+
+    const handleVv = () => {
+      const atBottom = wasAtBottom();
+      const prevBottom = c.scrollHeight - c.scrollTop;
+      // Adjust after layout settles
+      requestAnimationFrame(() => {
+        if (atBottom) {
+          c.scrollTop = c.scrollHeight;
+        } else {
+          c.scrollTop = Math.max(0, c.scrollHeight - prevBottom);
+        }
+      });
+    };
+
+    const vv = (window as any).visualViewport as VisualViewport;
+    vv.addEventListener('resize', handleVv);
+    vv.addEventListener('scroll', handleVv);
+    window.addEventListener('orientationchange', handleVv);
+    return () => {
+      vv.removeEventListener('resize', handleVv);
+      vv.removeEventListener('scroll', handleVv);
+      window.removeEventListener('orientationchange', handleVv);
+    };
+  }, [isMobile]);
+
+  // moved below messages declaration
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -331,9 +374,9 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       style.textContent = `
         .chat-message-input,
         .chat-message-input input {
-          height: 40px !important;
-          min-height: 40px !important;
-          max-height: 40px !important;
+          height: 36px !important;
+          min-height: 36px !important;
+          max-height: 36px !important;
           font-size: 14px !important;
           line-height: 1.5 !important;
         }
@@ -342,6 +385,101 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           line-height: 1.5 !important;
           display: inline-block !important;
           min-width: 50px !important;
+        }
+        .send-button-uiverse {
+          font-family: inherit !important;
+          font-size: 18px !important;
+          background: linear-gradient(to bottom, #4dc7d9 0%, #66a6ff 100%) !important;
+          color: white !important;
+          padding: 0.8em 1.2em !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          border: none !important;
+          border-radius: 25px !important;
+          box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.2) !important;
+          transition: all 0.3s !important;
+        }
+        .send-button-uiverse:hover {
+          transform: translateY(-3px) !important;
+          box-shadow: 0px 8px 15px rgba(0, 0, 0, 0.3) !important;
+        }
+        .send-button-uiverse:active {
+          transform: scale(0.95) !important;
+          box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2) !important;
+        }
+        .send-button-uiverse:disabled {
+          opacity: 0.6 !important;
+          cursor: not-allowed !important;
+        }
+        .send-button-uiverse:disabled:hover {
+          transform: none !important;
+        }
+        .send-button-uiverse span {
+          display: block !important;
+          margin-left: 0.4em !important;
+          transition: all 0.3s !important;
+        }
+        .send-button-uiverse .svg-wrapper svg {
+          width: 18px !important;
+          height: 18px !important;
+          fill: white !important;
+          transition: all 0.3s !important;
+        }
+        .send-button-uiverse .svg-wrapper {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 30px !important;
+          height: 30px !important;
+          border-radius: 50% !important;
+          background-color: rgba(255, 255, 255, 0.2) !important;
+          margin-right: 0.5em !important;
+          transition: all 0.3s !important;
+        }
+        .send-button-uiverse:hover .svg-wrapper {
+          background-color: rgba(255, 255, 255, 0.5) !important;
+        }
+        .send-button-uiverse:hover .svg-wrapper svg {
+          transform: rotate(45deg) !important;
+        }
+        .send-button-uiverse-mobile {
+          font-size: 14px !important;
+          padding: 0.6em 1em !important;
+        }
+        .send-button-uiverse-mobile .svg-wrapper {
+          width: 24px !important;
+          height: 24px !important;
+          margin-right: 0.3em !important;
+        }
+        .send-button-uiverse-mobile .svg-wrapper svg {
+          width: 14px !important;
+          height: 14px !important;
+        }
+        .send-button-uiverse-mobile span {
+          margin-left: 0.2em !important;
+          font-size: 14px !important;
+        }
+        @media (max-width: 768px) {
+          .send-button-uiverse {
+            font-size: 14px !important;
+            padding: 0.6em 1em !important;
+            min-height: 36px !important;
+            min-width: 80px !important;
+          }
+          .send-button-uiverse .svg-wrapper {
+            width: 24px !important;
+            height: 24px !important;
+            margin-right: 0.3em !important;
+          }
+          .send-button-uiverse .svg-wrapper svg {
+            width: 14px !important;
+            height: 14px !important;
+          }
+          .send-button-uiverse span {
+            margin-left: 0.2em !important;
+            font-size: 14px !important;
+          }
         }
       `;
       document.head.insertBefore(style, document.head.firstChild);
@@ -361,6 +499,18 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [showGallery, setShowGallery] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   
+  // If new messages arrive and user is at bottom, keep anchored
+  useEffect(() => {
+    const c = messagesContainerRef.current;
+    if (!c) return;
+    const atBottom = (c.scrollHeight - c.scrollTop - c.clientHeight) < 100;
+    if (atBottom) {
+      requestAnimationFrame(() => {
+        c.scrollTop = c.scrollHeight;
+      });
+    }
+  }, [messages.length]);
+
   // Function to highlight matching text
   const highlightText = (text: string, query: string) => {
     if (!query.trim()) return text;
@@ -685,10 +835,30 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         
         // Filter out duplicate messages by ID to prevent showing same message twice
         const seenIds = new Set<string>();
-        const mappedMessages = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Message[];
+        const mappedMessages = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            text: data.text || '',
+            senderId: data.senderId || data.sender || '',
+            senderName: data.senderName || data.senderName || '',
+            timestamp: data.timestamp,
+            read: data.read !== undefined ? Boolean(data.read) : false,
+            type: data.type || 'text',
+            imageUrl: data.imageUrl || undefined,
+            videoUrl: data.videoUrl || undefined,
+            audioUrl: data.audioUrl || undefined,
+            duration: data.duration || undefined,
+            status: data.status || 'sent',
+            locked: data.locked || false,
+            price: data.price || undefined,
+            unlockedBy: data.unlockedBy || undefined,
+            attachments: data.attachments || undefined,
+            edited: data.edited || false,
+            isWelcomeMessage: data.isWelcomeMessage || false,
+            deleted: data.deleted || false
+          } as Message;
+        });
         
         const newMessages = mappedMessages.filter(msg => {
           if (seenIds.has(msg.id)) {
@@ -701,7 +871,16 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         
         console.log('🔍 [Chat] Setting', newMessages.length, 'messages (after filtering duplicates)');
         if (newMessages.length > 0) {
-          console.log('🔍 [Chat] Messages to display:', newMessages.map(m => ({ id: m.id, text: m.text, senderId: m.senderId })));
+          console.log('🔍 [Chat] Messages to display:', newMessages.map(m => ({ 
+            id: m.id, 
+            text: m.text, 
+            senderId: m.senderId,
+            read: m.read,
+            deleted: m.deleted,
+            type: m.type,
+            currentUser: user?.uid,
+            isSender: m.senderId === user?.uid
+          })));
         }
         
       // Reverse to show oldest first (chronological order)
@@ -2313,11 +2492,69 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   }
 
   return (
-    <div className="flex flex-col h-screen w-full relative chat-container" style={{ width: '100%', overflow: 'hidden' }}>
+    <div
+      className="flex flex-col w-full chat-container bg-white"
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        backgroundColor: '#fff',
+        height: isMobile ? 'var(--vvh, 100vh)' : '100%',
+        minHeight: isMobile ? 'var(--vvh, 100vh)' : '100%',
+        maxHeight: isMobile ? 'var(--vvh, 100vh)' : '100%',
+        width: '100%',
+        margin: 0,
+        padding: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        transition: isMobile ? 'height 0.15s ease-out, min-height 0.15s ease-out, max-height 0.15s ease-out' : 'none'
+      }}
+      onFocusCapture={(e) => {
+        // When input/textarea in composer gets focus, anchor to bottom like WhatsApp
+        const tag = (e.target as HTMLElement).tagName;
+        if ((tag === 'INPUT' || tag === 'TEXTAREA') && messagesContainerRef.current) {
+          const c = messagesContainerRef.current;
+          // Smoothly settle at bottom after layout
+          requestAnimationFrame(() => {
+            c.scrollTop = c.scrollHeight;
+          });
+        }
+      }}
+    >
       {/* Chat Title Bar */}
       {!hideHeader && (
-        <div className={`flex items-center gap-3 px-4 py-3 border-b border-gray-200 ${isMobile ? 'fixed top-0 left-0 right-0' : 'sticky top-0'} z-50 bg-white`}
-             style={{ borderBottom: '1px solid #e5e7eb', minHeight: '56px', maxHeight: '56px' }}>
+        <div
+          className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 bg-white chat-header"
+          style={isMobile ? {
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '56px',
+            minHeight: '56px',
+            maxHeight: '56px',
+            flexShrink: 0,
+            borderBottom: '1px solid #e5e7eb',
+            paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
+            zIndex: 50,
+            backgroundColor: '#fff',
+            transform: 'translateY(0)',
+            contain: 'layout style paint',
+            willChange: 'auto'
+          } : {
+            position: 'sticky',
+            top: 0,
+            height: '56px',
+            minHeight: '56px',
+            maxHeight: '56px',
+            flexShrink: 0,
+            borderBottom: '1px solid #e5e7eb',
+            paddingTop: 'max(0px, env(safe-area-inset-top, 0px))',
+            zIndex: 50,
+            backgroundColor: '#fff',
+            transform: 'translateY(0)',
+            contain: 'layout style paint'
+          }}
+        >
           {/* Mobile Back Button */}
           {isMobile && onClose && (
             <button
@@ -2480,7 +2717,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       
       {/* Search Bar */}
       {showSearch && (
-        <div className="px-4 py-2 border-b border-gray-200 bg-white" style={{ position: isMobile ? 'fixed' : 'relative', top: isMobile ? '56px' : 'auto', left: isMobile ? '0' : 'auto', right: isMobile ? '0' : 'auto', zIndex: 45, border: '3px solid red !important' as any }}>
+        <div
+          className="px-4 py-2 border-b border-gray-200 bg-white"
+          style={{
+            position: isMobile ? 'fixed' : 'relative',
+            top: isMobile ? '56px' : 'auto',
+            left: isMobile ? '0' : 'auto',
+            right: isMobile ? '0' : 'auto',
+            zIndex: isMobile ? 9998 : 45,
+            transform: isMobile ? 'translateZ(0)' : undefined,
+            willChange: isMobile ? 'transform' : undefined,
+            isolation: isMobile ? 'isolate' : undefined,
+            contain: isMobile ? 'layout style paint' : undefined
+          }}
+        >
           <div className="relative flex items-center gap-2">
             <div className="relative flex-1">
               <input
@@ -2926,23 +3176,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       {!showGallery ? (
           <div 
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto px-2 py-4 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container relative" 
+            className="flex-1 overflow-y-auto px-2 pt-0 bg-white scrollbar-hide flex flex-col justify-start chat-messages-container chat-messages relative" 
             style={{ 
               scrollBehavior: 'smooth', 
               scrollbarWidth: 'none',
-              paddingTop: isMobile && !hideHeader ? 'calc(56px + 1.5rem)' : '1.5rem',
-              paddingBottom: '0',
+              // With fixed header on mobile, offset feed just below it (and search bar if shown)
+              paddingTop: !hideHeader ? (isMobile ? (showSearch ? '108px' : '60px') : '4px') : (isMobile && showSearch ? '48px' : '0'),
+              paddingBottom: isMobile ? '0' : '0',
               msOverflowStyle: 'none' as any,
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'flex-start',
               alignItems: 'stretch',
-              height: '100%',
               minHeight: '0',
               overflowY: 'auto',
               width: '100%',
               WebkitOverflowScrolling: 'touch',
-              overscrollBehavior: 'none'
+              overscrollBehavior: 'none',
+              overflowAnchor: 'none' as any
             }}
             onScroll={(e) => {
               // Show scroll to bottom button when user scrolls up
@@ -2986,7 +3237,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             {message.type === 'image' && message.imageUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
                 {/* Message actions for image - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && !message.deleted && (
+                {(message.senderId === user?.uid) && !message.deleted && user?.uid && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -3297,7 +3548,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             ) : message.type === 'video' && message.videoUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
                 {/* Message actions for video - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && !message.deleted && (
+                {(message.senderId === user?.uid) && !message.deleted && user?.uid && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -3616,7 +3867,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             ) : message.type === 'audio' && message.audioUrl ? (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
                 {/* Message actions for voice - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && !message.deleted && (
+                {(message.senderId === user?.uid) && !message.deleted && user?.uid && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => {
@@ -3717,18 +3968,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             ) : (
               <div className={`flex items-center gap-2 group ${message.senderId === user?.uid ? 'justify-end' : 'justify-start'}`} style={{ maxWidth: '80%' }}>
                 {/* Message actions for text - on white background (left side) */}
-                {message.senderId === user?.uid && !message.read && !editingMessage && (
+                {(message.senderId === user?.uid) && !message.deleted && !editingMessage && user?.uid && (
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        startEditMessage(message.id, message.text);
-                      }}
-                      className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
-                      title="Edit message"
-                    >
-                      <Edit className="w-4 h-4" />
-                    </button>
+                    {!message.read && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startEditMessage(message.id, message.text);
+                        }}
+                        className="p-1.5 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 transition-colors"
+                        title="Edit message"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -4061,33 +4314,131 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
       {/* Delete Message Confirmation Dialog */}
       <Dialog open={!!messageToDelete} onOpenChange={(open) => !open && setMessageToDelete(null)}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Delete Message</DialogTitle>
+        <DialogContent 
+          className="sm:max-w-[320px] rounded-xl border-0 p-0 overflow-hidden"
+          style={{
+            background: '#FFFFFF',
+            borderRadius: '12px',
+            boxShadow: `
+              0 4px 20px rgba(0, 0, 0, 0.1),
+              0 2px 8px rgba(0, 0, 0, 0.08),
+              inset 0 1px 0 rgba(255, 255, 255, 0.9),
+              inset 0 -1px 0 rgba(0, 0, 0, 0.05)
+            `,
+          }}
+        >
+          <DialogHeader className="space-y-2 px-4 pt-3 pb-2 border-b border-gray-100">
+            <DialogTitle className="text-lg font-semibold text-gray-800">
+              Delete Message
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-500 leading-relaxed pb-1">
+              Are you sure you want to delete this {messageToDelete?.type === 'audio' ? 'voice message' : messageToDelete?.type === 'image' ? 'image' : messageToDelete?.type === 'video' ? 'video' : 'message'}?
+            </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-500">
-                  Are you sure you want to delete this {messageToDelete?.type === 'audio' ? 'voice message' : messageToDelete?.type === 'image' ? 'image' : messageToDelete?.type === 'video' ? 'video' : 'message'}? This action cannot be undone.
-                </p>
-                <p className="text-xs text-red-500 mt-2">
-                  Note: You can only delete messages that haven't been seen by the recipient.
-            </p>
-          </div>
-          <div className="flex justify-end gap-3">
+          <DialogFooter className="flex-col gap-3 px-4 py-4 sm:flex-row sm:gap-2 sm:py-3 sm:justify-end">
             <Button
               variant="outline"
-              className="bg-white hover:bg-gray-50 border-gray-200"
               onClick={() => setMessageToDelete(null)}
+              className="!rounded-xl !w-auto !px-6 !py-3 !text-sm !font-medium !transition-all !duration-200 !border !border-gray-300 !bg-white !text-gray-700 hover:!bg-gray-50 hover:!border-gray-400 active:!bg-gray-100 sm:!h-7 sm:!min-h-7 sm:!max-h-7 sm:!px-3 sm:!py-1.5 sm:!text-xs sm:!rounded-lg"
+              style={{
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                minHeight: '48px',
+              } as React.CSSProperties}
+              onMouseEnter={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
+              }}
+              onMouseDown={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.transform = 'translateY(0px)';
+                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.1)';
+                }
+              }}
+              onMouseUp={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
+                }
+              }}
+              onTouchStart={(e) => {
+                if (e.currentTarget) {
+                  e.currentTarget.style.opacity = '0.8';
+                }
+              }}
+              onTouchEnd={(e) => {
+                const target = e.currentTarget;
+                if (target) {
+                  setTimeout(() => {
+                    if (target) {
+                      target.style.opacity = '1';
+                    }
+                  }, 150);
+                }
+              }}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={() => messageToDelete && handleDeleteMessage(messageToDelete.id)}
+              className="!rounded-xl !w-auto !px-6 !py-3 !text-sm !font-semibold !transition-all !duration-200 !border !border-gray-300 !bg-white !text-gray-900 hover:!bg-gray-50 hover:!border-gray-400 active:!bg-gray-100 active:!opacity-90 sm:!h-7 sm:!min-h-7 sm:!max-h-7 sm:!px-3 sm:!py-1.5 sm:!text-xs sm:!font-medium sm:!rounded-lg"
+              style={{
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)',
+                minHeight: '48px',
+              } as React.CSSProperties}
+              onMouseEnter={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }
+              }}
+              onMouseDown={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.transform = 'translateY(0px) scale(0.98)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.15)';
+                }
+              }}
+              onMouseUp={(e) => {
+                if (window.innerWidth >= 640 && e.currentTarget) {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9)';
+                }
+              }}
+              onTouchStart={(e) => {
+                if (e.currentTarget) {
+                  e.currentTarget.style.opacity = '0.85';
+                  e.currentTarget.style.transform = 'scale(0.98)';
+                }
+              }}
+              onTouchEnd={(e) => {
+                const target = e.currentTarget;
+                if (target) {
+                  setTimeout(() => {
+                    if (target) {
+                      target.style.opacity = '1';
+                      target.style.transform = 'scale(1)';
+                    }
+                  }, 150);
+                }
+              }}
             >
               Delete
             </Button>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -4095,7 +4446,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          handleSendMessage(e);
+          // If editing a message, save the edit instead of sending new message
+          if (editingMessage) {
+            handleEditMessage();
+          } else {
+            handleSendMessage(e);
+          }
         }}
         onKeyDown={(e) => {
           // Prevent form submission on Enter if on mobile (to keep keyboard open)
@@ -4103,14 +4459,38 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           if (e.key === 'Enter' && isMobile) {
             // Let the form handle it, but prevent default blur behavior
           }
+          // Handle Enter key for editing
+          if (e.key === 'Enter' && !e.shiftKey && editingMessage) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleEditMessage();
+          }
         }}
-        className={`p-1 md:p-2 bg-white/80 ${isMobile ? 'sticky bottom-0 left-0 right-0 z-40' : ''}`} 
-        style={{ 
-        backdropFilter: 'none !important',
-        filter: 'none !important',
-        boxShadow: 'none !important',
-        touchAction: 'auto'
-      }}>
+        className={`chat-composer ${isMobile ? 'relative' : 'p-1 md:p-2'} bg-white border-t border-gray-200 z-50`} 
+        style={isMobile ? {
+          position: 'relative',
+          height: '72px',
+          minHeight: '72px',
+          maxHeight: '72px',
+          flexShrink: 0,
+          padding: '8px',
+          paddingBottom: `calc(8px + env(safe-area-inset-bottom, 0px))`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px',
+          width: '100%',
+          margin: 0,
+          paddingLeft: '8px',
+          paddingRight: '8px',
+          paddingTop: '8px',
+          boxSizing: 'border-box',
+          borderTop: '1px solid #e5e7eb'
+        } : {
+          backdropFilter: 'none',
+          filter: 'none',
+          boxShadow: 'none',
+          touchAction: 'auto'
+        }}>
         {/* File Preview Section */}
         {selectedFiles.length > 0 && (
           <div className="mb-2 p-2 bg-gray-50 rounded-lg">
@@ -4216,7 +4596,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           </div>
         )}
         
-        <div className="flex gap-1 md:gap-2 items-center">
+        <div className="flex gap-1 md:gap-1 items-center" style={{ columnGap: '4px' }}>
           {/* Dropdown for Media & Emoji Buttons */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -4246,7 +4626,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             disabled={uploading || isBlocked}
           />
           {/* Message Input */}
-          <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+          <div style={{ flex: 1, display: 'flex', position: 'relative', alignItems: 'center', height: '36px', minHeight: '36px' }}>
             {/* Chat Locked Overlay */}
             {!canChat && !isBlocked && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm rounded-[20px] shadow-lg">
@@ -4263,6 +4643,15 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               ref={messageInputRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                // If editing a message, handle Enter key to save edit instead of sending new message
+                if (e.key === 'Enter' && !e.shiftKey && editingMessage) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleEditMessage();
+                  return;
+                }
+              }}
               onBlur={(e) => {
                 // On mobile, prevent keyboard from closing by refocusing immediately
                 // Only if user is still in chat view (not navigating away)
@@ -4300,11 +4689,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               }
               className="w-full chat-message-input text-black placeholder:text-gray-400 bg-gray-100 focus:ring-0 focus:border-0 px-4 pr-12 shadow-sm"
               style={{
-                height: '40px',
-                minHeight: '40px',
-                maxHeight: '40px',
+                height: '36px',
+                minHeight: '36px',
+                maxHeight: '36px',
                 fontSize: '16px',
                 lineHeight: '1.5',
+                paddingTop: '6px',
+                paddingBottom: '6px',
                 border: 'none !important',
                 outline: 'none !important',
                 backgroundColor: '#f3f4f6 !important',
@@ -4411,40 +4802,135 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               </button>
             </div>
           ) : (newMessage.trim() || selectedFiles.length > 0) ? (
-            <Button 
-              type="submit" 
-              size="icon" 
-              className="h-6 w-6 md:h-7 md:w-7 rounded-full border-none focus:outline-none send-button-animated" 
+            <button
+              type="submit"
+              disabled={uploading || isBlocked || !canChat}
+              className={`send-button-uiverse ${isMobile ? 'send-button-uiverse-mobile' : ''}`}
               style={{
-                backgroundColor: '#2389FF',
-                background: '#2389FF',
+                fontFamily: 'inherit',
+                fontSize: isMobile ? '11px' : '13px',
+                background: 'linear-gradient(to bottom, #4dc7d9 0%,#66a6ff 100%)',
                 color: 'white',
-                border: 'none',
-                transition: 'all 0.5s ease-in-out',
+                padding: isMobile ? '0.4em 0.8em' : '0.4em 0.6em',
                 display: 'flex',
-                justifyContent: 'center',
                 alignItems: 'center',
-                position: 'relative',
-                overflow: 'hidden'
+                justifyContent: 'center',
+                border: 'none',
+                borderRadius: '20px',
+                boxShadow: '0px 5px 10px rgba(0, 0, 0, 0.2)',
+                transition: 'all 0.3s',
+                cursor: uploading || isBlocked || !canChat ? 'not-allowed' : 'pointer',
+                opacity: uploading || isBlocked || !canChat ? 0.6 : 1,
+                height: '36px',
+                minHeight: '36px',
+                minWidth: isMobile ? '48px' : '56px',
+                lineHeight: '36px',
+                alignSelf: 'center',
+                flex: '0 0 auto',
               }}
               onMouseEnter={(e) => {
-                if (e.currentTarget) {
-                  e.currentTarget.style.borderRadius = '50%';
-                  e.currentTarget.style.transition = 'all 0.5s ease-in-out';
-                  e.currentTarget.style.backgroundColor = '#2389FF';
+                if (!uploading && !isBlocked && canChat && e.currentTarget) {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0px 8px 15px rgba(0, 0, 0, 0.3)';
+                  const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
+                  if (svgWrapper) {
+                    svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+                  }
+                  const svg = e.currentTarget.querySelector('.svg-wrapper svg') as HTMLElement;
+                  if (svg) {
+                    svg.style.transform = 'rotate(45deg)';
+                  }
                 }
               }}
               onMouseLeave={(e) => {
                 if (e.currentTarget) {
-                  e.currentTarget.style.borderRadius = '50%';
-                  e.currentTarget.style.transition = 'all 0.5s ease-in-out';
-                  e.currentTarget.style.backgroundColor = '#2389FF';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0px 5px 10px rgba(0, 0, 0, 0.2)';
+                  const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
+                  if (svgWrapper) {
+                    svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                  }
+                  const svg = e.currentTarget.querySelector('.svg-wrapper svg') as HTMLElement;
+                  if (svg) {
+                    svg.style.transform = 'rotate(0deg)';
+                  }
                 }
               }}
-              disabled={uploading || isBlocked || !canChat}
+              onMouseDown={(e) => {
+                if (!uploading && !isBlocked && canChat && e.currentTarget) {
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.boxShadow = '0px 2px 5px rgba(0, 0, 0, 0.2)';
+                }
+              }}
+              onMouseUp={(e) => {
+                if (e.currentTarget) {
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0px 8px 15px rgba(0, 0, 0, 0.3)';
+                }
+              }}
+              onTouchStart={(e) => {
+                if (!uploading && !isBlocked && canChat && e.currentTarget) {
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.boxShadow = '0px 2px 5px rgba(0, 0, 0, 0.2)';
+                  const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
+                  if (svgWrapper) {
+                    svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
+                  }
+                  const svg = e.currentTarget.querySelector('.svg-wrapper svg') as HTMLElement;
+                  if (svg) {
+                    svg.style.transform = 'rotate(45deg)';
+                  }
+                }
+              }}
+              onTouchEnd={(e) => {
+                if (e.currentTarget) {
+                  setTimeout(() => {
+                    if (e.currentTarget) {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0px 5px 10px rgba(0, 0, 0, 0.2)';
+                      const svgWrapper = e.currentTarget.querySelector('.svg-wrapper') as HTMLElement;
+                      if (svgWrapper) {
+                        svgWrapper.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                      }
+                      const svg = e.currentTarget.querySelector('.svg-wrapper svg') as HTMLElement;
+                      if (svg) {
+                        svg.style.transform = 'rotate(0deg)';
+                      }
+                    }
+                  }, 150);
+                }
+              }}
             >
-              <Send className="h-2 w-2 md:h-3 md:w-3" style={{ opacity: 0 }} />
-            </Button>
+              <div className="svg-wrapper-1">
+                <div className="svg-wrapper" style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: isMobile ? '22px' : '16px',
+                  height: isMobile ? '22px' : '16px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  marginRight: isMobile ? '0.15em' : '0.22em',
+                  transition: 'all 0.3s',
+                }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" style={{
+                    width: isMobile ? '13px' : '10px',
+                    height: isMobile ? '13px' : '10px',
+                    fill: 'white',
+                    transition: 'all 0.3s',
+                  }}>
+                    <path fill="none" d="M0 0h24v24H0z"></path>
+                    <path fill="currentColor" d="M1.946 9.315c-.522-.174-.527-.455.01-.634l19.087-6.362c.529-.176.832.12.684.638l-5.454 19.086c-.15.529-.455.547-.679.045L12 14l6-8-8 6-8.054-2.685z"></path>
+                  </svg>
+                </div>
+              </div>
+              <span style={{
+                display: 'block',
+                marginLeft: '0.1em',
+                transition: 'all 0.3s',
+                fontSize: isMobile ? '11px' : '12px',
+              }}>Send</span>
+            </button>
           ) : (
             <div className="relative" style={{
               boxShadow: 'none !important',

@@ -26,9 +26,24 @@ export function RootLayoutContent({ children }: RootLayoutContentProps) {
   const pathname = usePathname() || '';
   // Check for streamer dynamic route
   const shouldUseMainLayout = !pagesWithoutLayout.includes(pathname);
+  
+  // Check if we're in a mobile chat thread - don't wrap in main layout structure
+  const isMobileChatThread = pathname?.startsWith('/messages/') ?? false;
+
+  // For mobile chat threads, render directly without main wrapper
+  if (isMobileChatThread) {
+    return <>{children}</>;
+  }
 
   return (
-    <main className={`h-screen overflow-hidden ${shouldUseMainLayout ? 'bg-white' : 'bg-white'}`}>
+    <main 
+      className={`overflow-hidden ${shouldUseMainLayout ? 'bg-white' : 'bg-white'}`}
+      style={{
+        height: 'var(--vvh, 100vh)',
+        minHeight: 'var(--vvh, 100vh)',
+        maxHeight: 'var(--vvh, 100vh)'
+      }}
+    >
       {shouldUseMainLayout ? <MainLayout>{children}</MainLayout> : children}
     </main>
   );
