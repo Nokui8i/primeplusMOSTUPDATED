@@ -141,6 +141,38 @@ export function ChatList({ onSelectChat, onChatDeleted, searchQuery = '', filter
           
           const unreadCount = updatedData.unreadCount || 0;
           
+          // Get pinned status from chat document (pinnedBy field) if available, fallback to userChat
+          let pinned = updatedData.pinned || false;
+          try {
+            const chatId = [user.uid, otherUserId].sort().join('_');
+            const chatRef = doc(db, 'chats', chatId);
+            const chatDoc = await getDoc(chatRef);
+            if (chatDoc.exists()) {
+              const pinnedBy = chatDoc.data().pinnedBy || {};
+              pinned = !!pinnedBy[user.uid];
+              // Update userChat document to keep it in sync (async, don't block)
+              if (pinned !== updatedData.pinned) {
+                updateDoc(chatDoc.ref.parent.parent?.parent || chatRef, {
+                  pinned: pinned,
+                  updatedAt: serverTimestamp()
+                }).catch(() => {
+                  // Might be in different path, try userChat directly
+                  const userChatId = `${user.uid}_${otherUserId}`;
+                  const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+                  updateDoc(userChatRef, {
+                    pinned: pinned,
+                    updatedAt: serverTimestamp()
+                  }).catch(() => {
+                    // Failed, that's ok - will be synced on next pin action
+                  });
+                });
+              }
+            }
+          } catch (error) {
+            // If chat document doesn't exist or error, use pinned from userChat
+            console.warn('Error checking pinned status from chat document:', error);
+          }
+          
           return {
             id: chatDoc.id,
             recipientId: otherUserId,
@@ -150,7 +182,7 @@ export function ChatList({ onSelectChat, onChatDeleted, searchQuery = '', filter
             lastMessage: lastMessage,
             lastMessageTime: finalLastMessageTime,
             unreadCount: unreadCount,
-            pinned: updatedData.pinned || false,
+            pinned: pinned,
             sharedChatId: currentSharedChatId // Keep reference to shared chat
           };
         });
@@ -536,11 +568,8 @@ export function ChatList({ onSelectChat, onChatDeleted, searchQuery = '', filter
                 key={chat.id}
                 className="group flex items-center gap-3 p-3 hover:bg-blue-50/50 cursor-pointer transition-colors relative"
                 onClick={() => {
-                  if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                    router.push(`/messages/${chat.recipientId}`);
-                  } else {
-                    onSelectChat(chat.recipientId, chat.recipientName, chat.sharedChatId);
-                  }
+                  // Always use onSelectChat - it handles mobile (opens popup) and desktop (sets selectedChat)
+                  onSelectChat(chat.recipientId, chat.recipientName, chat.sharedChatId);
                 }}
               >
                 {/* Avatar */}

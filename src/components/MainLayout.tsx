@@ -20,6 +20,7 @@ import { UserProfile } from '@/lib/types/user';
 import { RoutePrefetcher } from './common/RoutePrefetcher';
 import { DataPreloader } from './common/DataPreloader';
 import { ChatWindows } from './chat/ChatWindows';
+import { useChat } from '@/contexts/ChatContext';
 import { useAuth } from '@/hooks/useAuth';
 import { ContentUploadDialog } from './creator/ContentUploadDialog';
 import { useMessages } from '@/contexts/MessagesContext';
@@ -63,6 +64,9 @@ export default function MainLayout({ children }: MainLayoutProps) {
   
   // Check if we're in a chat conversation on mobile
   const isInMobileChat = (isMessagesPage && messages.selectedChat) || (pathname?.startsWith('/messages/') ?? false);
+  
+  // Check if mini chat popup is open on mobile (hides NAV BAR)
+  const { hasOpenChatOnMobile } = useChat();
 
 
   useEffect(() => {
@@ -635,8 +639,8 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* Chat Windows for mini chat functionality */}
       <ChatWindows />
       
-      {/* Bottom Navigation - Mobile Only */}
-      {!isInMobileChat && (
+      {/* Bottom Navigation - Mobile Only (hidden when mini chat popup is open) */}
+      {!isInMobileChat && !hasOpenChatOnMobile && (
       <BottomNavigation 
         onMenuClick={() => setShowMobileLeft(!showMobileLeft)} 
         isMenuOpen={showMobileLeft}

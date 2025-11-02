@@ -26,7 +26,12 @@ export default function HomePage() {
   const router = useRouter()
   const { user } = useAuth()
   const { hideLockedPosts } = useFilter()
-  const { ref: loadMoreRef, inView } = useInView()
+  // Use Intersection Observer with better options for mobile
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1, // Trigger when 10% of element is visible
+    rootMargin: '200px', // Start loading 200px before reaching the element (better UX on mobile)
+    triggerOnce: false, // Allow multiple triggers
+  })
   const incrementedRef = useRef(false)
 
   const getDateSafe = (value: any) => {
@@ -221,6 +226,13 @@ export default function HomePage() {
         });
       }
       setPosts(newPosts);
+      // CRITICAL: Set lastDoc for infinite scroll to work
+      if (docs.length > 0) {
+        setLastDoc(docs[docs.length - 1]);
+        setHasMore(docs.length === POSTS_PER_PAGE);
+      } else {
+        setHasMore(false);
+      }
       setLoading(false);
       } catch (error) {
         console.error('Error fetching posts:', error);
@@ -353,10 +365,13 @@ export default function HomePage() {
 
   // Infinite scroll effect
   useEffect(() => {
-    if (inView && hasMore && !loading) {
-      console.log('🔄 Loading more posts...');
+    if (inView && hasMore && !loading && lastDoc) {
+      console.log('🔄 Loading more posts...', { inView, hasMore, loading, lastDoc: !!lastDoc });
       const loadMorePosts = async () => {
-        if (!lastDoc) return;
+        if (!lastDoc) {
+          console.log('⚠️ No lastDoc, cannot load more');
+          return;
+        }
         
         try {
           setLoading(true);
@@ -371,8 +386,42 @@ export default function HomePage() {
           const snapshot = await getDocs(q);
           const newPosts: PostWithAuthor[] = [];
           
+          // Batch fetch all author IDs
+          const authorIds = [...new Set(snapshot.docs.map(doc => {
+            const data = doc.data();
+            return data.authorId || data.userId;
+          }).filter(Boolean))] as string[];
+
+          // Batch fetch all user documents in parallel
+          const userDocs = await Promise.all(
+            authorIds.map(id => getDoc(docRef(db, 'users', id)))
+          );
+          
+          // Create a map for quick lookup
+          const userMap = new Map();
+          userDocs.forEach((userDoc, index) => {
+            if (userDoc.exists()) {
+              userMap.set(authorIds[index], userDoc.data());
+            }
+          });
+
+          // Batch fetch block status
+          const currentUserDoc = await getDoc(docRef(db, 'users', user!.uid));
+          const currentUserData = currentUserDoc.data();
+          const blockedUsers = new Set(currentUserData?.blockedUsers || []);
+          
           for (const doc of snapshot.docs) {
             try {
+              const postData = doc.data();
+              const authorId = postData.authorId || postData.userId;
+              if (!authorId) continue;
+
+              // Check block status
+              if (blockedUsers.has(authorId)) continue;
+
+              const authorData = userMap.get(authorId);
+              if (!authorData) continue;
+              
               const processedPost = await processPost(doc);
               newPosts.push(processedPost);
             } catch (error) {
@@ -384,11 +433,14 @@ export default function HomePage() {
             setPosts(prev => [...prev, ...newPosts]);
             setLastDoc(snapshot.docs[snapshot.docs.length - 1]);
             setHasMore(snapshot.docs.length === POSTS_PER_PAGE);
+            console.log('✅ Loaded more posts:', newPosts.length);
           } else {
             setHasMore(false);
+            console.log('✅ No more posts to load');
           }
         } catch (error) {
           console.error('Error loading more posts:', error);
+          setHasMore(false);
         } finally {
           setLoading(false);
         }
@@ -396,7 +448,7 @@ export default function HomePage() {
       
       loadMorePosts();
     }
-  }, [inView, hasMore, loading, lastDoc]);
+  }, [inView, hasMore, loading, lastDoc, user]);
 
 
   // Filter posts based on hideLockedPosts setting

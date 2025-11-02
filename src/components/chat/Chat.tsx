@@ -65,6 +65,11 @@ interface ChatProps {
       profileVisibility?: 'public' | 'subscribers_only';
     };
   };
+  // Props for controlling Gallery and Search from parent (ChatPopup)
+  externalShowGallery?: boolean;
+  externalSetShowGallery?: (show: boolean) => void;
+  externalShowSearch?: boolean;
+  externalSetShowSearch?: (show: boolean) => void;
 }
 
 // Add this function before the Chat component
@@ -264,7 +269,7 @@ if (typeof window !== 'undefined') {
 }
 
 
-export function Chat({ recipientId, recipientName, hideHeader = false, customWidth, onClose, recipientProfile }: ChatProps) {
+export function Chat({ recipientId, recipientName, hideHeader = false, customWidth, onClose, recipientProfile, externalShowGallery, externalSetShowGallery, externalShowSearch, externalSetShowSearch }: ChatProps) {
   const { user } = useAuth();
   
   const [isBlocked, setIsBlocked] = useState(false);
@@ -459,13 +464,38 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [newMessage, setNewMessage] = useState('');
   const [uploading, setUploading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showSearch, setShowSearch] = useState(false);
+  // Use external state if provided (from ChatPopup), otherwise use internal state
+  const [internalShowSearch, setInternalShowSearch] = useState(false);
+  const showSearch = externalShowSearch !== undefined ? externalShowSearch : internalShowSearch;
+  const setShowSearch = externalSetShowSearch || setInternalShowSearch;
+  
   const [isPinned, setIsPinned] = useState(false);
   const [matchedMessageIndex, setMatchedMessageIndex] = useState(0);
   const [matchedMessageIds, setMatchedMessageIds] = useState<string[]>([]);
   const [showImageUpload, setShowImageUpload] = useState(false);
-  const [showGallery, setShowGallery] = useState(false);
+  
+  // Use external state if provided (from ChatPopup), otherwise use internal state
+  const [internalShowGallery, setInternalShowGallery] = useState(false);
+  const showGallery = externalShowGallery !== undefined ? externalShowGallery : internalShowGallery;
+  const setShowGallery = externalSetShowGallery || setInternalShowGallery;
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  
+  // Auto-focus search input when search opens
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      // Multiple attempts to ensure focus works on mobile
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 0);
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 100);
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 300);
+    }
+  }, [showSearch]);
   
   // Keep scroll at bottom when new messages arrive (silent, user doesn't notice)
   // CRITICAL: Always keep at bottom if user was at bottom, even with keyboard open
@@ -567,7 +597,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [shouldCancel, setShouldCancel] = useState(false);
   const [slidePosition, setSlidePosition] = useState(0);
-  const messageInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLInputElement | HTMLDivElement>(null); // Support both input (desktop) and contentEditable (mobile)
   const recipientNameRef = useRef<HTMLSpanElement>(null);
 
   // Drag handlers for resizing
@@ -745,7 +775,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
     
     // Setup chat listener - this will run whenever the personal chat document changes
-    const setupChat = (userChatData: any) => {
+    const setupChat = async (userChatData: any) => {
       const sharedChatId = userChatData?.sharedChatId;
       
       // If no sharedChatId yet, wait for it to be created
@@ -774,6 +804,21 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       // If we already have a listener for this sharedChatId, don't create another one
       if (currentSharedChatId === sharedChatId && unsubscribe) {
         console.log('🔍 [Chat] Already listening to sharedChatId:', sharedChatId);
+        // Still load pinned status even if already listening
+        try {
+          const chatId = [user?.uid, recipientId].sort().join('_');
+          const chatRef = doc(db, 'chats', chatId);
+          const chatDoc = await getDoc(chatRef);
+          if (chatDoc.exists()) {
+            const pinnedBy = chatDoc.data().pinnedBy || {};
+            const pinned = !!pinnedBy[user?.uid || ''];
+            setIsPinned(pinned);
+          } else {
+            setIsPinned(false);
+          }
+        } catch (error) {
+          console.error('Error loading pinned status:', error);
+        }
         return;
       }
       
@@ -812,9 +857,22 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         console.error('Error marking messages as read:', error);
       });
       
-      // Load current pinned status from user's personal chat
-      const pinned = userChatData?.pinned || false;
-      setIsPinned(pinned);
+      // Load current pinned status from chat document (pinnedBy field)
+      try {
+        const chatId = [user?.uid, recipientId].sort().join('_');
+        const chatRef = doc(db, 'chats', chatId);
+        const chatDoc = await getDoc(chatRef);
+        if (chatDoc.exists()) {
+          const pinnedBy = chatDoc.data().pinnedBy || {};
+          const pinned = !!pinnedBy[user?.uid || ''];
+          setIsPinned(pinned);
+        } else {
+          setIsPinned(false);
+        }
+      } catch (error) {
+        console.error('Error loading pinned status:', error);
+        setIsPinned(false);
+      }
 
       // Listen to messages with real-time updates - ONLY for the current sharedChatId
       const messagesRef = collection(db, 'chats', sharedChatId, 'messages');
@@ -1128,6 +1186,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     const captionText = newMessage.trim();
     const filesToSend = [...selectedFiles]; // Save files before clearing state
     setNewMessage('');
+    // Clear contentEditable on mobile
+    if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+      messageInputRef.current.innerText = '';
+    }
     filesToSend.forEach(f => URL.revokeObjectURL(f.preview));
     setSelectedFiles([]);
     
@@ -1856,7 +1918,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const handleEmojiSelect = (emoji: string) => {
-    setNewMessage(prev => prev + emoji);
+    setNewMessage(prev => {
+      const newText = prev + emoji;
+      // For mobile contentEditable, insert emoji directly into div
+      if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(document.createTextNode(emoji));
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return messageInputRef.current.innerText || '';
+        } else {
+          // Fallback: append to end
+          messageInputRef.current.innerText = (messageInputRef.current.innerText || '') + emoji;
+          return messageInputRef.current.innerText;
+        }
+      }
+      return newText;
+    });
     setShowEmojiPicker(false);
   };
 
@@ -2500,8 +2582,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       if (messageInputRef.current) {
         messageInputRef.current.focus();
         // Move cursor to end of text
-        const length = currentText.length;
-        messageInputRef.current.setSelectionRange(length, length);
+        if (messageInputRef.current instanceof HTMLInputElement) {
+          const length = currentText.length;
+          messageInputRef.current.setSelectionRange(length, length);
+        } else if (messageInputRef.current instanceof HTMLDivElement) {
+          // For contentEditable, use Range API
+          const selection = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(messageInputRef.current);
+          range.collapse(false);
+          selection?.removeAllRanges();
+          selection?.addRange(range);
+          // Set the text content for contentEditable
+          messageInputRef.current.innerText = currentText;
+        }
       }
     }, 100);
   };
@@ -2509,6 +2603,10 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const cancelEdit = () => {
     setEditingMessage(null);
     setNewMessage('');
+    // Clear contentEditable on mobile
+    if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+      messageInputRef.current.innerText = '';
+    }
   };
 
   // Typing indicator Firestore logic
@@ -2584,15 +2682,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         overflow: 'hidden',
         height: '100%',
         maxHeight: '100%',
+        minHeight: '0', // Critical for flex-1 to work
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
         boxSizing: 'border-box',
         /* Prevent container from exceeding parent */
         contain: 'layout style paint',
-        // Debug: Blue border for chat container
-        border: '3px solid #0066ff',
-        // WhatsApp-style: No transitions, container shrinks naturally with keyboard
+        // No transitions - container shrinks naturally with keyboard
         transition: 'none'
       }}
     >
@@ -2611,9 +2708,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             zIndex: 50,
             backgroundColor: '#fff',
             boxSizing: 'border-box',
-            // Debug: Purple border for header
-            border: '3px solid #8800ff',
-            borderBottom: '3px solid #8800ff'
           }}
         >
           {/* Mobile Back Button */}
@@ -2718,17 +2812,28 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               className={`p-1.5 rounded-full hover:bg-gray-100 transition-all duration-200 focus:outline-none ${isPinned ? 'bg-blue-50' : ''}`}
               onClick={async (e) => {
                 e.stopPropagation();
+                if (!user?.uid) return;
                 try {
-                  const chatId = [user?.uid, recipientId].sort().join('_');
+                  const chatId = [user.uid, recipientId].sort().join('_');
                   const chatRef = doc(db, 'chats', chatId);
                   const chatDoc = await getDoc(chatRef);
                   
                   if (chatDoc.exists()) {
-                    const currentPinned = chatDoc.data().pinnedBy || {};
                     const newPinned = !isPinned;
                     
+                    // Update pinnedBy in chat document
                     await updateDoc(chatRef, {
-                      [`pinnedBy.${user?.uid}`]: newPinned
+                      [`pinnedBy.${user.uid}`]: newPinned
+                    });
+                    
+                    // Also update user's personal chat document for consistency (for ChatList)
+                    const userChatId = `${user.uid}_${recipientId}`;
+                    const userChatRef = doc(db, 'users', user.uid, 'chats', userChatId);
+                    await updateDoc(userChatRef, {
+                      pinned: newPinned,
+                      updatedAt: serverTimestamp()
+                    }).catch(() => {
+                      // User chat might not exist yet, that's ok
                     });
                     
                     setIsPinned(newPinned);
@@ -2776,128 +2881,6 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         </div>
       )}
       
-      {/* Search Bar */}
-      {showSearch && (
-        <div
-          className="px-4 py-2 border-b border-gray-200 bg-white"
-          style={{
-            position: 'sticky',
-            top: isMobile ? '56px' : '0',
-            zIndex: isMobile ? 9998 : 45,
-            transform: isMobile ? 'translateZ(0)' : undefined,
-            willChange: isMobile ? 'transform' : undefined,
-            isolation: isMobile ? 'isolate' : undefined,
-            contain: isMobile ? 'layout style paint' : undefined
-          }}
-        >
-          <div className="relative flex items-center gap-2">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Search in conversation..."
-                value={searchQuery}
-                onChange={(e) => {
-                  const query = e.target.value;
-                  setSearchQuery(query);
-                  
-                  // Find all matching message IDs
-                  if (query.trim()) {
-                    const matches = messages
-                      .filter(m => m.text?.toLowerCase().includes(query.toLowerCase()))
-                      .map(m => m.id);
-                    setMatchedMessageIds(matches);
-                    setMatchedMessageIndex(0);
-                    
-                    // Scroll to first match
-                    if (matches.length > 0 && messagesContainerRef.current) {
-                      setTimeout(() => {
-                        const element = document.getElementById(`message-${matches[0]}`);
-                        if (element && messagesContainerRef.current) {
-                          const container = messagesContainerRef.current;
-                          const containerRect = container.getBoundingClientRect();
-                          const elementRect = element.getBoundingClientRect();
-                          const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
-                          container.scrollTo({ top: scrollTop, behavior: 'smooth' });
-                        }
-                      }, 100);
-                    }
-                  } else {
-                    setMatchedMessageIds([]);
-                    setMatchedMessageIndex(0);
-                  }
-                }}
-                className="w-full px-2 py-1.5 pl-7 pr-24 rounded-2xl focus:outline-none shadow-lg border-0 text-base"
-                style={{
-                  background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
-                  fontSize: '16px' // Prevents zoom on iOS
-                }}
-                autoFocus
-              />
-              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-            </div>
-            
-            {/* Search Navigation */}
-            {searchQuery.trim() && matchedMessageIds.length > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-600">
-                  {matchedMessageIndex + 1} / {matchedMessageIds.length}
-                </span>
-                <button
-                  onClick={() => {
-                    const prevIndex = matchedMessageIndex > 0 ? matchedMessageIndex - 1 : matchedMessageIds.length - 1;
-                    setMatchedMessageIndex(prevIndex);
-                    const element = document.getElementById(`message-${matchedMessageIds[prevIndex]}`);
-                    if (element && messagesContainerRef.current) {
-                      const container = messagesContainerRef.current;
-                      const containerRect = container.getBoundingClientRect();
-                      const elementRect = element.getBoundingClientRect();
-                      const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
-                      container.scrollTo({ top: scrollTop, behavior: 'smooth' });
-                    }
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Previous match"
-                >
-                  <ChevronUp className="w-4 h-4 text-gray-600" />
-                </button>
-                <button
-                  onClick={() => {
-                    const nextIndex = matchedMessageIndex < matchedMessageIds.length - 1 ? matchedMessageIndex + 1 : 0;
-                    setMatchedMessageIndex(nextIndex);
-                    const element = document.getElementById(`message-${matchedMessageIds[nextIndex]}`);
-                    if (element && messagesContainerRef.current) {
-                      const container = messagesContainerRef.current;
-                      const containerRect = container.getBoundingClientRect();
-                      const elementRect = element.getBoundingClientRect();
-                      const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
-                      container.scrollTo({ top: scrollTop, behavior: 'smooth' });
-                    }
-                  }}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Next match"
-                >
-                  <ChevronDown className="w-4 h-4 text-gray-600" />
-                </button>
-              </div>
-            )}
-            
-            {/* Close Button */}
-            <button
-              onClick={() => {
-                setShowSearch(false);
-                setSearchQuery('');
-                setMatchedMessageIds([]);
-                setMatchedMessageIndex(0);
-              }}
-              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
-              title="Close search"
-            >
-              <X className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
-        </div>
-      )}
       
       {/* Gallery View */}
       {showGallery && (
@@ -3247,18 +3230,16 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               flexDirection: 'column',
               justifyContent: 'flex-start',
               alignItems: 'stretch',
-              minHeight: '0',
-              flexShrink: 1, // Allow container to shrink with keyboard
+              minHeight: '0', // Critical for flex-1 to work properly
+              flex: '1 1 auto', // Flexible - takes available space
               overflowY: 'auto',
               width: '100%',
               WebkitOverflowScrolling: 'touch',
               overscrollBehavior: 'none',
-              overflowAnchor: 'auto' as any, // WhatsApp-style: Content moves with container naturally
+              overflowAnchor: 'auto' as any, // Stabilizes scroll position when content changes
               boxSizing: 'border-box',
               // WhatsApp-style: Container shrinks but content position stays stable
               willChange: 'auto', // Let browser optimize naturally
-              // Debug: Green border for messages container
-              border: '3px solid #00ff00',
               // WhatsApp-style: No transitions, container shrinks naturally
               transition: 'none',
               // WhatsApp-style: Content should move with container when it shrinks
@@ -4517,10 +4498,15 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         </DialogContent>
       </Dialog>
 
+      {/* Composer or Search Bar - Same container, different content */}
+      {/* Hide composer when Gallery is open (Gallery is full screen) */}
+      {!showGallery && (
       <form 
         onSubmit={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          // If search is open, don't submit (search is for finding, not sending)
+          if (showSearch) return;
           // If editing a message, save the edit instead of sending new message
           if (editingMessage) {
             handleEditMessage();
@@ -4544,14 +4530,15 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         className={`chat-composer ${isMobile ? 'relative' : 'p-1 md:p-2'} bg-white border-t border-gray-200 z-50`} 
         style={isMobile ? {
           position: 'relative',
-          height: '72px',
-          minHeight: '72px',
-          maxHeight: '72px',
+          height: 'auto',
+          minHeight: 'auto',
+          maxHeight: 'none',
           flexShrink: 0,
           padding: '8px',
           paddingBottom: `calc(8px + env(safe-area-inset-bottom, 0px))`,
           display: 'flex',
-          alignItems: 'center',
+          flexDirection: 'column',
+          alignItems: 'stretch',
           gap: '4px',
           width: '100%',
           margin: 0,
@@ -4559,18 +4546,129 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           paddingRight: '8px',
           paddingTop: '8px',
           boxSizing: 'border-box',
-          // Debug: Orange border for composer container
-          border: '3px solid #ff8800',
-          borderTop: '3px solid #ff8800'
         } : {
           backdropFilter: 'none',
           filter: 'none',
           boxShadow: 'none',
           touchAction: 'auto',
-          // Debug: Orange border for composer container (desktop)
-          border: '3px solid #ff8800',
-          borderTop: '3px solid #ff8800'
         }}>
+        {/* Search Bar or Composer - Search replaces composer in the same container */}
+        {showSearch ? (
+          <div className="flex gap-1 md:gap-1 items-center flex-shrink-0" style={{ columnGap: '4px', height: '36px', minHeight: '36px' }}>
+            <div className="relative flex-1" style={{ display: 'flex', position: 'relative', alignItems: 'center', height: '36px', minHeight: '36px' }}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search in conversation..."
+                value={searchQuery}
+                onChange={(e) => {
+                  const query = e.target.value;
+                  setSearchQuery(query);
+                  
+                  // Find all matching message IDs
+                  if (query.trim()) {
+                    const matches = messages
+                      .filter(m => m.text?.toLowerCase().includes(query.toLowerCase()))
+                      .map(m => m.id);
+                    setMatchedMessageIds(matches);
+                    setMatchedMessageIndex(0);
+                    
+                    // Scroll to first match
+                    if (matches.length > 0 && messagesContainerRef.current) {
+                      setTimeout(() => {
+                        const element = document.getElementById(`message-${matches[0]}`);
+                        if (element && messagesContainerRef.current) {
+                          const container = messagesContainerRef.current;
+                          const containerRect = container.getBoundingClientRect();
+                          const elementRect = element.getBoundingClientRect();
+                          const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
+                          container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+                        }
+                      }, 100);
+                    }
+                  } else {
+                    setMatchedMessageIds([]);
+                    setMatchedMessageIndex(0);
+                  }
+                }}
+                className="w-full px-2 py-1.5 pl-7 pr-24 rounded-2xl focus:outline-none shadow-lg border-0 text-base"
+                style={{
+                  background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.5) inset',
+                  fontSize: '16px',
+                  height: '36px',
+                  minHeight: '36px',
+                  maxHeight: '36px',
+                }}
+                autoFocus
+              />
+              <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              
+              {/* Search Navigation */}
+              {searchQuery.trim() && matchedMessageIds.length > 0 && (
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                  <span className="text-xs text-gray-600">
+                    {matchedMessageIndex + 1} / {matchedMessageIds.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prevIndex = matchedMessageIndex > 0 ? matchedMessageIndex - 1 : matchedMessageIds.length - 1;
+                      setMatchedMessageIndex(prevIndex);
+                      const element = document.getElementById(`message-${matchedMessageIds[prevIndex]}`);
+                      if (element && messagesContainerRef.current) {
+                        const container = messagesContainerRef.current;
+                        const containerRect = container.getBoundingClientRect();
+                        const elementRect = element.getBoundingClientRect();
+                        const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
+                        container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+                      }
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Previous match"
+                  >
+                    <ChevronUp className="w-4 h-4 text-gray-600" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextIndex = matchedMessageIndex < matchedMessageIds.length - 1 ? matchedMessageIndex + 1 : 0;
+                      setMatchedMessageIndex(nextIndex);
+                      const element = document.getElementById(`message-${matchedMessageIds[nextIndex]}`);
+                      if (element && messagesContainerRef.current) {
+                        const container = messagesContainerRef.current;
+                        const containerRect = container.getBoundingClientRect();
+                        const elementRect = element.getBoundingClientRect();
+                        const scrollTop = elementRect.top - containerRect.top + container.scrollTop - (containerRect.height / 2) + (elementRect.height / 2);
+                        container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+                      }
+                    }}
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Next match"
+                  >
+                    <ChevronDown className="w-4 h-4 text-gray-600" />
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Close Search Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setShowSearch(false);
+                setSearchQuery('');
+                setMatchedMessageIds([]);
+                setMatchedMessageIndex(0);
+              }}
+              className="p-1.5 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+              title="Close search"
+            >
+              <X className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        ) : (
+          <>
         {/* File Preview Section */}
         {selectedFiles.length > 0 && (
           <div className="mb-2 p-2 bg-gray-50 rounded-lg">
@@ -4676,7 +4774,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           </div>
         )}
         
-        <div className="flex gap-1 md:gap-1 items-center" style={{ columnGap: '4px' }}>
+        <div className="flex gap-1 md:gap-1 items-center flex-shrink-0" style={{ columnGap: '4px', height: '36px', minHeight: '36px' }}>
           {/* Dropdown for Media & Emoji Buttons */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -4705,7 +4803,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             style={{ display: 'none' }}
             disabled={uploading || isBlocked}
           />
-          {/* Message Input */}
+          {/* Message Input - Use contentEditable on mobile to prevent browser from pushing window up */}
           <div style={{ flex: 1, display: 'flex', position: 'relative', alignItems: 'center', height: '36px', minHeight: '36px' }}>
             {/* Chat Locked Overlay */}
             {!canChat && !isBlocked && (
@@ -4719,72 +4817,141 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               </div>
             )}
             
-            <Input
-              ref={messageInputRef}
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => {
-                // If editing a message, handle Enter key to save edit instead of sending new message
-                if (e.key === 'Enter' && !e.shiftKey && editingMessage) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleEditMessage();
-                  return;
-                }
-              }}
-              onBlur={(e) => {
-                // On mobile, prevent keyboard from closing by refocusing immediately
-                // Only if user is still in chat view (not navigating away)
-                if (isMobile && !uploading && !isRecording) {
-                  // Small delay to check if blur was intentional (e.g., user tapped outside)
-                  const target = e.relatedTarget as HTMLElement | null;
-                  // Don't refocus if user clicked on a button or interactive element
-                  if (!target || (!target.closest('button') && !target.closest('[role="button"]'))) {
-                    setTimeout(() => {
-                      if (messageInputRef.current && document.activeElement !== messageInputRef.current) {
-                        // Only refocus if we're still in the chat and input is available
-                        const chatContainer = messageInputRef.current.closest('.chat-container, [class*="chat"]');
-                        if (chatContainer) {
-                          messageInputRef.current.focus();
-                        }
-                      }
-                    }, 50);
+            {/* Mobile: contentEditable div (OnlyFans-style - prevents browser from pushing window) */}
+            {isMobile ? (
+              <div
+                ref={messageInputRef as React.RefObject<HTMLDivElement>}
+                contentEditable
+                suppressContentEditableWarning
+                role="textbox"
+                inputMode="text"
+                onInput={(e) => {
+                  const text = e.currentTarget.innerText || '';
+                  setNewMessage(text);
+                }}
+                onKeyDown={(e) => {
+                  // Handle Enter key - send message (don't create new line)
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (editingMessage) {
+                      handleEditMessage();
+                    } else {
+                      handleSendMessage(e as any);
+                    }
+                    return;
                   }
+                }}
+                onPaste={(e) => {
+                  // Handle paste - get plain text only
+                  e.preventDefault();
+                  const text = e.clipboardData.getData('text/plain');
+                  document.execCommand('insertText', false, text);
+                }}
+                data-placeholder={
+                  isBlocked 
+                    ? "You cannot send messages to this user" 
+                    : !canChat 
+                      ? "Subscribe to chat with this creator" 
+                      : "Aa"
                 }
-              }}
-              onFocus={(e) => {
-                // Ensure input scrolls into view on mobile when focused
-                if (isMobile) {
-                  setTimeout(() => {
-                    e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  }, 100);
+                className="w-full chat-message-input text-black bg-gray-100 focus:ring-0 focus:border-0 px-4 pr-12 shadow-sm"
+                style={{
+                  height: '36px',
+                  minHeight: '36px',
+                  maxHeight: '120px',
+                  fontSize: '16px',
+                  lineHeight: '1.5',
+                  paddingTop: '6px',
+                  paddingBottom: '6px',
+                  border: 'none',
+                  outline: 'none',
+                  backgroundColor: '#f3f4f6',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+                  borderRadius: '20px',
+                touchAction: 'manipulation', // Prevent browser zoom/scroll on double-tap
+                overflowY: 'auto',
+                wordWrap: 'break-word',
+                whiteSpace: 'pre-wrap',
+                // Prevent browser from treating this as a form input
+                WebkitAppearance: 'none',
+                appearance: 'none',
+                // CRITICAL: Prevent browser from moving parent when focused
+                isolation: 'isolate',
+                contain: 'layout style paint',
+                // Prevent viewport resize
+                WebkitUserSelect: 'text',
+                userSelect: 'text',
+                  // Placeholder styling
+                  ...(newMessage.trim() === '' ? {
+                    color: '#9ca3af'
+                  } : {
+                    color: '#000'
+                  })
+                }}
+                contentEditable={!(uploading || isRecording || isBlocked || !canChat)}
+              />
+            ) : (
+              // Desktop: Regular Input (keep existing behavior)
+              <Input
+                ref={messageInputRef as React.RefObject<HTMLInputElement>}
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  // If editing a message, handle Enter key to save edit instead of sending new message
+                  if (e.key === 'Enter' && !e.shiftKey && editingMessage) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleEditMessage();
+                    return;
+                  }
+                }}
+                placeholder={
+                  isBlocked 
+                    ? "You cannot send messages to this user" 
+                    : !canChat 
+                      ? "Subscribe to chat with this creator" 
+                      : "Aa"
                 }
-              }}
-              placeholder={
-                isBlocked 
+                className="w-full chat-message-input text-black placeholder:text-gray-400 bg-gray-100 focus:ring-0 focus:border-0 px-4 pr-12 shadow-sm"
+                style={{
+                  height: '36px',
+                  minHeight: '36px',
+                  maxHeight: '36px',
+                  fontSize: '16px',
+                  lineHeight: '1.5',
+                  paddingTop: '6px',
+                  paddingBottom: '6px',
+                  border: 'none !important',
+                  outline: 'none !important',
+                  backgroundColor: '#f3f4f6 !important',
+                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1) !important',
+                  borderRadius: '20px !important',
+                  touchAction: 'auto'
+                }}
+                disabled={uploading || isRecording || isBlocked || !canChat}
+              />
+            )}
+            
+            {/* Placeholder for contentEditable (mobile only) */}
+            {isMobile && newMessage.trim() === '' && (
+              <div
+                className="absolute left-4 pointer-events-none text-gray-400"
+                style={{
+                  fontSize: '16px',
+                  lineHeight: '36px',
+                  paddingTop: '6px',
+                  paddingBottom: '6px',
+                  userSelect: 'none'
+                }}
+              >
+                {isBlocked 
                   ? "You cannot send messages to this user" 
                   : !canChat 
                     ? "Subscribe to chat with this creator" 
-                    : "Aa"
-              }
-              className="w-full chat-message-input text-black placeholder:text-gray-400 bg-gray-100 focus:ring-0 focus:border-0 px-4 pr-12 shadow-sm"
-              style={{
-                height: '36px',
-                minHeight: '36px',
-                maxHeight: '36px',
-                fontSize: '16px',
-                lineHeight: '1.5',
-                paddingTop: '6px',
-                paddingBottom: '6px',
-                border: 'none !important',
-                outline: 'none !important',
-                backgroundColor: '#f3f4f6 !important',
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1) !important',
-                borderRadius: '20px !important',
-                touchAction: 'auto'
-              }}
-              disabled={uploading || isRecording || isBlocked || !canChat}
-            />
+                    : "Aa"}
+              </div>
+            )}
             
             {/* Emoji Button Inside Input */}
             <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
@@ -4827,7 +4994,27 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       <button
                         key={emoji}
                         onClick={() => {
-                          setNewMessage(prev => prev + emoji);
+                          setNewMessage(prev => {
+                            const newText = prev + emoji;
+                            // For mobile contentEditable, insert emoji directly into div
+                            if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+                              const selection = window.getSelection();
+                              if (selection && selection.rangeCount > 0) {
+                                const range = selection.getRangeAt(0);
+                                range.deleteContents();
+                                range.insertNode(document.createTextNode(emoji));
+                                range.collapse(false);
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                                return messageInputRef.current.innerText || '';
+                              } else {
+                                // Fallback: append to end
+                                messageInputRef.current.innerText = (messageInputRef.current.innerText || '') + emoji;
+                                return messageInputRef.current.innerText;
+                              }
+                            }
+                            return newText;
+                          });
                         }}
                         className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md text-lg"
                         disabled={isBlocked}
@@ -5105,8 +5292,11 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             </div>
           )}
         </div>
+          </>
+        )}
       </form>
-      
-    </div>
+      )}
+        
+      </div>
   );
 }

@@ -24,6 +24,8 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: 'cover' as const,
+  // ✅ OnlyFans-style: Makes browser resize layout viewport when keyboard opens
+  interactiveWidget: 'resizes-content' as const,
 }
 
 export default function RootLayout({
@@ -57,7 +59,7 @@ export default function RootLayout({
           }
         `}} />
       </head>
-      <body className={inter.className} style={{ backgroundColor: '#ffffff', margin: 0, padding: 0, overflow: 'hidden' }}>
+      <body className={inter.className} style={{ backgroundColor: '#ffffff', margin: 0, padding: 0, overflowY: 'auto' }}>
         <AuthProvider>
           <ChatProvider>
             <NotificationProvider>

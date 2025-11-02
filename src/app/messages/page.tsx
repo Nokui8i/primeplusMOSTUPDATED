@@ -1,4 +1,4 @@
-﻿﻿"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -58,31 +58,37 @@ export default function MessagesPage() {
   const handleSelectChat = async (recipientId: string, recipientName: string, sharedChatId?: string) => {
     console.log('🔍 Selecting chat:', recipientId, recipientName, sharedChatId);
     
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    
+    let userData: any = null;
     try {
       const userDoc = await getDoc(doc(db, 'users', recipientId));
       if (userDoc.exists()) {
-        const userData = userDoc.data();
-      setSelectedChat({
-        recipientId,
-        recipientName,
-          recipientProfile: userData,
-          sharedChatId: sharedChatId
-      });
-      } else {
-        setSelectedChat({ recipientId, recipientName, sharedChatId: sharedChatId });
+        userData = userDoc.data();
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      setSelectedChat({ recipientId, recipientName, sharedChatId: sharedChatId });
     }
 
     console.log('🔍 Calling markAsRead for:', recipientId);
     markAsRead(recipientId);
 
-    // On mobile, navigate to dedicated thread route like OnlyFans
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    // On mobile, navigate to separate chat page (like OnlyFans)
+    if (isMobile) {
       router.push(`/messages/${recipientId}`);
-      return;
+      return; // Exit early - don't set selectedChat
+    }
+    
+    // Desktop: Set selectedChat for sidebar view
+    if (userData) {
+      setSelectedChat({
+        recipientId,
+        recipientName,
+        recipientProfile: userData,
+        sharedChatId: sharedChatId
+      });
+    } else {
+      setSelectedChat({ recipientId, recipientName, sharedChatId: sharedChatId });
     }
   };
 

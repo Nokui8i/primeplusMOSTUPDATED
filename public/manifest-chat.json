@@ -1,0 +1,20 @@
+{
+  "name": "PrimePlus+ Chat",
+  "short_name": "Chat",
+  "start_url": "/messages",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2389FF",
+  "orientation": "portrait",
+  "scope": "/messages",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false,
+  "categories": ["social", "communication"]
+}

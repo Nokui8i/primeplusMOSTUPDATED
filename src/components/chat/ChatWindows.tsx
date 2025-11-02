@@ -21,11 +21,12 @@ export function ChatWindows() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Don't show chat windows on mobile or if there are no open chats
-  if (isMobile || chatWindows.length === 0) {
+  // Don't show if there are no open chats
+  if (chatWindows.length === 0) {
     return null;
   }
 
+  // Show chat windows on all devices (mobile enabled)
   return (
     <>
       {chatWindows.map((window) => (
@@ -35,6 +36,7 @@ export function ChatWindows() {
           position={window.position}
           isMinimized={window.isMinimized}
           unreadCount={window.unreadCount}
+          isMobile={isMobile}
         />
       ))}
     </>

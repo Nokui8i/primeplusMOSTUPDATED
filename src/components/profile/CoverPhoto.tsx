@@ -223,7 +223,7 @@ export function CoverPhoto({ photoUrl, className = '', onPhotoUpdate, children, 
         }
       }
 
-      // Upload new cover photo to AWS S3
+      // Upload new cover photo to AWS S3 (for cost efficiency)
       const { uploadToS3, generateS3Key } = await import('@/lib/aws/s3');
       const s3Key = generateS3Key(user.uid, `cover-${Date.now()}.webp`, 'images');
       const downloadUrl = await uploadToS3(processedBlob as File, s3Key);

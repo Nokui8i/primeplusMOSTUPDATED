@@ -23,12 +23,14 @@ interface ChatContextType {
   minimizeChat: (userId: string) => void;
   updatePosition: (userId: string, position: { x: number; y: number }) => void;
   markAsRead: (userId: string) => void;
+  hasOpenChatOnMobile: boolean; // Track if any chat popup is open on mobile
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
 
 export function ChatProvider({ children }: { children: ReactNode }) {
   const [chatWindows, setChatWindows] = useState<ChatWindow[]>([]);
+  const [hasOpenChatOnMobile, setHasOpenChatOnMobile] = useState(false);
   const [closedChats, setClosedChats] = useState<Set<string>>(() => {
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('closedChats');
@@ -300,6 +302,19 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Track if any chat is open (not minimized) on mobile
+  useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    if (!isMobile) {
+      setHasOpenChatOnMobile(false);
+      return;
+    }
+    
+    // Check if any chat window is open (not minimized) on mobile
+    const hasOpenChat = chatWindows.some(window => !window.isMinimized);
+    setHasOpenChatOnMobile(hasOpenChat);
+  }, [chatWindows]);
+
   return (
     <ChatContext.Provider value={{
       chatWindows,
@@ -307,7 +322,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       closeChat,
       minimizeChat,
       updatePosition,
-      markAsRead
+      markAsRead,
+      hasOpenChatOnMobile
     }}>
       {children}
     </ChatContext.Provider>

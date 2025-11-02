@@ -153,7 +153,7 @@ export default function AccountSettings() {
         type: 'image/jpeg',
       });
 
-      // Upload to S3
+      // Upload to AWS S3 (for cost efficiency)
       const photoURL = await uploadToS3(file, `profile-photos/${user.uid}/${Date.now()}-profile.jpg`);
       
       // Update user profile in Firestore

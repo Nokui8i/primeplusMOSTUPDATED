@@ -37,11 +37,14 @@ export function RootLayoutContent({ children }: RootLayoutContentProps) {
 
   return (
     <main 
-      className={`overflow-hidden ${shouldUseMainLayout ? 'bg-white' : 'bg-white'}`}
+      className={`overflow-y-auto scrollbar-hide ${shouldUseMainLayout ? 'bg-white' : 'bg-white'}`}
       style={{
-        height: 'var(--vvh, 100vh)',
         minHeight: 'var(--vvh, 100vh)',
-        maxHeight: 'var(--vvh, 100vh)'
+        height: 'auto',
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'contain',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
       }}
     >
       {shouldUseMainLayout ? <MainLayout>{children}</MainLayout> : children}

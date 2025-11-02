@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -15,6 +15,7 @@ export default function ThreadPage({ params }: ThreadPageProps) {
   const recipientId = params.id;
   const [recipientName, setRecipientName] = useState<string>("Loading...");
   const [recipientProfile, setRecipientProfile] = useState<any>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,108 +38,125 @@ export default function ThreadPage({ params }: ThreadPageProps) {
     return () => { isMounted = false; };
   }, [recipientId]);
 
-  // ✅ Keep container within viewport bounds - never exceed URL bar or navigation bar
+  const [viewportHeight, setViewportHeight] = useState<string>('85vh');
+  const scrollYRef = useRef<number>(0);
+  const scrollXRef = useRef<number>(0);
+
+  // Lock body scroll on mobile (prevents background scrolling)
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (typeof window === 'undefined') return;
     
-    const container = document.querySelector('[data-chat-page-container]') as HTMLElement;
-    if (!container) return;
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile) return;
 
-    // ✅ Prevent all document scrolling - lock the page completely
-    const preventScroll = (e: Event) => {
-      e.preventDefault();
-      e.stopPropagation();
-      return false;
+    // Save scroll position BEFORE locking (prevents content jump)
+    scrollYRef.current = window.scrollY;
+    scrollXRef.current = window.scrollX;
+    const scrollY = scrollYRef.current;
+    const scrollX = scrollXRef.current;
+    
+    const originalBodyStyle = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      width: document.body.style.width,
+      height: document.body.style.height,
+      top: document.body.style.top,
+      left: document.body.style.left,
     };
-
-    // Lock body and html to prevent scrolling
+    
+    // Lock body scroll while preserving scroll position
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.width = '100%';
-    document.body.style.height = '100vh';
+    document.body.style.height = '100%';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = `-${scrollX}px`;
+    // CRITICAL: Prevent viewport from resizing
+    document.body.style.touchAction = 'none';
+    document.body.style.overscrollBehavior = 'none';
     document.documentElement.style.overflow = 'hidden';
-    
-    // Prevent scroll events on document
-    document.addEventListener('scroll', preventScroll, { passive: false, capture: true });
-    document.addEventListener('touchmove', (e) => {
-      // Only allow scroll inside messages container, not on document
-      const target = e.target as HTMLElement;
-      const messagesContainer = target.closest('[class*="chat-messages"], [class*="messages-container"]');
-      if (!messagesContainer) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, { passive: false, capture: true });
-    
-    // Prevent wheel scroll
-    document.addEventListener('wheel', preventScroll, { passive: false, capture: true });
-
-    const updateHeight = () => {
-      const vv = window.visualViewport;
-      if (!vv) return;
-      
-      // Get the actual visible viewport height (shrinks when keyboard opens)
-      const viewportHeight = vv.height;
-      
-      // Get offset - when keyboard opens, viewport scrolls up (offsetTop > 0)
-      // We need to compensate for this to keep container at top: 0
-      const offsetTop = vv.offsetTop || 0;
-      
-      // Set container height to viewport height (WhatsApp-style shrink)
-      container.style.height = `${viewportHeight}px`;
-      container.style.maxHeight = `${viewportHeight}px`;
-      container.style.minHeight = `${viewportHeight}px`;
-      
-      // Compensate for viewport scroll - translate down by offsetTop to keep it at top: 0
-      // This prevents container from going above URL bar
-      if (offsetTop > 0) {
-        container.style.transform = `translateY(${offsetTop}px)`;
-      } else {
-        container.style.transform = 'translateY(0)';
-      }
-      
-      // Always keep top at 0 (below URL bar)
-      container.style.top = '0';
-      
-      // WhatsApp-style: Container shrinks, content moves with it naturally
-      // No need to adjust scroll - browser handles it automatically
-    };
-
-    // Initial height
-    updateHeight();
-
-    // Listen to viewport changes (keyboard open/close)
-    window.visualViewport.addEventListener('resize', updateHeight);
-    window.visualViewport.addEventListener('scroll', updateHeight);
+    document.documentElement.style.position = 'fixed';
+    document.documentElement.style.width = '100%';
+    document.documentElement.style.height = '100%';
 
     return () => {
-      window.visualViewport?.removeEventListener('resize', updateHeight);
-      window.visualViewport?.removeEventListener('scroll', updateHeight);
-      
-      // Restore scroll
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
+      // Restore original styles
+      document.body.style.overflow = originalBodyStyle.overflow;
+      document.body.style.position = originalBodyStyle.position;
+      document.body.style.width = originalBodyStyle.width;
+      document.body.style.height = originalBodyStyle.height;
+      document.body.style.top = originalBodyStyle.top;
+      document.body.style.left = originalBodyStyle.left;
+      document.body.style.touchAction = '';
+      document.body.style.overscrollBehavior = '';
       document.documentElement.style.overflow = '';
-      document.removeEventListener('scroll', preventScroll, { capture: true });
-      document.removeEventListener('touchmove', preventScroll as any, { capture: true });
-      document.removeEventListener('wheel', preventScroll, { capture: true });
+      document.documentElement.style.position = '';
+      document.documentElement.style.width = '';
+      document.documentElement.style.height = '';
+      
+      // Restore scroll position
+      window.scrollTo(scrollX, scrollY);
     };
+  }, []);
+
+  // Keep fixed height - don't adjust when keyboard opens
+  // The contentEditable div prevents browser from pushing the window
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const isMobile = window.innerWidth < 768;
+    if (!isMobile) {
+      setViewportHeight('85vh');
+      return;
+    }
+
+    // Use fixed height based on initial viewport
+    // Don't adjust when keyboard opens - contentEditable prevents browser push
+    const initialHeight = window.innerHeight * 0.85;
+    setViewportHeight(`${initialHeight}px`);
   }, []);
 
   return (
     <div 
+      ref={chatContainerRef}
       data-chat-page-container
-      className="flex flex-col w-full bg-white overflow-hidden"
+      id="chat-root"
+      className="bg-white overflow-hidden"
       style={{
         boxSizing: 'border-box',
-        // Debug: Red border for page container
-        border: '3px solid #ff0000',
-        position: 'relative',
-        // WhatsApp-style: No transitions, container shrinks instantly with keyboard
-        transition: 'none'
-      }}
+        position: 'fixed',
+        bottom: 0,
+        top: 'auto',
+        left: 0,
+        right: 0,
+        width: '100%',
+        height: typeof window !== 'undefined' && window.innerWidth < 768 ? viewportHeight : '85vh',
+        maxHeight: typeof window !== 'undefined' && window.innerWidth < 768 ? viewportHeight : '85vh',
+        // Force bottom positioning - never moves up
+        willChange: 'auto',
+        transform: 'none !important',
+        translate: 'none',
+        overflow: 'hidden',
+        zIndex: 9999,
+        background: 'white',
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+        boxShadow: '0 -4px 12px rgba(0,0,0,0.15)',
+        display: 'flex',
+        flexDirection: 'column',
+        // Fixed positioning - never moves, contentEditable prevents browser push
+        touchAction: 'none',
+        WebkitOverflowScrolling: 'touch',
+        // CRITICAL: Prevent browser from moving this element
+        isolation: 'isolate',
+        contain: 'layout style paint size',
+        // Force no transforms
+        translate: 'none',
+        scale: 'none',
+        rotate: 'none',
+        // Prevent viewport adjustments
+        viewportFit: 'auto',
+      } as React.CSSProperties}
     >
       <Chat
         key={`${recipientId}-${recipientName}`}

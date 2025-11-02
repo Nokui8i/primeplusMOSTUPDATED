@@ -36,6 +36,7 @@ export function HeartButton({ isLiked, onToggle, likesCount, className = '', dis
         checked={isLiked}
         onChange={handleChange}
         disabled={disabled}
+        style={{ position: 'absolute', opacity: 0, pointerEvents: 'auto', cursor: disabled ? 'not-allowed' : 'pointer' }}
       />
       <div className="svg-container">
         <svg xmlns="http://www.w3.org/2000/svg" className="svg-outline" viewBox="0 0 24 24">
