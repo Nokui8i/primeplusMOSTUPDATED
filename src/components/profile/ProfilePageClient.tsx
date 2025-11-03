@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ProfileHeader } from './ProfileHeader';
 import { ProfileContent } from './ProfileContent';
 import { UserProfile } from '@/lib/types/user';
@@ -8,11 +8,16 @@ import { useAuth } from '@/hooks/useAuth';
 import { isUserBlocked } from '@/lib/services/block.service';
 import { SubscriptionContainer } from './SubscriptionContainer';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { query, collection, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 
 interface ProfilePageClientProps {
   profile: UserProfile;
   isOwnProfile: boolean;
 }
+
+// Create a context or use a callback ref to force refresh
+let forceRefreshSubscription: (() => void) | null = null;
 
 export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientProps) {
   console.log('🔍 ProfilePageClient: isOwnProfile:', isOwnProfile);
@@ -45,6 +50,147 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
 
   // Check subscription status for non-own profiles
   const { isSubscriber } = useSubscriptionStatus(isOwnProfile ? '' : profile?.uid || '');
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+
+  // Force refresh function to check subscription status
+  const refreshSubscriptionStatus = useCallback(async () => {
+    if (isOwnProfile || !user?.uid || !profile?.uid) {
+      setHasActiveSubscription(false);
+      return;
+    }
+
+    try {
+      // Check for active subscriptions OR cancelled but still valid subscriptions
+      const subscriptionQuery = query(
+        collection(db, 'subscriptions'),
+        where('subscriberId', '==', user.uid),
+        where('creatorId', '==', profile.uid),
+        where('status', 'in', ['active', 'cancelled'])
+      );
+      const querySnapshot = await getDocs(subscriptionQuery);
+      
+      const now = new Date();
+      let hasActive = false;
+      
+      querySnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        // Only consider subscriptions with status 'active' as active
+        // Cancelled subscriptions should not prevent showing subscription options
+        if (data.status === 'active') {
+          hasActive = true;
+        }
+      });
+      
+      console.log('🔄 Force refresh subscription status:', {
+        hasActive,
+        totalCount: querySnapshot.size,
+        userId: user.uid,
+        creatorId: profile.uid,
+        docs: querySnapshot.docs.map(d => {
+          const data = d.data();
+          const endDate = data.endDate ? (data.endDate.toDate ? data.endDate.toDate() : new Date(data.endDate)) : null;
+          return { 
+            id: d.id, 
+            status: data.status, 
+            endDate: endDate?.toISOString(),
+            isValid: data.status === 'active'
+          };
+        })
+      });
+      
+      setHasActiveSubscription(hasActive);
+    } catch (error) {
+      console.error('Error refreshing subscription status:', error);
+      setHasActiveSubscription(false);
+    }
+  }, [isOwnProfile, user?.uid, profile?.uid]);
+
+  // Check if subscription is active (not cancelled) - use real-time listener
+  useEffect(() => {
+    if (isOwnProfile || !user?.uid || !profile?.uid) {
+      setHasActiveSubscription(false);
+      forceRefreshSubscription = null;
+      return;
+    }
+
+    // Set up force refresh function
+    forceRefreshSubscription = refreshSubscriptionStatus;
+
+    let unsubscribe: (() => void) | null = null;
+
+    const setupSubscriptionListener = () => {
+      try {
+        // Listen to both active and cancelled subscriptions
+        const subscriptionQuery = query(
+          collection(db, 'subscriptions'),
+          where('subscriberId', '==', user.uid),
+          where('creatorId', '==', profile.uid),
+          where('status', 'in', ['active', 'cancelled'])
+        );
+        
+        // Use real-time listener to update when subscription changes
+        unsubscribe = onSnapshot(subscriptionQuery, (querySnapshot) => {
+          const now = new Date();
+          let hasActive = false;
+          
+          querySnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            // Only consider subscriptions with status 'active' as active
+            // Cancelled subscriptions should not prevent showing subscription options
+            if (data.status === 'active') {
+              hasActive = true;
+            }
+          });
+          
+          console.log('📊 Subscription listener update:', {
+            hasActive,
+            totalCount: querySnapshot.size,
+            userId: user.uid,
+            creatorId: profile.uid,
+            docs: querySnapshot.docs.map(d => {
+              const data = d.data();
+              const endDate = data.endDate ? (data.endDate.toDate ? data.endDate.toDate() : new Date(data.endDate)) : null;
+              return { 
+                id: d.id, 
+                status: data.status, 
+                endDate: endDate?.toISOString(),
+                isValid: data.status === 'active'
+              };
+            })
+          });
+          
+          setHasActiveSubscription(hasActive);
+          
+          // Also do a manual refresh to ensure consistency
+          refreshSubscriptionStatus();
+        }, (error) => {
+          console.error('Error listening to subscription:', error);
+          setHasActiveSubscription(false);
+        });
+      } catch (error) {
+        console.error('Error setting up subscription listener:', error);
+        setHasActiveSubscription(false);
+      }
+    };
+
+    setupSubscriptionListener();
+    
+    // Initial check
+    refreshSubscriptionStatus();
+    
+    // Also set up periodic refresh to catch any missed updates
+    const refreshInterval = setInterval(() => {
+      refreshSubscriptionStatus();
+    }, 2000); // Check every 2 seconds
+
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+      clearInterval(refreshInterval);
+      forceRefreshSubscription = null;
+    };
+  }, [isOwnProfile, user?.uid, profile?.uid, refreshSubscriptionStatus]);
 
   // Check if current user is blocked by the profile owner (one-way blocking)
   useEffect(() => {
@@ -118,17 +264,20 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
         onCoverPhotoUpdate={isOwnProfile ? handleCoverPhotoUpdate : undefined}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        onSubscriptionCancelled={refreshSubscriptionStatus}
       />
       
       {/* Show Subscription Container for creators and non-own profiles - Right after tabs */}
-      {!isOwnProfile && isCreator && profileState.uid && (
+      {/* Hide if user has active subscription, show if cancelled or not subscribed */}
+      {!isOwnProfile && isCreator && profileState.uid && !hasActiveSubscription && (
         <>
           {console.log('✅ Showing Subscription Container', { 
             isOwnProfile, 
             isCreator, 
             profileId: profileState.uid, 
             role: profileState.role,
-            uid: profileState.uid
+            uid: profileState.uid,
+            isSubscriber
           })}
           <div className="w-full px-4 py-1 flex justify-center -mt-6">
             <div className="w-full max-w-2xl">

@@ -372,7 +372,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
     const visibility = profile.privacy?.profileVisibility || 'public';
     
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 pt-2 pb-8">
         <div className="max-w-2xl mx-auto">
           <div className="flex flex-col items-center justify-center py-16 px-4">
             <div className="text-center space-y-4 max-w-md">
@@ -416,7 +416,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-4 pt-2 pb-8">
       <div className="max-w-2xl mx-auto">
 
         {/* Content Display - same structure as home page */}

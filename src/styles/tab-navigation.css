@@ -127,22 +127,26 @@ html {
 @media (max-width: 768px) {
   .tab-container {
     padding: 1px;
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
   }
   
   .indicator {
-    width: 100px;
+    width: calc((100% - 4px) / 2);
     height: 24px;
   }
   
   .tab {
-    width: 100px;
+    width: calc((100% - 4px) / 2);
     height: 24px;
   }
   
   .tab_label {
-    width: 100px;
+    width: calc((100% - 4px) / 2);
     height: 24px;
-    font-size: 0.6rem;
+    font-size: 0.65rem;
+    padding: 0 4px;
   }
   
   .tab--1:checked ~ .indicator {
@@ -150,48 +154,147 @@ html {
   }
   
   .tab--2:checked ~ .indicator {
-    transform: translateX(100px);
+    transform: translateX(calc((100% - 4px) / 2 + 2px));
   }
   
   .tab--3:checked ~ .indicator {
-    transform: translateX(200px);
+    transform: translateX(calc((100% - 4px) * 2 + 4px));
   }
   
   .tab--4:checked ~ .indicator {
-    transform: translateX(300px);
+    transform: translateX(calc((100% - 4px) * 3 + 6px));
+  }
+}
+
+/* Mobile-specific tab styles - From Uiverse.io by Pradeepsaranbishnoi */
+@media (max-width: 700px) {
+  .tab-container {
+    display: flex;
+    position: relative;
+    background-color: #fff;
+    box-shadow: 0 0 1px 0 rgba(24, 94, 224, 0.15), 0 6px 12px 0 rgba(24, 94, 224, 0.15);
+    padding: 0.75rem;
+    border-radius: 99px;
+    width: fit-content;
+    height: auto;
+    min-height: auto;
+    border: none;
+    transform: scale(1);
+  }
+
+  .tab-container * {
+    z-index: 2;
+  }
+
+  .tab {
+    display: none;
+  }
+
+  .tab_label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    width: 100px;
+    font-size: 0.8rem;
+    color: black;
+    font-weight: 500;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: color 0.15s ease-in;
+    position: relative;
+    z-index: 999;
+    opacity: 1;
+    text-transform: none;
+    letter-spacing: 0;
+    padding: 0;
+  }
+
+  .tab:checked + .tab_label {
+    color: #185ee0;
+  }
+  
+  .indicator {
+    position: absolute;
+    display: flex;
+    height: 30px;
+    width: 72px;
+    background-color: #e6eef9;
+    z-index: 1;
+    border-radius: 99px;
+    transition: width 0.25s ease-out, transform 0.25s ease-out;
+    top: 0.75rem;
+    left: 0.75rem;
+    transform: translateX(0);
+    box-shadow: none;
+    border: none;
+  }
+  
+  .tab--1:checked ~ .indicator {
+    transform: translateX(10px);
+    width: 62px;
+  }
+
+  .tab--2:checked ~ .indicator {
+    transform: translateX(80px);
+    width: 62px;
+  }
+
+  .tab--3:checked ~ .indicator {
+    transform: translateX(150px);
+    width: 72px;
+  }
+
+  .tab--4:checked ~ .indicator {
+    transform: translateX(225px);
+    width: 62px;
+  }
+
+  input.tab--5:checked ~ .indicator,
+  .tab.tab--5:checked ~ .indicator {
+    transform: translateX(305px) !important;
+    width: 60px !important;
   }
 }
 
 @media (max-width: 480px) {
-  .indicator {
-    width: 80px;
-    height: 22px;
-  }
-  
-  .tab {
-    width: 80px;
-    height: 22px;
+  .tab-container {
+    transform: scale(0.85);
   }
   
   .tab_label {
-    width: 80px;
-    height: 22px;
-    font-size: 0.55rem;
+    width: 95px;
+    font-size: 0.75rem;
+  }
+  
+  .indicator {
+    width: 67px;
+    height: 30px;
   }
   
   .tab--1:checked ~ .indicator {
-    transform: translateX(0);
+    transform: translateX(10px);
+    width: 57px;
   }
   
   .tab--2:checked ~ .indicator {
     transform: translateX(80px);
+    width: 57px;
   }
   
   .tab--3:checked ~ .indicator {
-    transform: translateX(160px);
+    transform: translateX(145px);
+    width: 67px;
   }
   
   .tab--4:checked ~ .indicator {
-    transform: translateX(240px);
+    transform: translateX(220px);
+    width: 57px;
+  }
+  
+  input.tab--5:checked ~ .indicator,
+  .tab.tab--5:checked ~ .indicator {
+    transform: translateX(295px) !important;
+    width: 55px !important;
   }
 }

@@ -11,8 +11,8 @@ export default function SubscriptionsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <main className="py-8">
+    <div className="min-h-screen bg-white">
+      <main className={`py-0 md:py-8 px-0 md:px-4`}>
         {children}
       </main>
     </div>

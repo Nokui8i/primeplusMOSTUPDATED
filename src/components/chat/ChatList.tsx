@@ -569,7 +569,7 @@ export function ChatList({ onSelectChat, onChatDeleted, searchQuery = '', filter
                 className="group flex items-center gap-3 p-3 hover:bg-blue-50/50 cursor-pointer transition-colors relative"
                 onClick={() => {
                   // Always use onSelectChat - it handles mobile (opens popup) and desktop (sets selectedChat)
-                  onSelectChat(chat.recipientId, chat.recipientName, chat.sharedChatId);
+                    onSelectChat(chat.recipientId, chat.recipientName, chat.sharedChatId);
                 }}
               >
                 {/* Avatar */}

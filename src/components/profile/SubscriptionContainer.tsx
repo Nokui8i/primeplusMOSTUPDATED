@@ -8,6 +8,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { Globe, Lock, Check, ChevronUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import PlansModal from '@/components/creator/PlansModal';
 
 interface Plan {
   id: string;
@@ -54,6 +55,8 @@ export function SubscriptionContainer({
   const [subscriptionStatus, setSubscriptionStatus] = useState<any>(null);
   const [showBundles, setShowBundles] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showPlansModal, setShowPlansModal] = useState(false);
+  const [showAllPlans, setShowAllPlans] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -109,21 +112,35 @@ export function SubscriptionContainer({
         });
         setMediaCount(mediaPosts.length);
 
-        // Check subscription status
+        // Check subscription status directly from Firestore (NO PAYMENT/API)
         const auth = getAuth();
         const user = auth.currentUser;
         if (user) {
           try {
-            const idToken = await user.getIdToken();
-            const response = await axios.get(
-              `${SUBSCRIPTIONS_API_URL}/to/${creatorId}/latest`,
-              { headers: { Authorization: `Bearer ${idToken}` } }
+            const subscriptionQuery = query(
+              collection(db, 'subscriptions'),
+              where('subscriberId', '==', user.uid),
+              where('creatorId', '==', creatorId),
+              where('status', 'in', ['active', 'cancelled'])
             );
-            setSubscriptionStatus(response.data);
-          } catch (err: any) {
-            if (err.response?.status !== 404) {
-              console.error('Error checking subscription:', err);
+            const subscriptionsSnapshot = await getDocs(subscriptionQuery);
+            
+            if (!subscriptionsSnapshot.empty) {
+              // Get the most recent subscription
+              const subscriptions = subscriptionsSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              }));
+              const latestSubscription = subscriptions.sort((a, b) => {
+                const aDate = a.startDate?.toDate?.() || new Date(a.startDate || 0);
+                const bDate = b.startDate?.toDate?.() || new Date(b.startDate || 0);
+                return bDate.getTime() - aDate.getTime();
+              })[0];
+              
+              setSubscriptionStatus(latestSubscription);
             }
+          } catch (err: any) {
+              console.error('Error checking subscription:', err);
           }
         }
       } catch (error: any) {
@@ -143,49 +160,15 @@ export function SubscriptionContainer({
   }, [creatorId]);
 
   const handleSubscribe = async (plan: Plan, bundle?: any) => {
-    try {
-      const auth = getAuth();
-      const user = auth.currentUser;
-      if (!user) {
-        toast.error('Please log in to subscribe');
-        return;
-      }
+    // Open PlansModal instead of subscribing directly
+    setShowPlansModal(true);
+  };
 
-      const idToken = await user.getIdToken();
-      
-      // Calculate price and duration
-      let price = plan.price;
-      let duration = plan.duration || plan.intervalCount || 30; // Default to 30 if not specified
-      
-      if (bundle) {
-        price = bundle.price;
-        duration = bundle.duration;
-      }
-
-      // Call subscription API
-      const response = await axios.post(
-        `${SUBSCRIPTIONS_API_URL}/subscribe`,
-        {
-          subscriberId: user.uid,
-          creatorId: creatorId,
-          planId: plan.id,
-          bundleDuration: duration,
-        },
-        { headers: { Authorization: `Bearer ${idToken}` } }
-      );
-
-      if (response.data.success) {
-        toast.success('Successfully subscribed!');
-        onSubscribe(plan.id, price, duration);
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        toast.error(response.data.error || 'Subscription failed');
-      }
-    } catch (error: any) {
-      console.error('Subscription error:', error);
-      toast.error(error.response?.data?.error || 'Failed to subscribe');
+  const handlePlanSelected = (plan: Plan | null) => {
+    if (plan) {
+      // Subscription was completed in PlansModal
+      onSubscribe(plan.id, plan.price, plan.duration || 30);
+      setShowPlansModal(false);
     }
   };
 
@@ -197,25 +180,10 @@ export function SubscriptionContainer({
     );
   }
 
-  if (isSubscribed && subscriptionStatus) {
-    return (
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-md mx-auto">
-        <div className="text-center space-y-4">
-          <div className="text-2xl font-bold text-gray-800">Already Subscribed</div>
-          <div className="text-sm text-gray-600">
-            You have an active subscription
-          </div>
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="text-sm font-semibold text-blue-800 mb-2">Status: {subscriptionStatus.status}</div>
-            {subscriptionStatus.endDate && (
-              <div className="text-xs text-gray-600">
-                Expires: {new Date(subscriptionStatus.endDate._seconds * 1000).toLocaleDateString()}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
+  // Only hide if user has an ACTIVE subscription (not cancelled)
+  // Show subscription buttons if cancelled or not subscribed
+  if (isSubscribed && subscriptionStatus && subscriptionStatus.status === 'active') {
+    return null;
   }
 
   if (plans.length === 0) {
@@ -268,6 +236,7 @@ export function SubscriptionContainer({
   const bundles = getBundles(selectedPlan || plans[0]);
 
   return (
+    <>
     <div className="w-full px-6 py-0">
       <Card className="p-3">
         <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsCollapsed(!isCollapsed)}>
@@ -276,13 +245,13 @@ export function SubscriptionContainer({
         </div>
         {!isCollapsed && plans.length > 0 && (
           <div className="mt-2 space-y-2">
-            {/* Show all subscription plans */}
-            {plans.map((plan, idx) => (
+              {/* Show subscription plans (max 2, then collapsible) */}
+              {(showAllPlans ? plans : plans.slice(0, 2)).map((plan, idx) => (
               <button
                 key={plan.id}
         onClick={() => handleSubscribe(plan)}
         disabled={loading}
-        className="w-full text-white py-1 px-4 rounded-full font-bold text-xs flex items-center justify-between transition-all duration-300"
+                  className="w-full text-white py-1 sm:py-1.5 px-4 sm:px-4.5 rounded-full font-bold text-xs flex items-center justify-between transition-all duration-300"
         style={{
           background: '#00a8ff',
           boxShadow: `
@@ -337,10 +306,37 @@ export function SubscriptionContainer({
         </span>
       </button>
             ))}
+              {/* Show/Hide more plans if more than 2 */}
+              {plans.length > 2 && (
+                <button
+                  onClick={() => setShowAllPlans(!showAllPlans)}
+                  className="w-full mt-2 text-xs text-blue-500 hover:text-blue-600 flex items-center justify-center gap-1 py-1"
+                >
+                  {showAllPlans ? 'Show Less' : `Show ${plans.length - 2} More Plan${plans.length - 2 > 1 ? 's' : ''}`}
+                  <svg
+                    className={`w-3 h-3 transition-transform ${showAllPlans ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+              )}
           </div>
         )}
       </Card>
     </div>
+      
+      {/* PlansModal */}
+      <PlansModal
+        open={showPlansModal}
+        onClose={() => setShowPlansModal(false)}
+        plans={plans}
+        onSelectPlan={handlePlanSelected}
+        creatorId={creatorId}
+      />
+    </>
   );
 }
 

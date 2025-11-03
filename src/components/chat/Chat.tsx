@@ -361,17 +361,21 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         }
         .send-button-uiverse {
           font-family: inherit !important;
-          font-size: 18px !important;
+          font-size: 13px !important;
           background: linear-gradient(to bottom, #4dc7d9 0%, #66a6ff 100%) !important;
           color: white !important;
-          padding: 0.8em 1.2em !important;
+          padding: 0.4em 0.6em !important;
           display: flex !important;
           align-items: center !important;
           justify-content: center !important;
           border: none !important;
-          border-radius: 25px !important;
+          border-radius: 20px !important;
           box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.2) !important;
           transition: all 0.3s !important;
+          min-width: auto !important;
+          max-width: fit-content !important;
+          width: auto !important;
+          flex: 0 0 auto !important;
         }
         .send-button-uiverse:hover {
           transform: translateY(-3px) !important;
@@ -432,6 +436,15 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         .send-button-uiverse-mobile span {
           margin-left: 0.2em !important;
           font-size: 14px !important;
+        }
+        @media (min-width: 769px) {
+          .send-button-uiverse:not(.send-button-uiverse-mobile) {
+            font-size: 13px !important;
+            padding: 0.4em 0.6em !important;
+            min-width: auto !important;
+            max-width: fit-content !important;
+            width: auto !important;
+          }
         }
         @media (max-width: 768px) {
           .send-button-uiverse {
@@ -778,6 +791,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     const setupChat = async (userChatData: any) => {
       const sharedChatId = userChatData?.sharedChatId;
       
+      console.log('🔍 [Chat] setupChat called with userChatData:', {
+        sharedChatId: sharedChatId,
+        recipientId: recipientId,
+        currentUser: user?.uid,
+        hasSharedChatId: !!sharedChatId
+      });
+      
       // If no sharedChatId yet, wait for it to be created
       if (!sharedChatId) {
         console.log('🔍 [Chat] No sharedChatId found - waiting for chat to be created');
@@ -823,6 +843,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       }
       
       console.log('🔍 [Chat] Setting up new listener for sharedChatId:', sharedChatId);
+      console.log('🔍 [Chat] Will listen to messages collection: chats/' + sharedChatId + '/messages');
       currentSharedChatId = sharedChatId;
 
     // Mark all unread messages from the recipient as read
@@ -834,6 +855,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         where('read', '==', false)
       );
       const snapshot = await getDocs(unreadQuery);
+      console.log('🔍 [Chat] Found', snapshot.size, 'unread messages from recipient');
       const batch = writeBatch(db);
       snapshot.forEach((docSnap) => {
         batch.update(docSnap.ref, { 
@@ -843,6 +865,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       });
       if (!snapshot.empty) {
         await batch.commit();
+        console.log('🔍 [Chat] Marked', snapshot.size, 'messages as read');
       }
         
         // Always reset user's personal chat unreadCount to 0 when opening chat
@@ -865,7 +888,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         if (chatDoc.exists()) {
           const pinnedBy = chatDoc.data().pinnedBy || {};
           const pinned = !!pinnedBy[user?.uid || ''];
-          setIsPinned(pinned);
+      setIsPinned(pinned);
         } else {
           setIsPinned(false);
         }
@@ -878,14 +901,32 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       const messagesRef = collection(db, 'chats', sharedChatId, 'messages');
     const q = query(messagesRef, orderBy('timestamp', 'desc'));
 
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
         console.log('🔍 [Chat] onSnapshot received', snapshot.docs.length, 'messages for sharedChatId:', sharedChatId);
+        console.log('🔍 [Chat] Snapshot metadata - fromCache:', snapshot.metadata.fromCache, 'hasPendingWrites:', snapshot.metadata.hasPendingWrites);
+        
+        // Log all document changes
+        snapshot.docChanges().forEach((change) => {
+          const data = change.doc.data();
+          console.log('🔍 [Chat] Document change:', {
+            type: change.type,
+            id: change.doc.id,
+            senderId: data.senderId,
+            text: data.text?.substring(0, 50),
+            recipientId: recipientId,
+            currentUser: user?.uid,
+            isFromRecipient: data.senderId === recipientId
+          });
+        });
+        
         if (snapshot.docs.length > 0) {
           console.log('🔍 [Chat] First message:', {
             id: snapshot.docs[0].id,
             text: snapshot.docs[0].data().text,
             senderId: snapshot.docs[0].data().senderId,
-            timestamp: snapshot.docs[0].data().timestamp
+            timestamp: snapshot.docs[0].data().timestamp,
+            recipientId: recipientId,
+            isFromRecipient: snapshot.docs[0].data().senderId === recipientId
           });
         }
         
@@ -893,7 +934,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         const seenIds = new Set<string>();
         const mappedMessages = snapshot.docs.map(doc => {
           const data = doc.data();
-          return {
+          const message = {
             id: doc.id,
             text: data.text || '',
             senderId: data.senderId || data.sender || '',
@@ -914,6 +955,19 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             isWelcomeMessage: data.isWelcomeMessage || false,
             deleted: data.deleted || false
           } as Message;
+          
+          // Log received messages specifically
+          if (message.senderId === recipientId && message.senderId !== user?.uid) {
+            console.log('✅ [Chat] RECEIVED MESSAGE from recipient:', {
+              id: message.id,
+              text: message.text,
+              senderId: message.senderId,
+              deleted: message.deleted,
+              timestamp: message.timestamp
+            });
+          }
+          
+          return message;
         });
         
         const newMessages = mappedMessages.filter(msg => {
@@ -926,6 +980,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         });
         
         console.log('🔍 [Chat] Setting', newMessages.length, 'messages (after filtering duplicates)');
+        console.log('🔍 [Chat] Received messages count:', newMessages.filter(m => m.senderId === recipientId && m.senderId !== user?.uid).length);
         if (newMessages.length > 0) {
           console.log('🔍 [Chat] Messages to display:', newMessages.map(m => ({ 
             id: m.id, 
@@ -935,7 +990,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             deleted: m.deleted,
             type: m.type,
             currentUser: user?.uid,
-            isSender: m.senderId === user?.uid
+            isSender: m.senderId === user?.uid,
+            isFromRecipient: m.senderId === recipientId
           })));
         }
         
@@ -1023,7 +1079,20 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           // CRITICAL: Real messages first (sorted), then optimistic at end (bottom)
           // Optimistic have high timestamps so they visually stay at bottom
           // When replaced by real message, user sees no movement - real message appears at correct chronological position
-          return [...uniqueRealMessages, ...pendingOptimistic];
+          const finalMessages = [...uniqueRealMessages, ...pendingOptimistic];
+          
+          // Debug logging for received messages
+          const receivedMessages = finalMessages.filter(m => m.senderId === recipientId && m.senderId !== user?.uid);
+          if (receivedMessages.length > 0) {
+            console.log('✅ [Chat] Final received messages count:', receivedMessages.length);
+            console.log('✅ [Chat] Final received messages:', receivedMessages.map(m => ({
+              id: m.id,
+              text: m.text?.substring(0, 30),
+              deleted: m.deleted
+            })));
+          }
+          
+          return finalMessages;
         });
         
         // Silent scroll to bottom (if needed) - user won't notice
@@ -2583,8 +2652,8 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         messageInputRef.current.focus();
         // Move cursor to end of text
         if (messageInputRef.current instanceof HTMLInputElement) {
-          const length = currentText.length;
-          messageInputRef.current.setSelectionRange(length, length);
+        const length = currentText.length;
+        messageInputRef.current.setSelectionRange(length, length);
         } else if (messageInputRef.current instanceof HTMLDivElement) {
           // For contentEditable, use Range API
           const selection = window.getSelection();
@@ -2651,6 +2720,30 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     const lastSeen = sentMessages.reverse().find(m => m.read);
     return lastSeen?.id || null;
   })();
+  
+  // Debug: Log messages state changes
+  useEffect(() => {
+    const receivedMessages = messages.filter(m => m.senderId === recipientId && m.senderId !== user?.uid);
+    console.log('🔍 [Chat] Messages state changed:', {
+      totalCount: messages.length,
+      receivedCount: receivedMessages.length,
+      sentCount: messages.filter(m => m.senderId === user?.uid).length,
+      recipientId: recipientId,
+      currentUser: user?.uid,
+      receivedMessageIds: receivedMessages.map(m => m.id),
+      allMessageIds: messages.map(m => m.id),
+      allSenders: [...new Set(messages.map(m => m.senderId))]
+    });
+    
+    if (receivedMessages.length > 0) {
+      console.log('✅ [Chat] RECEIVED MESSAGES IN STATE:', receivedMessages.map(m => ({
+        id: m.id,
+        text: m.text?.substring(0, 50),
+        senderId: m.senderId,
+        deleted: m.deleted
+      })));
+    }
+  }, [messages, recipientId, user?.uid]);
 
   // Show loading state while checking block status
   if (checkingBlock) {
@@ -3281,6 +3374,18 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             {messages.map((message, idx) => {
                   // Check if this message matches search query (memoized in useMemo below)
                   const isHighlighted = searchQuery ? message.text?.toLowerCase().includes(searchQuery.toLowerCase()) : false;
+                  
+                  // Debug logging for received messages
+                  if (message.senderId === recipientId && message.senderId !== user?.uid) {
+                    console.log('🔍 [Chat] Rendering received message:', {
+                      id: message.id,
+                      text: message.text?.substring(0, 30),
+                      senderId: message.senderId,
+                      recipientId: recipientId,
+                      deleted: message.deleted,
+                      idx: idx
+                    });
+                  }
                   
                   return (
                     <div key={message.id} id={`message-${message.id}`}>
@@ -4893,44 +4998,44 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               />
             ) : (
               // Desktop: Regular Input (keep existing behavior)
-              <Input
+            <Input
                 ref={messageInputRef as React.RefObject<HTMLInputElement>}
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                  // If editing a message, handle Enter key to save edit instead of sending new message
-                  if (e.key === 'Enter' && !e.shiftKey && editingMessage) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleEditMessage();
-                    return;
-                  }
-                }}
-                placeholder={
-                  isBlocked 
-                    ? "You cannot send messages to this user" 
-                    : !canChat 
-                      ? "Subscribe to chat with this creator" 
-                      : "Aa"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                // If editing a message, handle Enter key to save edit instead of sending new message
+                if (e.key === 'Enter' && !e.shiftKey && editingMessage) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleEditMessage();
+                  return;
                 }
-                className="w-full chat-message-input text-black placeholder:text-gray-400 bg-gray-100 focus:ring-0 focus:border-0 px-4 pr-12 shadow-sm"
-                style={{
-                  height: '36px',
-                  minHeight: '36px',
-                  maxHeight: '36px',
-                  fontSize: '16px',
-                  lineHeight: '1.5',
-                  paddingTop: '6px',
-                  paddingBottom: '6px',
-                  border: 'none !important',
-                  outline: 'none !important',
-                  backgroundColor: '#f3f4f6 !important',
-                  boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1) !important',
-                  borderRadius: '20px !important',
-                  touchAction: 'auto'
-                }}
-                disabled={uploading || isRecording || isBlocked || !canChat}
-              />
+              }}
+              placeholder={
+                isBlocked 
+                  ? "You cannot send messages to this user" 
+                  : !canChat 
+                    ? "Subscribe to chat with this creator" 
+                    : "Aa"
+              }
+              className="w-full chat-message-input text-black placeholder:text-gray-400 bg-gray-100 focus:ring-0 focus:border-0 px-4 pr-12 shadow-sm"
+              style={{
+                height: '36px',
+                minHeight: '36px',
+                maxHeight: '36px',
+                fontSize: '16px',
+                lineHeight: '1.5',
+                paddingTop: '6px',
+                paddingBottom: '6px',
+                border: 'none !important',
+                outline: 'none !important',
+                backgroundColor: '#f3f4f6 !important',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1) !important',
+                borderRadius: '20px !important',
+                touchAction: 'auto'
+              }}
+              disabled={uploading || isRecording || isBlocked || !canChat}
+            />
             )}
             
             {/* Placeholder for contentEditable (mobile only) */}
@@ -5090,11 +5195,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 opacity: uploading || isBlocked || !canChat ? 0.6 : 1,
                 height: '36px',
                 minHeight: '36px',
-                minWidth: isMobile ? '48px' : '56px',
+                minWidth: isMobile ? '48px' : 'auto',
+                maxWidth: isMobile ? 'none' : 'fit-content',
+                width: isMobile ? 'auto' : 'auto',
                 lineHeight: '36px',
                 alignSelf: 'center',
                 flex: '0 0 auto',
-              }}
+              } as React.CSSProperties}
               onMouseEnter={(e) => {
                 if (!uploading && !isBlocked && canChat && e.currentTarget) {
                   e.currentTarget.style.transform = 'translateY(-3px)';
@@ -5296,7 +5403,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         )}
       </form>
       )}
-        
-      </div>
+      
+    </div>
   );
 }

@@ -7,6 +7,7 @@ import { RootLayoutContent } from '@/components/RootLayoutContent'
 import { NotificationProvider } from '@/contexts/NotificationContext'
 import { FilterProvider } from '@/contexts/FilterContext'
 import { MessagesProvider } from '@/contexts/MessagesContext'
+import { SubscriptionsProvider } from '@/contexts/SubscriptionsContext'
 import { NotificationList } from '@/components/common/NotificationList'
 import { Toaster } from '@/components/ui/toaster'
 import { SimpleToaster } from '@/components/ui/SimpleToast'
@@ -65,9 +66,11 @@ export default function RootLayout({
             <NotificationProvider>
               <FilterProvider>
                 <MessagesProvider>
+                  <SubscriptionsProvider>
                   <RootLayoutContent>{children}</RootLayoutContent>
                   <NotificationList />
                   <SimpleToaster />
+                  </SubscriptionsProvider>
                 </MessagesProvider>
               </FilterProvider>
             </NotificationProvider>

@@ -11,7 +11,7 @@ import { FiTwitter, FiInstagram, FiYoutube } from 'react-icons/fi';
 import { HiOutlineChatBubbleLeftRight } from 'react-icons/hi2';
 import { ProfilePhoto } from './ProfilePhoto';
 import { CoverPhoto } from './CoverPhoto';
-import { doc, updateDoc, onSnapshot, getDoc, runTransaction, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot, getDoc, runTransaction, query, collection, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { useChat } from '@/contexts/ChatContext';
 import { formatDistanceToNow, formatDistanceToNowStrict } from 'date-fns';
@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { canViewProfile } from '@/lib/utils/profileVisibility';
+import PlansModal from '@/components/creator/PlansModal';
 
 interface Plan {
   id: string;
@@ -62,6 +63,7 @@ interface ProfileHeaderProps {
   onTabChange: (tab: string) => void;
   defaultSubscriptionPlanId?: string | null;
   defaultSubscriptionType?: 'free' | 'paid' | null;
+  onSubscriptionCancelled?: () => void;
 }
 
 export function ProfileHeader({
@@ -73,6 +75,7 @@ export function ProfileHeader({
   onCoverPhotoUpdate,
   activeTab,
   onTabChange,
+  onSubscriptionCancelled,
 }: ProfileHeaderProps) {
   console.log('🔍 ProfileHeader: isOwnProfile:', isOwnProfile);
   const { user } = useAuth();
@@ -96,6 +99,8 @@ export function ProfileHeader({
   const [blocking, setBlocking] = useState(false);
   const [checkingBlockStatus, setCheckingBlockStatus] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [cancelingSubscription, setCancelingSubscription] = useState(false);
+  const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
   // Fixed button position - no more dragging
   const buttonsPosition = { x: 0, y: 0 };
@@ -159,15 +164,25 @@ export function ProfileHeader({
         
         if (!querySnapshot.empty) {
           const now = new Date();
-          const hasValidSubscription = querySnapshot.docs.some(doc => {
+          let foundActiveSubscription = false;
+          let foundSubscriptionId = null;
+          
+          querySnapshot.docs.forEach(doc => {
             const data = doc.data();
             const isActive = data.status === 'active';
             const isCancelledButValid = data.status === 'cancelled' && 
               data.endDate && 
               data.endDate.toDate() > now;
-            return isActive || isCancelledButValid;
+            if (isActive || isCancelledButValid) {
+              foundActiveSubscription = true;
+              if (isActive) {
+                foundSubscriptionId = doc.id;
+              }
+            }
           });
-          setIsSubscribed(hasValidSubscription);
+          
+          setIsSubscribed(foundActiveSubscription);
+          setSubscriptionId(foundSubscriptionId);
           setCheckingSubscription(false);
           return;
         }
@@ -312,6 +327,118 @@ export function ProfileHeader({
     }
   };
 
+  const handleCancelSubscription = async () => {
+    if (!user?.uid || !profile?.id || !subscriptionId) return;
+
+    if (!confirm('Are you sure you want to cancel your subscription? You will keep access until the end of your paid period.')) {
+      return;
+    }
+
+    setCancelingSubscription(true);
+    try {
+      // Find and update subscription in Firestore directly
+      const subscriptionQuery = query(
+        collection(db, 'subscriptions'),
+        where('subscriberId', '==', user.uid),
+        where('creatorId', '==', profile.id),
+        where('status', '==', 'active')
+      );
+      const querySnapshot = await getDocs(subscriptionQuery);
+      
+      if (querySnapshot.empty) {
+        toast.error('No active subscription found');
+        return;
+      }
+
+      const subscriptionDoc = querySnapshot.docs[0];
+      const subscriptionData = subscriptionDoc.data();
+      
+      // Calculate end date if not set
+      let endDate = subscriptionData.endDate;
+      
+      if (!endDate) {
+        // Get plan to calculate duration
+        const planDoc = await getDoc(doc(db, 'plans', subscriptionData.planId));
+        if (planDoc.exists()) {
+          const planData = planDoc.data();
+          const duration = planData.duration || 30; // Default 30 days
+          const startDate = subscriptionData.startDate?.toDate ? subscriptionData.startDate.toDate() : new Date(subscriptionData.startDate || Date.now());
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + duration);
+        } else {
+          // If no plan, use 30 days from start or now
+          const startDate = subscriptionData.startDate?.toDate ? subscriptionData.startDate.toDate() : new Date(subscriptionData.startDate || Date.now());
+          endDate = new Date(startDate);
+          endDate.setDate(endDate.getDate() + 30);
+        }
+      } else {
+        endDate = endDate.toDate ? endDate.toDate() : new Date(endDate);
+      }
+
+      // Convert endDate to Firestore Timestamp
+      const endDateTimestamp = Timestamp.fromDate(endDate);
+      const cancelledAtTimestamp = Timestamp.now();
+
+      console.log('🔄 Cancelling subscription:', {
+        subscriptionId: subscriptionDoc.id,
+        subscriberId: user.uid,
+        creatorId: profile.id,
+        currentStatus: subscriptionData.status,
+        willSetStatus: 'cancelled'
+      });
+
+      // Update subscription to cancelled
+      await updateDoc(subscriptionDoc.ref, {
+        status: 'cancelled',
+        cancelledAt: cancelledAtTimestamp,
+        endDate: endDateTimestamp,
+        willRenew: false,
+        updatedAt: cancelledAtTimestamp
+      });
+
+      console.log('✅ Subscription cancelled successfully:', {
+        subscriptionId: subscriptionDoc.id,
+        status: 'cancelled',
+        endDate: endDate.toISOString()
+      });
+
+      setIsSubscribed(false);
+      setSubscriptionId(null);
+      
+      // Notify parent component to refresh subscription status
+      if (onSubscriptionCancelled) {
+        onSubscriptionCancelled();
+      }
+      
+      // Also manually trigger refresh multiple times to ensure Firestore update is processed
+      setTimeout(() => {
+        if (onSubscriptionCancelled) {
+          onSubscriptionCancelled();
+        }
+      }, 300);
+      
+      setTimeout(() => {
+        if (onSubscriptionCancelled) {
+          onSubscriptionCancelled();
+        }
+      }, 1000);
+      
+      setTimeout(() => {
+        if (onSubscriptionCancelled) {
+          onSubscriptionCancelled();
+        }
+      }, 2000);
+      
+      toast.success('Subscription cancelled successfully. You will keep access until the end of your paid period.');
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      toast.error('Failed to cancel subscription');
+    } finally {
+      setCancelingSubscription(false);
+      setIsDropdownOpen(false);
+    }
+  };
+
 
 
   return (
@@ -339,7 +466,7 @@ export function ProfileHeader({
       <div className="mt-4 sm:mt-6 px-4 sm:px-6">
           <div className="flex items-center justify-between -mt-16 sm:-mt-20 ml-28 sm:ml-32">
             {/* Name and Username - Positioned to the right of profile photo */}
-            <div className="text-left">
+            <div className="text-left translate-x-6 -translate-y-4 sm:translate-x-0 sm:translate-y-0">
               <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
                 {profile.displayName || profile.username}
                 <span className="text-sm text-gray-500">@{profile.username}</span>
@@ -439,6 +566,66 @@ export function ProfileHeader({
                         </>
                       ) : (
                         <>
+                          {/* Cancel Subscription - Show if subscribed */}
+                          {isSubscribed && subscriptionId && (
+                            <button
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                // Open PlansModal instead of canceling directly
+                                setPlansLoading(true);
+                                try {
+                                  const q = query(
+                                    collection(db, 'plans'),
+                                    where('creatorId', '==', profile.id || profile.uid)
+                                  );
+                                  const snap = await getDocs(q);
+                                  const plansData = snap.docs.map(doc => {
+                                    const data = doc.data();
+                                    return {
+                                      id: doc.id,
+                                      name: data.name || '',
+                                      price: data.price || 0,
+                                      duration: data.duration || 30,
+                                      isActive: data.isActive || false,
+                                      allowedCategories: data.allowedCategories || [],
+                                      description: data.description,
+                                      discountPercent: data.discountPercent,
+                                      totalPrice: data.totalPrice,
+                                      creatorId: data.creatorId || profile.id || profile.uid
+                                    };
+                                  });
+                                  setPlans(plansData);
+                                  setShowPlansModal(true);
+                                } catch (err) {
+                                  console.error('Error fetching plans:', err);
+                                  setPlans([]);
+                                  setShowPlansModal(true);
+                                } finally {
+                                  setPlansLoading(false);
+                                  setIsDropdownOpen(false);
+                                }
+                              }}
+                              disabled={cancelingSubscription || checkingSubscription || plansLoading}
+                              className="w-full cursor-pointer py-1.5 px-3 text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200 flex items-center"
+                              style={{ 
+                                fontWeight: '500', 
+                                fontSize: '12px',
+                                pointerEvents: 'auto',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              {plansLoading ? (
+                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-2"></div>
+                              ) : (
+                                <svg className="mr-2 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              )}
+                              Cancel Subscription
+                            </button>
+                          )}
+                          
                           {isBlocked ? (
                             <button
                               onClick={(e) => {
@@ -631,7 +818,7 @@ export function ProfileHeader({
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex justify-center mt-4 mb-4 px-4 sm:px-6">
+      <div className="flex justify-center mt-4 mb-0 px-4 sm:px-6">
         <div className="tab-container">
           <input 
             type="radio" 
@@ -686,6 +873,30 @@ export function ProfileHeader({
           <div className="indicator"></div>
         </div>
       </div>
+
+      {/* Plans Modal */}
+      {profile && (profile.id || profile.uid) && (
+        <PlansModal
+          open={showPlansModal}
+          onClose={() => {
+            setShowPlansModal(false);
+            setPlans([]);
+            if (onSubscriptionCancelled) {
+              onSubscriptionCancelled();
+            }
+          }}
+          creatorId={profile.id || profile.uid}
+          plans={plans}
+          onSelectPlan={() => {
+            setShowPlansModal(false);
+            setPlans([]);
+            if (onSubscriptionCancelled) {
+              onSubscriptionCancelled();
+            }
+          }}
+          onSubscriptionCancelled={onSubscriptionCancelled}
+        />
+      )}
     </div>
   );
 } 

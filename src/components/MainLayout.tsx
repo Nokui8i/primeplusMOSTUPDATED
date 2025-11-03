@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useState, useEffect, useRef } from 'react';
+import React, { ReactNode, useState, useEffect, useRef } from 'react';
 import { LeftSidebar } from './LeftSidebar';
 import { RightSidebar } from './RightSidebar';
 import { NotificationsDropdown } from './NotificationsDropdown';
@@ -24,8 +24,99 @@ import { useChat } from '@/contexts/ChatContext';
 import { useAuth } from '@/hooks/useAuth';
 import { ContentUploadDialog } from './creator/ContentUploadDialog';
 import { useMessages } from '@/contexts/MessagesContext';
+import { useSubscriptions } from '@/contexts/SubscriptionsContext';
 import { Search as SearchIcon, ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
+// Subscriptions tabs styles for desktop
+const subscriptionsTabsDesktopStyles = `
+  .subscriptions-tabs-container-desktop {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+  }
+
+  .subscriptions-tabs-desktop {
+    display: flex;
+    position: relative;
+    background-color: #fff;
+    box-shadow: 0 0 1px 0 rgba(24, 94, 224, 0.15), 0 6px 12px 0 rgba(24, 94, 224, 0.15);
+    padding: 0.25rem;
+    border-radius: 99px;
+    gap: 0.5rem;
+  }
+
+  .subscriptions-tabs-desktop * {
+    z-index: 2;
+  }
+
+  .subscriptions-tabs-container-desktop input[type="radio"] {
+    display: none;
+  }
+
+  .subscriptions-tab-desktop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    flex: 1;
+    min-width: 80px;
+    padding: 0 12px;
+    font-size: 0.8rem;
+    color: black;
+    font-weight: 500;
+    border-radius: 99px;
+    cursor: pointer;
+    transition: color 0.15s ease-in;
+    position: relative;
+  }
+
+  .subscriptions-notification-desktop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0.8rem;
+    height: 0.8rem;
+    padding: 0 4px;
+    position: absolute;
+    top: -2px;
+    right: 4px;
+    font-size: 10px;
+    border-radius: 50%;
+    background-color: #e6eef9;
+    color: #000;
+    transition: 0.15s ease-in;
+  }
+
+  .subscriptions-tabs-container-desktop input[type="radio"]:checked + .subscriptions-tab-desktop {
+    color: #185ee0;
+  }
+
+  .subscriptions-tabs-container-desktop input[type="radio"]:checked + .subscriptions-tab-desktop > .subscriptions-notification-desktop {
+    background-color: #185ee0;
+    color: #fff;
+  }
+
+  .subscriptions-tabs-container-desktop input[id="desktop-radio-1"]:checked ~ .subscriptions-glider-desktop {
+    transform: translateX(0);
+  }
+
+  .subscriptions-tabs-container-desktop input[id="desktop-radio-2"]:checked ~ .subscriptions-glider-desktop {
+    transform: translateX(calc(100% + 0.5rem));
+  }
+
+  .subscriptions-glider-desktop {
+    position: absolute;
+    display: flex;
+    height: 30px;
+    width: calc(50% - 0.625rem);
+    background-color: #e6eef9;
+    z-index: 1;
+    border-radius: 99px;
+    transition: 0.25s ease-out;
+    left: 0.25rem;
+  }
+`;
 
 interface Creator {
   id: string;
@@ -57,6 +148,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const mainContentRef = useRef<HTMLElement>(null);
   const { user } = useAuth();
   const messages = useMessages();
+  const subscriptions = useSubscriptions();
   
   // Hide right sidebar on messages page
   const isMessagesPage = pathname === '/messages';
@@ -284,7 +376,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                 {pathname?.startsWith('/') && pathname.split('/').filter(Boolean).length > 1 && !['home', 'messages', 'subscriptions', 'profile', 'settings', 'notifications', 'search', 'creator', 'admin', 'complete-profile'].includes(pathname.split('/')[1]) && pathname.split('/')[1].charAt(0).toUpperCase() + pathname.split('/')[1].slice(1)}
               </h1>
               <div className="flex items-center gap-2 ml-auto">
-                {!isMessagesPage ? (
+                {!isMessagesPage && !isSubscriptionsPage ? (
                   <>
                     <div className="relative">
                       <SearchDropdown />
@@ -294,7 +386,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                       <FilterDropdown />
                     </div>
                   </>
-                ) : (
+                ) : isMessagesPage ? (
                   <>
                     {/* Messages Search */}
                     <div className="relative">
@@ -410,6 +502,94 @@ export default function MainLayout({ children }: MainLayoutProps) {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </>
+                ) : (
+                  <>
+                    {/* Subscriptions Search */}
+                    <div className="relative">
+                      <style jsx>{`
+                        .search-container-subscriptions {
+                          position: relative;
+                          --size-button: 36px;
+                          color: white;
+                          width: 180px;
+                          min-width: 180px;
+                          flex-shrink: 0;
+                        }
+                        
+                        .search-input-subscriptions {
+                          padding-right: var(--size-button);
+                          padding-left: 10px;
+                          height: var(--size-button);
+                          font-size: 16px;
+                          border: 2px solid transparent;
+                          color: #000;
+                          outline: none;
+                          width: 180px;
+                          min-width: 180px;
+                          max-width: 180px;
+                          transition: all ease 0.3s;
+                          background-color: transparent;
+                          border-radius: 10px;
+                          cursor: pointer;
+                        }
+                        
+                        .search-input-subscriptions::placeholder {
+                          opacity: 0;
+                          transition: opacity 0.2s;
+                        }
+                        
+                        .search-input-subscriptions:focus,
+                        .search-input-subscriptions:not(:invalid) {
+                          cursor: text;
+                          border: 1px solid #d1d5db;
+                          background-color: white;
+                        }
+                        
+                        .search-input-subscriptions:focus::placeholder,
+                        .search-input-subscriptions:not(:invalid)::placeholder {
+                          opacity: 1;
+                        }
+                        
+                        .search-container-subscriptions {
+                          position: relative;
+                          width: 180px;
+                          min-width: 180px;
+                          flex-shrink: 0;
+                        }
+                        
+                        .search-icon-subscriptions {
+                          position: absolute;
+                          width: var(--size-button);
+                          height: var(--size-button);
+                          top: 0;
+                          right: 0;
+                          padding: 6px;
+                          pointer-events: none;
+                          z-index: 10;
+                        }
+                        
+                        .search-icon-subscriptions svg {
+                          width: 100%;
+                          height: 100%;
+                        }
+                      `}</style>
+                      <div className="search-container-subscriptions">
+                        <input
+                          type="text"
+                          name="search"
+                          className="search-input-subscriptions"
+                          required
+                          placeholder="Search creators..."
+                          value={subscriptions.searchQuery}
+                          onChange={(e) => subscriptions.setSearchQuery(e.target.value)}
+                          autoComplete="off"
+                        />
+                        <div className="search-icon-subscriptions">
+                          <SearchIcon className="w-full h-full text-gray-500" />
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -435,11 +615,39 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     {pathname?.startsWith('/') && pathname.split('/').filter(Boolean).length > 1 && !['home', 'messages', 'subscriptions', 'profile', 'settings', 'notifications', 'search', 'creator', 'admin', 'complete-profile'].includes(pathname.split('/')[1]) && pathname.split('/')[1].charAt(0).toUpperCase() + pathname.split('/')[1].slice(1)}
                   </h1>
                 </div>
-                {/* Search Bar - Spacer */}
-                <div className="flex-1 max-w-md"></div>
+                {/* Subscriptions Tabs - Only on PC, Centered between title and search */}
+                {isSubscriptionsPage && (
+                  <div className="flex-1 flex justify-center">
+                    <style dangerouslySetInnerHTML={{ __html: subscriptionsTabsDesktopStyles }} />
+                    <div className="subscriptions-tabs-container-desktop">
+                      <div className="subscriptions-tabs-desktop">
+                        {subscriptions.userLists?.map((list: any, index: number) => (
+                          <React.Fragment key={list.name}>
+                            <input 
+                              type="radio" 
+                              name="subscriptionStatusDesktop" 
+                              id={`desktop-radio-${index + 1}`}
+                              checked={subscriptions.selectedList === list.name}
+                              onChange={() => subscriptions.setSelectedList(list.name)}
+                            />
+                            <label className="subscriptions-tab-desktop" htmlFor={`desktop-radio-${index + 1}`}>
+                              {list.name}
+                              {list.count > 0 && (
+                                <span className="subscriptions-notification-desktop">{list.count}</span>
+                              )}
+                            </label>
+                          </React.Fragment>
+                        ))}
+                        <span className="subscriptions-glider-desktop"></span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Search Bar - Spacer (only when not subscriptions page) */}
+                {!isSubscriptionsPage && <div className="flex-1 max-w-md"></div>}
                 {/* Search, Notifications & Filters */}
                 <div className="flex items-center gap-0 flex-shrink-0 ml-auto -mr-2">
-                  {!isMessagesPage ? (
+                  {!isMessagesPage && !isSubscriptionsPage ? (
                     <>
                       <div className="relative">
                         <SearchDropdown />
@@ -447,7 +655,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                   <NotificationsDropdown />
                       <FilterDropdown />
                     </>
-                  ) : (
+                  ) : isMessagesPage ? (
                     <>
                       {/* Messages Search */}
                       <div className="relative mr-2">
@@ -547,6 +755,83 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </>
+                  ) : (
+                    <>
+                      {/* Subscriptions Search */}
+                      <div className="relative mr-2">
+                        <style jsx>{`
+                          .search-container-subscriptions-desk {
+                            position: relative !important;
+                            --size-button: 36px;
+                          }
+                          
+                          .search-input-subscriptions-desk {
+                            padding-right: var(--size-button);
+                            padding-left: 10px;
+                            height: var(--size-button);
+                            font-size: 16px;
+                            border: 2px solid transparent;
+                            color: #000;
+                            outline: none;
+                            width: 180px;
+                            min-width: 180px;
+                            max-width: 180px;
+                            transition: all ease 0.3s;
+                            background-color: transparent;
+                            border-radius: 10px !important;
+                            cursor: pointer !important;
+                          }
+                          
+                          .search-input-subscriptions-desk::placeholder {
+                            opacity: 0;
+                            transition: opacity 0.2s;
+                          }
+                          
+                          .search-input-subscriptions-desk:focus,
+                          .search-input-subscriptions-desk:not(:invalid) {
+                            cursor: text;
+                            border: 1px solid #d1d5db;
+                            background-color: white;
+                          }
+                          
+                          .search-input-subscriptions-desk:focus::placeholder,
+                          .search-input-subscriptions-desk:not(:invalid)::placeholder {
+                            opacity: 1;
+                          }
+                          
+                          .search-container-subscriptions-desk {
+                            width: 180px;
+                            min-width: 180px;
+                            flex-shrink: 0;
+                          }
+                          
+                          .search-icon-subscriptions-desk {
+                            position: absolute !important;
+                            width: var(--size-button) !important;
+                            height: var(--size-button) !important;
+                            top: 0 !important;
+                            right: 0 !important;
+                            padding: 6px !important;
+                            pointer-events: none !important;
+                          }
+                        `}</style>
+                        <div className="search-container-subscriptions-desk">
+                          <input
+                            type="text"
+                            name="search"
+                            className="search-input-subscriptions-desk"
+                            required
+                            placeholder="Search creators..."
+                            value={subscriptions.searchQuery}
+                            onChange={(e) => subscriptions.setSearchQuery(e.target.value)}
+                            autoComplete="off"
+                          />
+                          <div className="search-icon-subscriptions-desk">
+                            <SearchIcon className="w-full h-full text-gray-500" />
+                          </div>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
@@ -573,7 +858,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
           </div>
 
           {/* Right Sidebar - Responsive Widths */}
-          {!isMessagesPage && (
+          {!isMessagesPage && !isSubscriptionsPage && (
             <aside 
               className="hidden lg:block w-80 sticky top-0 bg-white border-l border-gray-200"
               style={{ height: 'var(--vvh, 100vh)' }}

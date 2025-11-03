@@ -120,19 +120,35 @@ export function CreatorCard({
     checkSubscriptionStatus();
   }, [userId]);
 
+  // Detect mobile
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <div 
       className="w-full mb-4"
       style={{
         background: 'white',
-        borderRadius: '17px 17px 27px 27px',
-        boxShadow: '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
+        borderRadius: isMobile ? '12px' : '17px 17px 27px 27px',
+        boxShadow: isMobile 
+          ? '0px 2px 8px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.12)'
+          : '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
       }}
     >
       {/* Cover Photo with gradient overlay and overlaid content */}
-      <div className="relative h-32 w-full overflow-hidden" style={{ 
-        borderRadius: '17px 17px 27px 27px'
-      }}>
+      <div 
+        className={`relative w-full overflow-hidden ${isMobile ? 'h-24' : 'h-32'}`} 
+        style={{ 
+          borderRadius: isMobile ? '12px 12px 0 0' : '17px 17px 27px 27px'
+        }}
+      >
         <img
           src={coverPhotoUrl || '/default-avatar.png'}
           alt={`${displayName || username}'s cover`}
@@ -148,15 +164,15 @@ export function CreatorCard({
         />
         
         {/* Profile Photo and Names positioned over cover photo */}
-        <div className="absolute bottom-0 left-0 right-0 px-3 pb-3"> {/* PADDING: px-3 pb-3 */}
+        <div className={`absolute bottom-0 left-0 right-0 ${isMobile ? 'px-2 pb-2' : 'px-3 pb-3'}`}>
           <div className="flex items-start">
             <img
               src={photoURL || '/default-avatar.png'}
               alt={displayName || username || 'User'}
-              className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0" /* PADDING: w-16 h-16 (64px) */
-              style={{ marginTop: '-20px' }} /* PADDING: marginTop: -20px */
+              className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} rounded-full object-cover border-2 border-white shadow-md flex-shrink-0`}
+              style={{ marginTop: isMobile ? '-16px' : '-20px' }}
             />
-            <div className="flex-1 min-w-0 ml-2"> {/* PADDING: ml-2 (8px) */}
+            <div className="flex-1 min-w-0 ml-2">
               {isSimpleCard ? (
                 // Simple card: clickable names that navigate to profile
                 <div 
@@ -173,7 +189,7 @@ export function CreatorCard({
                   <div style={{ 
                     color: '#ffffff', 
                     fontWeight: '700',
-                    fontSize: '16px',
+                    fontSize: isMobile ? '14px' : '16px',
                     lineHeight: '1.2',
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
                   }}>
@@ -181,7 +197,7 @@ export function CreatorCard({
                   </div>
                   <div style={{ 
                     color: '#d1d5db',
-                    fontSize: '12px',
+                    fontSize: isMobile ? '11px' : '12px',
                     lineHeight: '1.2',
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
                   }}>
@@ -199,7 +215,7 @@ export function CreatorCard({
                       <div style={{ 
                         color: '#ffffff', 
                         fontWeight: '700',
-                        fontSize: '16px',
+                        fontSize: isMobile ? '14px' : '16px',
                         lineHeight: '1.2',
                         textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
                       }}>
@@ -207,7 +223,7 @@ export function CreatorCard({
                       </div>
                       <div style={{ 
                         color: '#d1d5db',
-                        fontSize: '12px',
+                        fontSize: isMobile ? '11px' : '12px',
                         lineHeight: '1.2',
                         textShadow: '0 1px 2px rgba(0, 0, 0, 0.5)'
                       }}>

@@ -324,7 +324,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
         setSubChecked(true);
         return;
       }
-      // Query for any valid subscription (active or cancelled but not expired)
+      // Query for subscriptions (active or cancelled but not expired) - user keeps access until endDate
       console.log('[CompactPost] Post is locked, checking subscription for:', {
         subscriberId: user.uid,
         creatorId: currentPost.authorId
@@ -343,7 +343,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       if (!querySnapshot.empty) {
         const now = new Date();
         console.log('[CompactPost] Processing subscriptions, current time:', now);
-        // Find the most recent valid subscription
+        // Find the most recent valid subscription (active or cancelled but not expired)
         const validSub = querySnapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() } as Subscription))
           .find(sub => {
@@ -701,7 +701,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     
     // For locked content, check subscription status
     if (accessLevel === 'free_subscriber' || accessLevel === 'followers') {
-      // Any valid subscription (active or cancelled but not expired) - both free and paid
+      // Active subscriptions OR cancelled but still valid (endDate not passed)
       if (!userSubscription) return false;
       const isActive = userSubscription.status === 'active';
       const isCancelledButValid = userSubscription.status === 'cancelled' &&
@@ -712,7 +712,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     
     
     if (accessLevel === 'paid_subscriber' || accessLevel === 'premium' || accessLevel === 'exclusive') {
-      // Only valid PAID subscriptions (active or cancelled but not expired, and plan.price > 0)
+      // Active PAID subscriptions OR cancelled but still valid (endDate not passed)
       if (!userSubscription || !userPlan) return false;
       const isActive = userSubscription.status === 'active';
       const isCancelledButValid = userSubscription.status === 'cancelled' &&
@@ -740,11 +740,11 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       } else {
         // Only free subscribers & non-subscribers pay - check if user has paid subscription
         if (userSubscription && userPlan) {
+          // Active subscriptions OR cancelled but still valid (endDate not passed)
           const isActive = userSubscription.status === 'active';
           const isCancelledButValid = userSubscription.status === 'cancelled' &&
             userSubscription.endDate &&
             (userSubscription.endDate.toDate ? userSubscription.endDate.toDate() : new Date(userSubscription.endDate)).getTime() > Date.now();
-          
           const hasValidSubscription = isActive || isCancelledButValid;
           const isPaidSubscription = userPlan.price > 0;
           

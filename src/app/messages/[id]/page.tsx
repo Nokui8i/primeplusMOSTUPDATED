@@ -63,7 +63,7 @@ export default function ThreadPage({ params }: ThreadPageProps) {
       top: document.body.style.top,
       left: document.body.style.left,
     };
-    
+
     // Lock body scroll while preserving scroll position
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';

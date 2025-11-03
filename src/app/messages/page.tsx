@@ -84,11 +84,11 @@ export default function MessagesPage() {
       setSelectedChat({
         recipientId,
         recipientName,
-        recipientProfile: userData,
-        sharedChatId: sharedChatId
+          recipientProfile: userData,
+          sharedChatId: sharedChatId
       });
-    } else {
-      setSelectedChat({ recipientId, recipientName, sharedChatId: sharedChatId });
+      } else {
+        setSelectedChat({ recipientId, recipientName, sharedChatId: sharedChatId });
     }
   };
 

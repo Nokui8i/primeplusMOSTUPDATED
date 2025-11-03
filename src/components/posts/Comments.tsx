@@ -152,7 +152,7 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
         accessLevel === 'exclusive') {
       
       try {
-        // Check subscription in Firebase
+        // Check subscription in Firebase - active subscriptions OR cancelled but still valid (endDate not passed)
         const q = query(
           collection(db, 'subscriptions'),
           where('subscriberId', '==', user.uid),
