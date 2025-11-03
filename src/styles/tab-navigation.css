@@ -7,84 +7,66 @@
 html {
   scroll-behavior: smooth;
 }
+/* Desktop styles - Same as mobile with blue indicator */
 .tab-container {
-  position: relative;
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  padding: 2px;
-  background-color: #ffffff;
-  border-radius: 9px;
+  position: relative;
+  background-color: #fff;
+  box-shadow: 0 0 1px 0 rgba(24, 94, 224, 0.15), 0 6px 12px 0 rgba(24, 94, 224, 0.15);
+  padding: 0.25rem;
+  border-radius: 99px;
   width: fit-content;
   margin: 0 auto;
-  overflow: hidden;
-  contain: layout style paint;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  isolation: isolate;
-  height: 32px;
-  min-height: 32px;
-  border: 1px solid #e5e7eb;
+  height: 38px;
+  align-items: center;
 }
 
-.indicator {
-  content: "";
-  width: 120px;
-  height: 28px;
-  background: #ffffff;
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  z-index: 9;
-  border: 0.5px solid rgba(0, 0, 0, 0.04);
-  box-shadow: 0px 3px 8px rgba(0, 0, 0, 0.12), 0px 3px 1px rgba(0, 0, 0, 0.04);
-  border-radius: 7px;
-  transition: transform 0.2s ease-out;
-  will-change: transform;
-  transform: translateX(0) translateZ(0);
-  backface-visibility: hidden;
+.tab-container * {
+  z-index: 2;
 }
 
 .tab {
-  width: 120px;
-  height: 28px;
-  position: absolute;
-  z-index: 99;
-  outline: none;
-  opacity: 0;
-  cursor: pointer;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: none;
-  -webkit-tap-highlight-color: transparent;
+  display: none;
 }
 
 .tab_label {
-  width: 120px;
-  height: 28px;
-  position: relative;
-  z-index: 999;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 0;
-  font-size: 0.7rem;
-  font-weight: 600;
-  opacity: 0.6;
+  height: 30px;
+  width: 100px;
+  font-size: 0.8rem;
+  color: black;
+  font-weight: 500;
+  border-radius: 99px;
   cursor: pointer;
-  color: #666;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  transition: opacity 0.15s ease-out;
-  will-change: opacity;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+  transition: color 0.15s ease-in;
+  position: relative;
+  z-index: 999;
+  opacity: 1;
+  text-transform: none;
+  letter-spacing: 0;
+  padding: 0;
 }
 
 .tab:checked + .tab_label {
-  opacity: 1;
-  color: #333;
+  color: #185ee0;
+}
+
+.indicator {
+  position: absolute;
+  display: flex;
+  height: 30px;
+  width: 72px;
+  background-color: #e6eef9;
+  z-index: 1;
+  border-radius: 99px;
+  transition: width 0.25s ease-out, transform 0.25s ease-out;
+  top: 0.25rem;
+  left: 0.25rem;
+  transform: translateX(0);
+  box-shadow: none;
+  border: none;
 }
 
 /* Prevent radio inputs from causing layout shifts */
@@ -98,72 +80,36 @@ html {
   outline-offset: 2px;
 }
 
-/* Position indicators for each tab using transform for smoother animation */
+/* Desktop indicator positions - Centered with tabs (100px each) */
 .tab--1:checked ~ .indicator {
-  transform: translateX(0);
+  transform: translateX(19px); /* (100-62)/2 = 19px to center */
+  width: 62px;
 }
 
 .tab--2:checked ~ .indicator {
-  transform: translateX(120px);
+  transform: translateX(119px); /* 100 + 19 */
+  width: 62px;
 }
 
 .tab--3:checked ~ .indicator {
-  transform: translateX(240px);
+  transform: translateX(214px); /* 200 + 14 (72px indicator) */
+  width: 72px;
 }
 
 .tab--4:checked ~ .indicator {
-  transform: translateX(360px);
+  transform: translateX(319px); /* 300 + 19 */
+  width: 62px;
 }
 
-.tab--5:checked ~ .indicator {
-  transform: translateX(480px);
+input.tab--5:checked ~ .indicator,
+.tab.tab--5:checked ~ .indicator {
+  transform: translateX(420px) !important; /* 400 + 20 (60px indicator) */
+  width: 60px !important;
 }
 
 .tab--6:checked ~ .indicator {
-  transform: translateX(600px);
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .tab-container {
-    padding: 1px;
-    width: 100%;
-    max-width: 100%;
-    justify-content: center;
-  }
-  
-  .indicator {
-    width: calc((100% - 4px) / 2);
-    height: 24px;
-  }
-  
-  .tab {
-    width: calc((100% - 4px) / 2);
-    height: 24px;
-  }
-  
-  .tab_label {
-    width: calc((100% - 4px) / 2);
-    height: 24px;
-    font-size: 0.65rem;
-    padding: 0 4px;
-  }
-  
-  .tab--1:checked ~ .indicator {
-    transform: translateX(0);
-  }
-  
-  .tab--2:checked ~ .indicator {
-    transform: translateX(calc((100% - 4px) / 2 + 2px));
-  }
-  
-  .tab--3:checked ~ .indicator {
-    transform: translateX(calc((100% - 4px) * 2 + 4px));
-  }
-  
-  .tab--4:checked ~ .indicator {
-    transform: translateX(calc((100% - 4px) * 3 + 6px));
-  }
+  transform: translateX(514px); /* 500 + 14 (72px indicator) */
+  width: 72px;
 }
 
 /* Mobile-specific tab styles - From Uiverse.io by Pradeepsaranbishnoi */
@@ -173,13 +119,14 @@ html {
     position: relative;
     background-color: #fff;
     box-shadow: 0 0 1px 0 rgba(24, 94, 224, 0.15), 0 6px 12px 0 rgba(24, 94, 224, 0.15);
-    padding: 0.75rem;
+    padding: 0.25rem;
     border-radius: 99px;
     width: fit-content;
-    height: auto;
-    min-height: auto;
+    height: 38px;
+    align-items: center;
     border: none;
     transform: scale(1);
+    max-width: 100%;
   }
 
   .tab-container * {
@@ -195,8 +142,8 @@ html {
     align-items: center;
     justify-content: center;
     height: 30px;
-    width: 100px;
-    font-size: 0.8rem;
+    width: 110px;
+    font-size: 0.85rem;
     color: black;
     font-weight: 500;
     border-radius: 99px;
@@ -223,36 +170,39 @@ html {
     z-index: 1;
     border-radius: 99px;
     transition: width 0.25s ease-out, transform 0.25s ease-out;
-    top: 0.75rem;
-    left: 0.75rem;
+    top: 0.25rem;
+    left: 0.25rem;
     transform: translateX(0);
     box-shadow: none;
     border: none;
   }
   
   .tab--1:checked ~ .indicator {
-    transform: translateX(10px);
+    transform: translateX(9px); /* Moved slightly left */
     width: 62px;
   }
 
-  .tab--2:checked ~ .indicator {
-    transform: translateX(80px);
-    width: 62px;
+  input.tab--2:checked ~ .indicator,
+  .tab.tab--2:checked ~ .indicator {
+    transform: translateX(89px) !important; /* Moved left */
+    width: 62px !important;
   }
 
-  .tab--3:checked ~ .indicator {
-    transform: translateX(150px);
-    width: 72px;
+  input.tab--3:checked ~ .indicator,
+  .tab.tab--3:checked ~ .indicator {
+    transform: translateX(168px) !important; /* Moved slightly left */
+    width: 72px !important;
   }
 
-  .tab--4:checked ~ .indicator {
-    transform: translateX(225px);
-    width: 62px;
+  input.tab--4:checked ~ .indicator,
+  .tab.tab--4:checked ~ .indicator {
+    transform: translateX(244px) !important; /* Moved left (100px) */
+    width: 62px !important;
   }
 
   input.tab--5:checked ~ .indicator,
   .tab.tab--5:checked ~ .indicator {
-    transform: translateX(305px) !important;
+    transform: translateX(335px) !important; /* Moved slightly left */
     width: 60px !important;
   }
 }
@@ -260,41 +210,50 @@ html {
 @media (max-width: 480px) {
   .tab-container {
     transform: scale(0.85);
+    padding: 0.25rem;
+    height: 38px;
+    align-items: center;
+    max-width: 100%;
   }
   
   .tab_label {
-    width: 95px;
-    font-size: 0.75rem;
+    width: 105px;
+    font-size: 0.8rem;
   }
   
   .indicator {
     width: 67px;
     height: 30px;
+    top: 0.25rem;
+    left: 0.25rem;
   }
   
   .tab--1:checked ~ .indicator {
-    transform: translateX(10px);
+    transform: translateX(9px); /* Moved slightly left */
     width: 57px;
   }
   
-  .tab--2:checked ~ .indicator {
-    transform: translateX(80px);
-    width: 57px;
+  input.tab--2:checked ~ .indicator,
+  .tab.tab--2:checked ~ .indicator {
+    transform: translateX(84px) !important; /* Moved left */
+    width: 57px !important;
   }
   
-  .tab--3:checked ~ .indicator {
-    transform: translateX(145px);
-    width: 67px;
+  input.tab--3:checked ~ .indicator,
+  .tab.tab--3:checked ~ .indicator {
+    transform: translateX(155.5px) !important; /* Moved slightly left */
+    width: 67px !important;
   }
   
-  .tab--4:checked ~ .indicator {
-    transform: translateX(220px);
-    width: 57px;
+  input.tab--4:checked ~ .indicator,
+  .tab.tab--4:checked ~ .indicator {
+    transform: translateX(234px) !important; /* Moved left (100px) */
+    width: 57px !important;
   }
   
   input.tab--5:checked ~ .indicator,
   .tab.tab--5:checked ~ .indicator {
-    transform: translateX(295px) !important;
+    transform: translateX(310px) !important; /* Moved slightly left */
     width: 55px !important;
   }
 }

@@ -279,7 +279,7 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
             uid: profileState.uid,
             isSubscriber
           })}
-          <div className="w-full px-4 py-1 flex justify-center -mt-6">
+          <div className="w-full px-4 py-1 flex justify-center mt-4">
             <div className="w-full max-w-2xl">
               <SubscriptionContainer
                 creatorId={profileState.uid}
