@@ -485,21 +485,30 @@ export function ProfileHeader({
             <div className="inline-flex flex-wrap gap-3">
               {!isOwnProfile && !isBlocked && (
                 <>
-                  {/* Only show CHAT button if profile is public OR user is subscribed */}
+                  {/* Only show CHAT button if profile is public OR user is subscribed - Desktop only */}
                   {canViewProfile(profile, user?.uid || null, isSubscribed) && (
                     <button
                       onClick={handleMessageClick}
-                      className="profile-btn chat"
+                      className="relative p-2 text-gray-600 hover:text-gray-700 focus:outline-none transition-all duration-300 w-12 h-12 flex items-center justify-center group hidden md:flex rounded-full bg-blue-50 hover:bg-blue-100"
+                      title="Chat"
+                      style={{
+                        background: 'linear-gradient(135deg, #e0f2fe 0%, #bfdbfe 100%)',
+                        boxShadow: '0 2px 8px rgba(59, 130, 246, 0.2)'
+                      }}
                     >
-                      <HiOutlineChatBubbleLeftRight size={16} />
-                      <span>CHAT</span>
+                      <Image 
+                        src="/images/chat-icon.png" 
+                        alt="Chat" 
+                        width={28} 
+                        height={28}
+                        className="w-7 h-7 transition-transform duration-200 group-hover:scale-110"
+                      />
                     </button>
                   )}
                 </>
               )}
-            
-            {/* 3 Dots Dropdown Menu - Always visible */}
-            <div className="relative dropdown-container">
+            {/* 3 Dots Dropdown Menu - Mobile only (desktop uses header FilterDropdown) */}
+            <div className="relative dropdown-container md:hidden">
               <button 
                 type="button"
                 onClick={() => {
@@ -812,7 +821,7 @@ export function ProfileHeader({
                       </button>
                     )}
                     
-                    {/* Social Links inside bio section */}
+                    {/* Social Links */}
                     <SocialLinksDisplay links={socialLinks} />
                   </div>
                 );

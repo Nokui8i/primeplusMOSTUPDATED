@@ -22,6 +22,11 @@ import { DataPreloader } from './common/DataPreloader';
 import { ChatWindows } from './chat/ChatWindows';
 import { useChat } from '@/contexts/ChatContext';
 import { useAuth } from '@/hooks/useAuth';
+import { HiOutlineChatBubbleLeftRight } from 'react-icons/hi2';
+import Image from 'next/image';
+import { doc, getDoc } from 'firebase/firestore';
+import { canViewProfile } from '@/lib/utils/profileVisibility';
+import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
 import { ContentUploadDialog } from './creator/ContentUploadDialog';
 import { useMessages } from '@/contexts/MessagesContext';
 import { useSubscriptions } from '@/contexts/SubscriptionsContext';
@@ -149,6 +154,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
   const { user } = useAuth();
   const messages = useMessages();
   const subscriptions = useSubscriptions();
+  const { openChat } = useChat();
   
   // Hide right sidebar on messages page
   const isMessagesPage = pathname === '/messages';
@@ -159,6 +165,105 @@ export default function MainLayout({ children }: MainLayoutProps) {
   
   // Check if mini chat popup is open on mobile (hides NAV BAR)
   const { hasOpenChatOnMobile } = useChat();
+  
+  // Profile page detection and CHAT button logic
+  // Check both /profile/[username] and /[username] routes
+  const isProfilePage = pathname?.startsWith('/profile/') || (pathname && pathname.split('/').length === 2 && pathname.split('/')[1] && !['home', 'messages', 'subscriptions', 'settings', 'notifications', 'search', 'creator', 'admin', 'complete-profile'].includes(pathname.split('/')[1]));
+  const profileUsername = isProfilePage 
+    ? (pathname?.startsWith('/profile/') 
+        ? pathname.split('/profile/')[1]?.split('/')[0] 
+        : pathname.split('/')[1])
+    : null;
+  const [profileData, setProfileData] = useState<UserProfile | null>(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(false);
+  
+  // Fetch profile data for CHAT button
+  useEffect(() => {
+    const fetchProfileForChat = async () => {
+      if (!isProfilePage || !profileUsername || !user?.uid) {
+        setProfileData(null);
+        setIsBlocked(false);
+        return;
+      }
+      
+      setCheckingProfile(true);
+      try {
+        // Try to find profile by username
+        const profileQuery = query(
+          collection(db, 'users'),
+          where('username', '==', profileUsername)
+        );
+        const profileSnapshot = await getDocs(profileQuery);
+        
+        if (!profileSnapshot.empty) {
+          const profileDoc = profileSnapshot.docs[0];
+          const data = profileDoc.data();
+          const profile: UserProfile = {
+            id: profileDoc.id,
+            uid: profileDoc.id,
+            username: data.username || '',
+            email: data.email || '',
+            displayName: data.displayName || data.username || '',
+            photoURL: data.photoURL || data.profilePhotoUrl || null,
+            coverPhotoUrl: data.coverPhotoUrl || null,
+            role: data.role || 'user',
+            isVerified: data.isVerified || false,
+            isAgeVerified: data.isAgeVerified || false,
+            status: data.status || 'active',
+            bio: data.bio,
+            privacy: data.privacy || { profileVisibility: 'public' },
+            createdAt: data.createdAt?.toDate() || new Date(),
+            updatedAt: data.updatedAt?.toDate() || new Date(),
+          };
+          
+          setProfileData(profile);
+          
+          // Check if user is blocked
+          const profileBlockedUser = await isUserBlocked(profile.uid, user.uid);
+          setIsBlocked(profileBlockedUser);
+        } else {
+          setProfileData(null);
+        }
+      } catch (error) {
+        console.error('Error fetching profile for chat button:', error);
+        setProfileData(null);
+      } finally {
+        setCheckingProfile(false);
+      }
+    };
+    
+    fetchProfileForChat();
+  }, [isProfilePage, profileUsername, user?.uid]);
+  
+  // Check subscription status for profile visibility
+  const { isSubscriber } = useSubscriptionStatus(profileData?.uid || '');
+  const canView = profileData && canViewProfile(profileData, user?.uid || null, isSubscriber);
+  const isOwnProfile = profileData && user?.uid === profileData.uid;
+  const shouldShowChatButton = isProfilePage && profileData && !isOwnProfile && !isBlocked && canView;
+  
+  // Debug logging
+  useEffect(() => {
+    if (isProfilePage) {
+      console.log('🔍 Profile page detected:', {
+        pathname,
+        profileUsername,
+        hasProfileData: !!profileData,
+        isOwnProfile,
+        isBlocked,
+        canView,
+        isSubscriber,
+        shouldShowChatButton,
+        profileDataPassed: !!profileData
+      });
+    }
+  }, [isProfilePage, pathname, profileUsername, profileData, isOwnProfile, isBlocked, canView, isSubscriber, shouldShowChatButton]);
+  
+  const handleChatButtonClick = async () => {
+    if (profileData) {
+      await openChat(profileData);
+    }
+  };
 
 
   useEffect(() => {
@@ -381,9 +486,25 @@ export default function MainLayout({ children }: MainLayoutProps) {
                     <div className="relative">
                       <SearchDropdown />
                     </div>
+                    {/* CHAT Button - Only show on profile pages */}
+                    {shouldShowChatButton && (
+                      <button
+                        onClick={handleChatButtonClick}
+                        className="relative p-1.5 text-gray-600 hover:text-gray-700 focus:outline-none transition-all duration-300 w-9 h-9 flex items-center justify-center group"
+                        title="Chat"
+                      >
+                        <Image 
+                          src="/images/chat-icon.png" 
+                          alt="Chat" 
+                          width={20} 
+                          height={20}
+                          className="w-5 h-5 transition-transform duration-200 group-hover:scale-110"
+                        />
+                      </button>
+                    )}
                     <NotificationsDropdown />
                     <div className="ml-auto -mr-2">
-                      <FilterDropdown />
+                      <FilterDropdown profileData={profileData} isProfilePage={isProfilePage} />
                     </div>
                   </>
                 ) : isMessagesPage ? (
@@ -653,7 +774,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         <SearchDropdown />
                       </div>
                   <NotificationsDropdown />
-                      <FilterDropdown />
+                      <FilterDropdown profileData={profileData} isProfilePage={isProfilePage} />
                     </>
                   ) : isMessagesPage ? (
                     <>
