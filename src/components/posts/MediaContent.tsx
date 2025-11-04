@@ -10,6 +10,7 @@ import { loadImage } from '@/lib/utils/imageUtils'
 import { useAuth } from '@/lib/firebase/auth'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { ContentWatermark } from '@/components/media/ContentWatermark'
+import { PinchZoomPan } from '@/components/ui/PinchZoomPan'
 
 const GoogleVRImageView = dynamic(() => import('@/components/media/GoogleVRImageView'), { 
   ssr: false,
@@ -105,6 +106,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       document.body.style.overflow = 'hidden'
       document.body.style.height = '100vh'
       document.documentElement.style.overflow = 'hidden'
+      // Don't block touch-action on body/html - let images handle it
       
       // Prevent wheel scrolling
       const handleWheel = (e: WheelEvent) => {
@@ -117,17 +119,13 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       const previousMainOverflow = mainContent ? (mainContent as HTMLElement).style.overflow : ''
       if (mainContent) {
         (mainContent as HTMLElement).style.overflow = 'hidden'
+        // Don't block touch-action on main - let images handle it
       }
       
       document.addEventListener('wheel', handleWheel, { passive: false, capture: true })
       
-      // Prevent touch scrolling
-      const handleTouchMove = (e: TouchEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
-        return false
-      }
-      document.addEventListener('touchmove', handleTouchMove, { passive: false, capture: true })
+      // Don't prevent touchmove - let CSS touch-action handle it
+      // This allows pinch-zoom to work naturally on images
       
       return () => {
         document.body.style.overflow = previousBodyOverflow
@@ -137,7 +135,6 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
           (mainContent as HTMLElement).style.overflow = previousMainOverflow
         }
         document.removeEventListener('wheel', handleWheel, { capture: true })
-        document.removeEventListener('touchmove', handleTouchMove, { capture: true })
       }
     }
   }, [showLightbox])
@@ -494,7 +491,7 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
       {type === 'image' && isMounted && (
         <Dialog open={showLightbox} onOpenChange={setShowLightbox}>
           <DialogContent 
-            className="w-auto max-w-none gap-0 p-0 bg-transparent border-none shadow-none outline-none ring-0 rounded-none [&>button]:hidden flex items-center justify-center fixed inset-0"
+            className="w-auto max-w-none gap-0 p-0 border-none shadow-none outline-none ring-0 rounded-none [&>button:not([data-close-button])]:hidden flex items-center justify-center fixed inset-0"
             style={{ 
               border: 'none', 
               outline: 'none', 
@@ -505,8 +502,10 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
               maxWidth: 'none', 
               maxHeight: 'none',
               margin: 0,
-              touchAction: 'none'
+              touchAction: 'pan-y pinch-zoom'
             }}
+            hideOverlay={false}
+            forceShowOverlay={true}
           >
             <DialogTitle className="sr-only">Image Viewer</DialogTitle>
             <DialogDescription className="sr-only">
@@ -515,13 +514,22 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
             <div 
               ref={containerRef} 
               className="relative flex items-center justify-center"
-              style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}
+              style={{ width: '100vw', height: '100vh', overflow: 'hidden', touchAction: 'pan-y pinch-zoom' }}
+            >
+              <PinchZoomPan
+                className="w-full h-full"
+                minScale={1}
+                maxScale={5}
             >
               <div
                 className="relative block mx-auto"
+                  data-image-zoomable
                 style={{
                   width: lightboxSize.width,
                   height: lightboxSize.height,
+                    WebkitTouchCallout: 'none',
+                    WebkitUserSelect: 'none',
+                    userSelect: 'none'
                 }}
                 aria-label={`Lightbox image container ${intrinsicW || ''}x${intrinsicH || ''}`}
                 role="img"
@@ -530,6 +538,11 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
                   src={correctedUrl || url}
                   alt="Full size image"
                   className="w-full h-full object-contain select-none"
+                    style={{ 
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none'
+                    }}
                   onLoad={(e) => {
                     const el = e.currentTarget as HTMLImageElement
                     setIntrinsicW(el.naturalWidth)
@@ -538,18 +551,18 @@ export default function MediaContent({ url, type, thumbnailUrl, compact, hotspot
                   draggable={false}
                 />
                 {username && showWatermark && <ContentWatermark username={username} />}
-                {/* Close inside the image wrapper so it hugs the image bounds */}
+                  {/* Close button on the image so it moves with it */}
                 <button
                   onClick={() => setShowLightbox(false)}
-                  className="absolute top-2 right-2 z-50"
+                    data-close-button
+                    className="absolute top-4 right-4 p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors z-[1002]"
                   aria-label="Close full size image viewer"
+                    style={{ zIndex: 1002 }}
                 >
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none">
-                    <path d="M18 6L6 18M6 6l12 12" stroke="black" strokeWidth={3} strokeLinecap="round" />
-                    <path d="M18 6L6 18M6 6l12 12" stroke="white" strokeWidth={2} strokeLinecap="round" />
-                  </svg>
+                    <X className="w-4 h-4 text-white" />
                 </button>
               </div>
+              </PinchZoomPan>
             </div>
           </DialogContent>
         </Dialog>

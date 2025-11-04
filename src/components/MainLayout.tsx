@@ -936,7 +936,13 @@ export default function MainLayout({ children }: MainLayoutProps) {
       {/* Upload Dialog */}
       <ContentUploadDialog 
         open={showUploadDialog}
-        onOpenChange={setShowUploadDialog}
+        onOpenChange={(open) => {
+          setShowUploadDialog(open);
+          // Close mobile sidebar when opening upload dialog
+          if (open) {
+            setShowMobileLeft(false);
+          }
+        }}
         onUploadComplete={() => setShowUploadDialog(false)}
       >
         <></>

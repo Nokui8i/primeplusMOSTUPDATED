@@ -26,6 +26,13 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
   const [isBlocked, setIsBlocked] = useState(false);
   const [checkingBlock, setCheckingBlock] = useState(true);
   const [isCreator, setIsCreator] = useState(false);
+  const [tabCounts, setTabCounts] = useState({
+    feed: 0,
+    pictures: 0,
+    videos: 0,
+    videos360: 0,
+    vrvideos: 0,
+  });
   const { user } = useAuth();
   
   // Check if profile owner is a creator
@@ -265,6 +272,7 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onSubscriptionCancelled={refreshSubscriptionStatus}
+        tabCounts={tabCounts}
       />
       
       {/* Show Subscription Container for creators and non-own profiles - Right after tabs */}
@@ -279,7 +287,7 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
             uid: profileState.uid,
             isSubscriber
           })}
-          <div className="w-full px-4 py-1 flex justify-center mt-4">
+          <div className="w-full px-4 py-1 flex justify-center mt-2">
             <div className="w-full max-w-2xl">
               <SubscriptionContainer
                 creatorId={profileState.uid}
@@ -295,7 +303,11 @@ export function ProfilePageClient({ profile, isOwnProfile }: ProfilePageClientPr
         </>
       )}
       
-      <ProfileContent profile={profileState} activeTab={activeTab} />
+      <ProfileContent 
+        profile={profileState} 
+        activeTab={activeTab}
+        onCountsChange={setTabCounts}
+      />
     </div>
   );
 } 

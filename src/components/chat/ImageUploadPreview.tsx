@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { X, Loader2, Upload, ZoomIn } from 'lucide-react';
+import { PinchZoomPan } from '@/components/ui/PinchZoomPan';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
@@ -498,24 +499,36 @@ export function ImageUploadPreview({ onUpload, onCancel }: ImageUploadPreviewPro
       {/* Full-size Image Preview Modal */}
       {selectedImage && (
         <div 
-          className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center"
+          style={{ touchAction: 'pan-y pinch-zoom' }}
           onClick={handleClosePreview}
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
-            <img
-              src={selectedImage.preview}
-              alt="Full size preview"
-              className="max-w-full max-h-[90vh] object-contain"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
-              onClick={handleClosePreview}
+          <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex items-center justify-center">
+            <PinchZoomPan
+              className="w-full h-full"
+              minScale={1}
+              maxScale={5}
             >
-              <X className="h-6 w-6" />
-            </Button>
+              <img
+                src={selectedImage.preview}
+                alt="Full size preview"
+                className="max-w-full max-h-[90vh] object-contain"
+                style={{ 
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none'
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </PinchZoomPan>
           </div>
+          {/* Close button outside PinchZoomPan so it's always visible */}
+          <button
+            onClick={handleClosePreview}
+            className="absolute top-4 right-4 p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors z-[1001]"
+          >
+            <X className="w-4 h-4 text-white" />
+          </button>
         </div>
       )}
     </div>

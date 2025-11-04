@@ -6,6 +6,7 @@ import { MessagesAvatar } from '@/components/ui/MessagesAvatar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Send, Image as ImageIcon, Video, Smile, Mic, MicOff, Plus, X, Play, Lock, Pause, Trash2, Edit, MoreVertical, UserX, Pin, Search, ChevronUp, ChevronDown, Grid3x3, Check } from 'lucide-react';
+import { PinchZoomPan } from '@/components/ui/PinchZoomPan';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 // Firebase Storage imports removed - now using AWS S3
 import { ImageUploadPreview } from './ImageUploadPreview';
@@ -4395,31 +4396,43 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       {/* Full-size Image Preview Modal */}
       {selectedImage && (
         <div 
-          className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center"
+          style={{ touchAction: 'pan-y pinch-zoom' }}
           onClick={() => setSelectedImage(null)}
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
+          <div className="relative max-w-[90vw] max-h-[90vh] w-full h-full flex items-center justify-center">
+            <PinchZoomPan
+              className="w-full h-full"
+              minScale={1}
+              maxScale={5}
+            >
             <img
               src={selectedImage}
               alt="Full size preview"
               className="max-w-full max-h-[90vh] object-contain"
+                style={{ 
+                  WebkitTouchCallout: 'none',
+                  WebkitUserSelect: 'none',
+                  userSelect: 'none'
+                }}
+                onClick={(e) => e.stopPropagation()}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
-              onClick={() => setSelectedImage(null)}
-            >
-              <X className="h-6 w-6" />
-            </Button>
+            </PinchZoomPan>
           </div>
+          {/* Close button outside PinchZoomPan so it's always visible */}
+          <button
+              onClick={() => setSelectedImage(null)}
+            className="absolute top-4 right-4 p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors z-[1001]"
+            >
+            <X className="w-4 h-4 text-white" />
+          </button>
         </div>
       )}
 
       {/* Full-size Video Preview Modal */}
       {selectedVideo && (
         <div 
-          className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center"
           onClick={() => setSelectedVideo(null)}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]">
@@ -4436,14 +4449,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               <source src={selectedVideo} type="video/mp4" />
               Your browser does not support the video tag.
             </video>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white"
+            <button
               onClick={() => setSelectedVideo(null)}
+              className="absolute top-4 right-4 p-1 bg-gray-800 rounded-full hover:bg-gray-700 transition-colors z-10"
             >
-              <X className="h-6 w-6" />
-            </Button>
+              <X className="w-4 h-4 text-white" />
+            </button>
           </div>
         </div>
       )}

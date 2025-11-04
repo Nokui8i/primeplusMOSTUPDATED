@@ -64,6 +64,13 @@ interface ProfileHeaderProps {
   defaultSubscriptionPlanId?: string | null;
   defaultSubscriptionType?: 'free' | 'paid' | null;
   onSubscriptionCancelled?: () => void;
+  tabCounts?: {
+    feed: number;
+    pictures: number;
+    videos: number;
+    videos360: number;
+    vrvideos: number;
+  };
 }
 
 export function ProfileHeader({
@@ -76,6 +83,7 @@ export function ProfileHeader({
   activeTab,
   onTabChange,
   onSubscriptionCancelled,
+  tabCounts = { feed: 0, pictures: 0, videos: 0, videos360: 0, vrvideos: 0 },
 }: ProfileHeaderProps) {
   console.log('🔍 ProfileHeader: isOwnProfile:', isOwnProfile);
   const { user } = useAuth();
@@ -828,7 +836,14 @@ export function ProfileHeader({
             checked={activeTab === 'feed'}
             onChange={() => handleTabClick('feed')}
           />
-          <label className="tab_label" htmlFor="tab1">Feed</label>
+          <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab1">
+            Feed
+            {tabCounts.feed > 0 && (
+              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
+                {tabCounts.feed > 99 ? '99+' : tabCounts.feed}
+              </span>
+            )}
+          </label>
 
           <input 
             type="radio" 
@@ -838,7 +853,14 @@ export function ProfileHeader({
             checked={activeTab === 'pictures'}
             onChange={() => handleTabClick('pictures')}
           />
-          <label className="tab_label" htmlFor="tab2">Pics</label>
+          <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab2">
+            Pics
+            {tabCounts.pictures > 0 && (
+              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
+                {tabCounts.pictures > 99 ? '99+' : tabCounts.pictures}
+              </span>
+            )}
+          </label>
 
           <input 
             type="radio" 
@@ -848,7 +870,14 @@ export function ProfileHeader({
             checked={activeTab === 'videos'}
             onChange={() => handleTabClick('videos')}
           />
-          <label className="tab_label" htmlFor="tab3">Videos</label>
+          <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab3">
+            Videos
+            {tabCounts.videos > 0 && (
+              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
+                {tabCounts.videos > 99 ? '99+' : tabCounts.videos}
+              </span>
+            )}
+          </label>
 
           <input 
             type="radio" 
@@ -858,7 +887,14 @@ export function ProfileHeader({
             checked={activeTab === 'videos360'}
             onChange={() => handleTabClick('videos360')}
           />
-          <label className="tab_label" htmlFor="tab4">360°</label>
+          <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab4">
+            360°
+            {tabCounts.videos360 > 0 && (
+              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
+                {tabCounts.videos360 > 99 ? '99+' : tabCounts.videos360}
+              </span>
+            )}
+          </label>
 
           <input 
             type="radio" 
@@ -868,7 +904,14 @@ export function ProfileHeader({
             checked={activeTab === 'vrvideos'}
             onChange={() => handleTabClick('vrvideos')}
           />
-          <label className="tab_label" htmlFor="tab5">VR</label>
+          <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab5">
+            VR
+            {tabCounts.vrvideos > 0 && (
+              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
+                {tabCounts.vrvideos > 99 ? '99+' : tabCounts.vrvideos}
+              </span>
+            )}
+          </label>
 
           <div className="indicator"></div>
         </div>

@@ -42,12 +42,14 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-        "fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "fixed inset-0 z-[1000] bg-black/50 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
       style={{
         pointerEvents: 'auto',
-        touchAction: 'none',
+        touchAction: 'pan-y pinch-zoom',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
       }}
     {...props}
   />
@@ -57,10 +59,11 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideOverlay?: boolean }
->(({ className, children, hideOverlay = false, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideOverlay?: boolean; forceShowOverlay?: boolean }
+>(({ className, children, hideOverlay = false, forceShowOverlay = false, ...props }, ref) => {
   // Check if className includes bg-transparent or hideOverlay prop to hide overlay
-  const shouldHideOverlay = hideOverlay || (typeof className === 'string' && className.includes('bg-transparent'));
+  // But if forceShowOverlay is true, always show overlay
+  const shouldHideOverlay = forceShowOverlay ? false : (hideOverlay || (typeof className === 'string' && className.includes('bg-transparent')));
   
   // Lock body scroll when dialog is open
   React.useEffect(() => {
@@ -95,7 +98,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
         className={cn(
-          "fixed left-[50%] top-[50%] z-50 w-full max-w-2xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+          "fixed left-[50%] top-[50%] z-[1000] w-full max-w-2xl max-h-[90vh] translate-x-[-50%] translate-y-[-50%] duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
           className
         )}
         onPointerDownOutside={(e) => {

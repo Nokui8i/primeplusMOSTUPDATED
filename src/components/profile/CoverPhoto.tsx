@@ -338,6 +338,7 @@ export function CoverPhoto({ photoUrl, className = '', onPhotoUpdate, children, 
           imageUrl={currentPhotoUrl}
           alt="Cover photo"
           onClose={() => setShowImageViewer(false)}
+          isCoverPhoto={true}
         />
       )}
 

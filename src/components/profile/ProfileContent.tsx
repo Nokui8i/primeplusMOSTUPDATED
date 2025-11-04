@@ -24,10 +24,18 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { toast } from 'react-hot-toast';
 import { canViewProfile, getProfileAccessDeniedMessage } from '@/lib/utils/profileVisibility';
 import { useSubscriptionStatus } from '@/hooks/useSubscriptionStatus';
+import { useFilter } from '@/contexts/FilterContext';
 
 interface ProfileContentProps {
   profile: UserProfile;
   activeTab: string;
+  onCountsChange?: (counts: {
+    feed: number;
+    pictures: number;
+    videos: number;
+    videos360: number;
+    vrvideos: number;
+  }) => void;
 }
 
 interface AuthorData {
@@ -37,7 +45,8 @@ interface AuthorData {
   role?: string;
 }
 
-export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
+export function ProfileContent({ profile, activeTab, onCountsChange }: ProfileContentProps) {
+  const { hideLockedPosts } = useFilter();
   const [posts, setPosts] = useState<PostWithAuthor[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -300,9 +309,43 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
       filtered = posts.filter(post => post.type === 'vr' || post.type === 'ar');
     }
     
-    console.log('✅ Filtered result:', { activeTab, filteredCount: filtered.length, filtered: filtered.map(p => ({ id: p.id, type: p.type, title: p.title })) });
+    // Apply hideLockedPosts filter (same as HomePage)
+    if (hideLockedPosts) {
+      filtered = filtered.filter(post => {
+        // Keep posts that are free (no access settings or free access)
+        const accessLevel = post.accessSettings?.accessLevel;
+        return !accessLevel || accessLevel === 'free';
+      });
+    }
+    
+    console.log('✅ Filtered result:', { activeTab, filteredCount: filtered.length, hideLockedPosts, filtered: filtered.map(p => ({ id: p.id, type: p.type, title: p.title })) });
     return filtered;
-  }, [activeTab, posts]);
+  }, [activeTab, posts, hideLockedPosts]);
+
+  // Calculate counts for each tab
+  const tabCounts = useMemo(() => {
+    const feedCount = posts.length;
+    const picturesCount = posts.filter(post => post.type === 'image' || post.type === 'image360').length;
+    const videosCount = posts.filter(post => post.type === 'video').length;
+    const videos360Count = posts.filter(post => post.type === 'video360').length;
+    const vrvideosCount = posts.filter(post => post.type === 'vr' || post.type === 'ar').length;
+    
+    return {
+      feed: feedCount,
+      pictures: picturesCount,
+      videos: videosCount,
+      videos360: videos360Count,
+      vrvideos: vrvideosCount,
+    };
+  }, [posts]);
+
+  // Notify parent component of counts changes
+  useEffect(() => {
+    if (onCountsChange) {
+      onCountsChange(tabCounts);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabCounts]);
 
   // Check if user can view post (same logic as CompactPost)
   const canViewPost = (post: PostWithAuthor) => {
@@ -372,7 +415,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
     const visibility = profile.privacy?.profileVisibility || 'public';
     
     return (
-      <div className="container mx-auto px-4 pt-2 pb-8">
+      <div className="container mx-auto px-4 pt-2 pb-8 md:pb-8" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px) + 56px)' }}>
         <div className="max-w-2xl mx-auto">
           <div className="flex flex-col items-center justify-center py-16 px-4">
             <div className="text-center space-y-4 max-w-md">
@@ -416,7 +459,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 pt-2 pb-8">
+    <div className="container mx-auto px-4 pt-2 pb-8 md:pb-8" style={{ paddingBottom: 'calc(2rem + env(safe-area-inset-bottom, 0px) + 56px)' }}>
       <div className="max-w-2xl mx-auto">
 
         {/* Content Display - same structure as home page */}
@@ -471,7 +514,7 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
 
           {/* Load more trigger */}
           {hasMore && (
-            <div ref={loadMoreRef} className="h-10 flex items-center justify-center">
+            <div ref={loadMoreRef} className="h-10 flex items-center justify-center mb-20 md:mb-0">
               {loadingMore && (
                 <div className="flex items-center gap-2 text-gray-500">
                   <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
@@ -480,13 +523,16 @@ export function ProfileContent({ profile, activeTab }: ProfileContentProps) {
               )}
             </div>
           )}
+          
+          {/* Spacer for mobile bottom navigation */}
+          <div className="h-16 md:hidden" />
         </div>
       </div>
 
       {/* Facebook-Style Post Display */}
         {selectedPost && (
           <div 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-8"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000] flex items-center justify-center p-8"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setSelectedPost(null);
