@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { auth, db } from '@/lib/firebase'
-import { createUserWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, sendEmailVerification, onAuthStateChanged } from 'firebase/auth'
+import { createUserWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, sendEmailVerification, onAuthStateChanged } from 'firebase/auth'
 import { doc, getDoc, setDoc, collection, query, where, getDocs, updateDoc } from 'firebase/firestore'
 import Link from 'next/link'
 import { FiLoader } from 'react-icons/fi'
@@ -140,6 +140,91 @@ export default function RegisterForm() {
     }
   }
 
+  // Helper function to detect mobile
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
+  }
+
+  // Handle redirect result on mount
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result && result.user) {
+          setLoading(true)
+          const user = result.user
+
+          // Check if user already exists
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+          if (userDoc.exists()) {
+            await auth.signOut()
+            setError('This Google account is already registered. Please sign in instead.')
+            setLoading(false)
+            return
+          }
+
+          // Generate username from email
+          const baseUsername = (user.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+          let username = baseUsername
+          let counter = 1
+
+          // Check username availability
+          while (true) {
+            const usernameDoc = await getDoc(doc(db, 'usernames', username))
+            if (!usernameDoc.exists()) break
+            username = `${baseUsername}${counter}`
+            counter++
+          }
+
+          // Reserve username
+          await setDoc(doc(db, 'usernames', username), {
+            uid: user.uid
+          })
+
+          // Create user document with the same structure as email registration
+          await setDoc(doc(db, 'users', user.uid), {
+            email: user.email || '',
+            username,
+            displayName: user.displayName || '',
+            authProvider: 'google',
+            isActive: true,
+            emailVerified: true,
+            profileCompleted: false,
+            createdAt: new Date().toISOString(),
+            lastLogin: new Date().toISOString(),
+            role: 'user',
+            metadata: {
+              creationTime: user.metadata.creationTime,
+              lastSignInTime: user.metadata.lastSignInTime
+            },
+            stats: {
+              posts: 0,
+              followers: 0,
+              following: 0,
+              engagement: 0
+            },
+            profilePhotoUrl: user.photoURL || '',
+            coverPhotoUrl: '',
+            photoURL: user.photoURL || '',
+            followersCount: 0,
+            followingCount: 0
+          })
+
+          router.push('/complete-profile')
+        }
+      } catch (err: any) {
+        console.error('Redirect result error:', err)
+        if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+          setError('Failed to register with Google.')
+        }
+        setLoading(false)
+      }
+    }
+
+    handleRedirectResult()
+  }, [router])
+
   // Handle Google Registration
   const handleGoogleRegister = async () => {
     setRegistrationMethod('google')
@@ -153,70 +238,82 @@ export default function RegisterForm() {
         prompt: 'select_account'
       })
 
-      const result = await signInWithPopup(auth, provider)
-      const user = result.user
+      // Use redirect on mobile, popup on desktop
+      if (isMobileDevice()) {
+        await signInWithRedirect(auth, provider)
+        // Don't set loading to false here - redirect will happen
+        return
+      } else {
+        const result = await signInWithPopup(auth, provider)
+        const user = result.user
 
-      // Check if user already exists
-      const userDoc = await getDoc(doc(db, 'users', user.uid))
-      if (userDoc.exists()) {
-        await auth.signOut()
-        setError('This Google account is already registered. Please sign in instead.')
-        setLoading(false)
+        // Check if user already exists
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        if (userDoc.exists()) {
+          await auth.signOut()
+          setError('This Google account is already registered. Please sign in instead.')
+          setLoading(false)
+          return
+        }
+
+        // Generate username from email
+        const baseUsername = (user.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+        let username = baseUsername
+        let counter = 1
+
+        // Check username availability
+        while (true) {
+          const usernameDoc = await getDoc(doc(db, 'usernames', username))
+          if (!usernameDoc.exists()) break
+          username = `${baseUsername}${counter}`
+          counter++
+        }
+
+        // Reserve username
+        await setDoc(doc(db, 'usernames', username), {
+          uid: user.uid
+        })
+
+        // Create user document with the same structure as email registration
+        await setDoc(doc(db, 'users', user.uid), {
+          email: user.email || '',
+          username,
+          displayName: user.displayName || '',
+          authProvider: 'google',
+          isActive: true,
+          emailVerified: true,
+          profileCompleted: false,
+          createdAt: new Date().toISOString(),
+          lastLogin: new Date().toISOString(),
+          role: 'user',
+          metadata: {
+            creationTime: user.metadata.creationTime,
+            lastSignInTime: user.metadata.lastSignInTime
+          },
+          stats: {
+            posts: 0,
+            followers: 0,
+            following: 0,
+            engagement: 0
+          },
+          profilePhotoUrl: user.photoURL || '',
+          coverPhotoUrl: '',
+          photoURL: user.photoURL || '',
+          followersCount: 0,
+          followingCount: 0
+        })
+
+        router.push('/complete-profile')
         return
       }
-
-      // Generate username from email
-      const baseUsername = (user.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
-      let username = baseUsername
-      let counter = 1
-
-      // Check username availability
-      while (true) {
-        const usernameDoc = await getDoc(doc(db, 'usernames', username))
-        if (!usernameDoc.exists()) break
-        username = `${baseUsername}${counter}`
-        counter++
-      }
-
-      // Reserve username
-      await setDoc(doc(db, 'usernames', username), {
-        uid: user.uid
-      })
-
-      // Create user document with the same structure as email registration
-      await setDoc(doc(db, 'users', user.uid), {
-        email: user.email || '',
-        username,
-        displayName: user.displayName || '',
-        authProvider: 'google',
-        isActive: true,
-        emailVerified: true,
-        profileCompleted: false,
-        createdAt: new Date().toISOString(),
-        lastLogin: new Date().toISOString(),
-        role: 'user',
-        metadata: {
-          creationTime: user.metadata.creationTime,
-          lastSignInTime: user.metadata.lastSignInTime
-        },
-        stats: {
-          posts: 0,
-          followers: 0,
-          following: 0,
-          engagement: 0
-        },
-        profilePhotoUrl: user.photoURL || '',
-        coverPhotoUrl: '',
-        photoURL: user.photoURL || '',
-        followersCount: 0,
-        followingCount: 0
-      })
-
-      router.push('/complete-profile');
-      return;
     } catch (error: any) {
+      if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+        setError('')
+      } else {
+        setError('Failed to register with Google. Please try again.')
+      }
       console.error('Google registration error:', error)
-      setError('Failed to register with Google. Please try again.')
+    } finally {
       setLoading(false)
     }
   }

@@ -178,32 +178,39 @@ input.tab--5:checked ~ .indicator,
   }
   
   .tab--1:checked ~ .indicator {
-    transform: translateX(9px); /* Moved slightly left */
+    transform: translateX(2px); /* Moved slightly left */
     width: 62px;
   }
   
   input.tab--2:checked ~ .indicator,
   .tab.tab--2:checked ~ .indicator {
-    transform: translateX(89px) !important; /* Moved left */
+    transform: translateX(65px) !important; /* Moved left */
     width: 62px !important;
   }
   
   input.tab--3:checked ~ .indicator,
-  .tab.tab--3:checked ~ .indicator {
-    transform: translateX(168px) !important; /* Moved slightly left */
-    width: 72px !important;
+  .tab.tab--3:checked ~ .indicator,
+  input#tab3:checked ~ .indicator {
+    transform: translateX(129px) !important; /* Moved slightly left */
+    width: 82px !important;
   }
   
   input.tab--4:checked ~ .indicator,
   .tab.tab--4:checked ~ .indicator {
-    transform: translateX(244px) !important; /* Moved left (100px) */
+    transform: translateX(208px) !important; /* Moved left (36px total = 5x6px + 2x6px - 1x6px) */
     width: 62px !important;
   }
 
   input.tab--5:checked ~ .indicator,
   .tab.tab--5:checked ~ .indicator {
-    transform: translateX(335px) !important; /* Moved slightly left */
-    width: 60px !important;
+    transform: translateX(278px) !important; /* Moved left (57px = 7x6px + 2x6px + 0.5x6px) */
+    width: 70px !important;
+  }
+
+  input.tab--6:checked ~ .indicator,
+  .tab.tab--6:checked ~ .indicator {
+    transform: translateX(339px) !important; /* Moved right (39px = 3x6px + 2x6px + 1x6px + 0.5x6px) */
+    width: 62px !important;
   }
 }
 
@@ -229,31 +236,38 @@ input.tab--5:checked ~ .indicator,
   }
   
   .tab--1:checked ~ .indicator {
-    transform: translateX(9px); /* Moved slightly left */
+    transform: translateX(2px); /* Moved slightly left */
     width: 57px;
   }
   
   input.tab--2:checked ~ .indicator,
   .tab.tab--2:checked ~ .indicator {
-    transform: translateX(84px) !important; /* Moved left */
+    transform: translateX(60px) !important; /* Moved left */
     width: 57px !important;
   }
   
   input.tab--3:checked ~ .indicator,
-  .tab.tab--3:checked ~ .indicator {
-    transform: translateX(155.5px) !important; /* Moved slightly left */
-    width: 67px !important;
+  .tab.tab--3:checked ~ .indicator,
+  input#tab3:checked ~ .indicator {
+    transform: translateX(116.5px) !important; /* Moved slightly left */
+    width: 77px !important;
   }
   
   input.tab--4:checked ~ .indicator,
   .tab.tab--4:checked ~ .indicator {
-    transform: translateX(234px) !important; /* Moved left (100px) */
+    transform: translateX(198px) !important; /* Moved left (36px total = 5x6px + 2x6px - 1x6px) */
     width: 57px !important;
   }
   
   input.tab--5:checked ~ .indicator,
   .tab.tab--5:checked ~ .indicator {
-    transform: translateX(310px) !important; /* Moved slightly left */
-    width: 55px !important;
+    transform: translateX(253px) !important; /* Moved left (57px = 7x6px + 2x6px + 0.5x6px) */
+    width: 65px !important;
+  }
+
+  input.tab--6:checked ~ .indicator,
+  .tab.tab--6:checked ~ .indicator {
+    transform: translateX(314px) !important; /* Moved right (39px = 3x6px + 2x6px + 1x6px + 0.5x6px) */
+    width: 57px !important;
   }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react'
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'
+import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, createUserWithEmailAndPassword, sendEmailVerification, onAuthStateChanged, sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { db } from '@/lib/firebase'
 import { doc, setDoc, updateDoc, getDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore'
@@ -232,6 +232,59 @@ export default function LoginForm() {
     }
   }
 
+  // Helper function to detect mobile
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
+  }
+
+  // Handle redirect result on mount
+  useEffect(() => {
+    const handleRedirectResult = async () => {
+      try {
+        const result = await getRedirectResult(auth)
+        if (result && result.user) {
+          setLoading(true)
+          const user = result.user
+          
+          // Get user profile
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+          
+          // Check if user exists
+          if (!userDoc.exists()) {
+            await auth.signOut()
+            setError('No account found with this email. Please register first.')
+            setLoading(false)
+            return
+          }
+          
+          const userData = userDoc.data()
+          
+          // Update last login
+          await updateDoc(doc(db, 'users', user.uid), {
+            lastLogin: serverTimestamp(),
+            emailVerified: true
+          })
+
+          // Check if profile is completed and reload page
+          if (!userData?.profileCompleted) {
+            window.location.href = '/complete-profile'
+          } else {
+            window.location.href = '/home'
+          }
+        }
+      } catch (err: any) {
+        console.error('Redirect result error:', err)
+        if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+          setError('Failed to sign in with Google.')
+        }
+        setLoading(false)
+      }
+    }
+
+    handleRedirectResult()
+  }, [])
+
   const handleGoogleLogin = async () => {
     setError('')
     setLoading(true)
@@ -243,36 +296,47 @@ export default function LoginForm() {
         prompt: 'select_account'
       })
       
-      const result = await signInWithPopup(auth, provider)
-      const user = result.user
-      
-      // Get user profile
-      const userDoc = await getDoc(doc(db, 'users', user.uid))
-      
-      // Check if user exists
-      if (!userDoc.exists()) {
-        await auth.signOut() // Sign out the user since they don't have an account
-        setError('No account found with this email. Please register first.')
-        setLoading(false)
+      // Use redirect on mobile, popup on desktop
+      if (isMobileDevice()) {
+        await signInWithRedirect(auth, provider)
+        // Don't set loading to false here - redirect will happen
         return
-      }
-      
-      const userData = userDoc.data()
-      
-      // Update last login
-      await updateDoc(doc(db, 'users', user.uid), {
-        lastLogin: serverTimestamp(),
-        emailVerified: true
-      })
-
-      // Check if profile is completed and reload page
-      if (!userData?.profileCompleted) {
-        window.location.href = '/complete-profile'
       } else {
-        window.location.href = '/home'
+        const result = await signInWithPopup(auth, provider)
+        const user = result.user
+        
+        // Get user profile
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        
+        // Check if user exists
+        if (!userDoc.exists()) {
+          await auth.signOut() // Sign out the user since they don't have an account
+          setError('No account found with this email. Please register first.')
+          setLoading(false)
+          return
+        }
+        
+        const userData = userDoc.data()
+        
+        // Update last login
+        await updateDoc(doc(db, 'users', user.uid), {
+          lastLogin: serverTimestamp(),
+          emailVerified: true
+        })
+
+        // Check if profile is completed and reload page
+        if (!userData?.profileCompleted) {
+          window.location.href = '/complete-profile'
+        } else {
+          window.location.href = '/home'
+        }
       }
-    } catch (err) {
-      setError('Failed to sign in with Google.')
+    } catch (err: any) {
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setError('')
+      } else {
+        setError('Failed to sign in with Google.')
+      }
       console.error(err)
     } finally {
       setLoading(false)
@@ -288,30 +352,77 @@ export default function LoginForm() {
       provider.setCustomParameters({
         prompt: 'select_account'
       })
-      
-      console.log('Starting Google sign-in popup...')
-      const result = await signInWithPopup(auth, provider)
-      console.log('Google sign-in successful', result.user.email)
-      
-      try {
+
+      // Use redirect on mobile, popup on desktop
+      if (isMobileDevice()) {
+        await signInWithRedirect(auth, provider)
+        // Don't set loading to false here - redirect will happen
+        return
+      } else {
+        const result = await signInWithPopup(auth, provider)
         const user = result.user
-        // Always redirect Google signups to /complete-profile and reload page
+
+        // Check if user already exists
+        const userDoc = await getDoc(doc(db, 'users', user.uid))
+        if (userDoc.exists()) {
+          await auth.signOut()
+          setError('This Google account is already registered. Please sign in instead.')
+          setLoading(false)
+          return
+        }
+
+        // Generate username from email
+        const baseUsername = (user.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+        let username = baseUsername
+        let counter = 1
+
+        // Check username availability
+        while (true) {
+          const usernameDoc = await getDoc(doc(db, 'usernames', username))
+          if (!usernameDoc.exists()) break
+          username = `${baseUsername}${counter}`
+          counter++
+        }
+
+        // Reserve username
+        await setDoc(doc(db, 'usernames', username), {
+          uid: user.uid
+        })
+
+        // Create user document
+        await setDoc(doc(db, 'users', user.uid), {
+          email: user.email || '',
+          username,
+          displayName: user.displayName || '',
+          authProvider: 'google',
+          isActive: true,
+          emailVerified: true,
+          profileCompleted: false,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          role: 'user',
+          stats: {
+            posts: 0,
+            followers: 0,
+            following: 0,
+            engagement: 0
+          },
+          profilePhotoUrl: user.photoURL || '',
+          coverPhotoUrl: '',
+          photoURL: user.photoURL || '',
+          followersCount: 0,
+          followingCount: 0
+        })
+
         window.location.href = '/complete-profile'
-      } catch (firestoreErr) {
-        console.error('Firestore error:', firestoreErr)
-        setError('Failed to process Google sign up. Please try again.')
       }
     } catch (err: any) {
-      console.error('Google sign-in error:', err)
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-up cancelled. Please try again.')
-      } else if (err.code === 'auth/popup-blocked') {
-        setError('Popup was blocked. Please allow popups for this site.')
-      } else if (err.code === 'auth/account-exists-with-different-credential') {
-        setError('An account already exists with this email.')
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setError('')
       } else {
-        setError(`Registration failed: ${err.message || 'Please try again.'}`)
+        setError('Failed to register with Google. Please try again.')
       }
+      console.error(err)
     } finally {
       setLoading(false)
     }

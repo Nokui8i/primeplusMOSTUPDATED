@@ -24,7 +24,7 @@ import { UserAvatar } from '@/components/user/UserAvatar';
 import axios from 'axios';
 import { getAuth } from 'firebase/auth';
 import { toast } from 'sonner';
-import { Share2, UserX, MoreVertical } from 'lucide-react';
+import { Share2, UserX } from 'lucide-react';
 import { SocialLinksDisplay, SocialLink } from './SocialLinksDisplay';
 import { blockUser, unblockUser, isUserBlocked } from '@/lib/services/block.service';
 import { Button } from '@/components/ui/button';
@@ -106,7 +106,6 @@ export function ProfileHeader({
   const [isBlocked, setIsBlocked] = useState(false);
   const [blocking, setBlocking] = useState(false);
   const [checkingBlockStatus, setCheckingBlockStatus] = useState(false);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
   const [subscriptionId, setSubscriptionId] = useState<string | null>(null);
 
@@ -252,22 +251,6 @@ export function ProfileHeader({
     checkBlockStatus();
   }, [user?.uid, profile?.uid, isOwnProfile]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (isDropdownOpen) {
-        const target = event.target as Element;
-        if (!target.closest('.dropdown-container')) {
-          setIsDropdownOpen(false);
-        }
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isDropdownOpen]);
 
 
   const handleMessageClick = async () => {
@@ -443,7 +426,6 @@ export function ProfileHeader({
       toast.error('Failed to cancel subscription');
     } finally {
       setCancelingSubscription(false);
-      setIsDropdownOpen(false);
     }
   };
 
@@ -507,196 +489,6 @@ export function ProfileHeader({
                   )}
                 </>
               )}
-            {/* 3 Dots Dropdown Menu - Mobile only (desktop uses header FilterDropdown) */}
-            <div className="relative dropdown-container md:hidden">
-              <button 
-                type="button"
-                onClick={() => {
-                  console.log('🔍 3 dots clicked!');
-                  setIsDropdownOpen(!isDropdownOpen);
-                }}
-                className={`h-8 w-8 p-0 opacity-100 transition-colors flex items-center justify-center rounded ${
-                  isDropdownOpen 
-                    ? 'text-blue-600' 
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-                  
-                  {isDropdownOpen && (
-                    <div 
-                      className="absolute right-0 top-full mt-1 w-28 z-50"
-                      style={{
-                        borderRadius: '12px',
-                        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1)',
-                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        overflow: 'hidden',
-                        pointerEvents: 'auto',
-                        zIndex: 99999
-                      }}
-                    >
-                      {isOwnProfile ? (
-                        <>
-                          {/* Share Button */}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleShare();
-                              setIsDropdownOpen(false);
-                            }}
-                            className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center justify-between"
-                            style={{ 
-                              fontWeight: '500', 
-                              fontSize: '12px',
-                              pointerEvents: 'auto',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <span>Share</span>
-                            <Share2 className="h-3 w-3 text-gray-500" />
-                          </button>
-                          
-                          {/* Edit Bio Button */}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setEditingBio(true);
-                              setIsDropdownOpen(false);
-                            }}
-                            className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center justify-between"
-                            style={{ 
-                              fontWeight: '500', 
-                              fontSize: '12px',
-                              pointerEvents: 'auto',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <span>{profile.bio ? 'Edit Bio' : 'Add Bio'}</span>
-                            <svg className="h-3 w-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          {/* Cancel Subscription - Show if subscribed */}
-                          {isSubscribed && subscriptionId && (
-                            <button
-                              onClick={async (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                // Open PlansModal instead of canceling directly
-                                setPlansLoading(true);
-                                try {
-                                  const q = query(
-                                    collection(db, 'plans'),
-                                    where('creatorId', '==', profile.id || profile.uid)
-                                  );
-                                  const snap = await getDocs(q);
-                                  const plansData = snap.docs.map(doc => {
-                                    const data = doc.data();
-                                    return {
-                                      id: doc.id,
-                                      name: data.name || '',
-                                      price: data.price || 0,
-                                      duration: data.duration || 30,
-                                      isActive: data.isActive || false,
-                                      allowedCategories: data.allowedCategories || [],
-                                      description: data.description,
-                                      discountPercent: data.discountPercent,
-                                      totalPrice: data.totalPrice,
-                                      creatorId: data.creatorId || profile.id || profile.uid
-                                    };
-                                  });
-                                  setPlans(plansData);
-                                  setShowPlansModal(true);
-                                } catch (err) {
-                                  console.error('Error fetching plans:', err);
-                                  setPlans([]);
-                                  setShowPlansModal(true);
-                                } finally {
-                                  setPlansLoading(false);
-                                  setIsDropdownOpen(false);
-                                }
-                              }}
-                              disabled={cancelingSubscription || checkingSubscription || plansLoading}
-                              className="w-full cursor-pointer py-1.5 px-3 text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200 flex items-center"
-                              style={{ 
-                                fontWeight: '500', 
-                                fontSize: '12px',
-                                pointerEvents: 'auto',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {plansLoading ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 mr-2"></div>
-                              ) : (
-                                <svg className="mr-2 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              )}
-                              Cancel Subscription
-                            </button>
-                          )}
-                          
-                          {isBlocked ? (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleUnblockUser();
-                                setIsDropdownOpen(false);
-                              }}
-                              disabled={blocking || checkingBlockStatus}
-                              className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
-                              style={{ 
-                                fontWeight: '500', 
-                                fontSize: '12px',
-                                pointerEvents: 'auto',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {blocking ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
-                              ) : (
-                                <UserX className="mr-2 h-3 w-3" />
-                              )}
-                              Unblock
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handleBlockUser();
-                                setIsDropdownOpen(false);
-                              }}
-                              disabled={blocking || checkingBlockStatus}
-                              className="w-full cursor-pointer py-1.5 px-3 text-black hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 flex items-center"
-                              style={{ 
-                                fontWeight: '500', 
-                                fontSize: '12px',
-                                pointerEvents: 'auto',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              {blocking ? (
-                                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black mr-2"></div>
-                              ) : (
-                                <UserX className="mr-2 h-3 w-3" />
-                              )}
-                              Block
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
             </div>
           </div>
         </div>

@@ -14,7 +14,7 @@ import { useFilter } from '@/contexts/FilterContext';
 import { UserProfile } from '@/lib/types/user';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, usePathname } from 'next/navigation';
-import { doc, updateDoc, query, collection, where, getDocs } from 'firebase/firestore';
+import { doc, updateDoc, query, collection, where, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { toast } from 'sonner';
 import { blockUser, unblockUser, isUserBlocked } from '@/lib/services/block.service';
@@ -44,23 +44,37 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
   const [editingBio, setEditingBio] = useState(false);
   const [bioValue, setBioValue] = useState(profileData?.bio || '');
   const [localProfileData, setLocalProfileData] = useState<UserProfile | null>(profileData);
+  const [userRole, setUserRole] = useState<'user' | 'creator' | 'admin' | 'superadmin' | 'owner'>('user');
   
   // Fallback: Detect profile page from pathname if not passed as prop
   const detectedIsProfilePage = isProfilePage || (pathname?.startsWith('/profile/') || (pathname && pathname.split('/').length === 2 && pathname.split('/')[1] && !['home', 'messages', 'subscriptions', 'settings', 'notifications', 'search', 'creator', 'admin', 'complete-profile'].includes(pathname.split('/')[1])));
   
-  // Debug logging
+  // Fetch current user's role
   useEffect(() => {
-    console.log('🔍 FilterDropdown - State check:', {
-      isProfilePage,
-      detectedIsProfilePage,
-      pathname,
-      hasProfileData: !!profileData,
-      hasLocalProfileData: !!localProfileData,
-      profileId: profileData?.id || localProfileData?.id,
-      profileUsername: profileData?.username || localProfileData?.username,
-      isOwnProfile: (profileData && user?.uid === profileData.uid) || (localProfileData && user?.uid === localProfileData.uid)
-    });
-  }, [detectedIsProfilePage, isProfilePage, pathname, profileData, localProfileData, user?.uid]);
+    const fetchUserRole = async () => {
+      if (!user?.uid) {
+        setUserRole('user');
+        return;
+      }
+      
+      try {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const role = userData.role || 'user';
+          setUserRole(role);
+          console.log('🔍 FilterDropdown - User role:', role);
+        } else {
+          setUserRole('user');
+        }
+      } catch (error) {
+        console.error('Error fetching user role:', error);
+        setUserRole('user');
+      }
+    };
+    
+    fetchUserRole();
+  }, [user?.uid]);
   
   // Fetch profile data if not provided and we're on a profile page
   useEffect(() => {
@@ -133,7 +147,7 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
     fetchProfileData();
   }, [profileData, detectedIsProfilePage, pathname]);
 
-  const isOwnProfile = localProfileData && user?.uid === localProfileData.uid;
+  const isOwnProfile = localProfileData && user?.uid && (user.uid === localProfileData.uid || user.uid === localProfileData.id);
   const { isSubscriber } = useSubscriptionStatus(localProfileData?.uid || '');
 
   // Check if user is blocked
@@ -375,62 +389,64 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
             backdropFilter: 'blur(10px)',
             transform: 'translateY(-2px)',
             transition: 'all 0.3s ease',
-            borderRadius: '0.5rem'
+            borderRadius: '0.5rem',
+            maxHeight: '400px',
+            overflowY: 'auto'
           }}
         >
-          {/* Profile Page Options */}
-          {detectedIsProfilePage && localProfileData && (
+          {/* Profile Page Options - Always show Share and Block when on profile page */}
+          {detectedIsProfilePage && (
             <>
-              {isOwnProfile ? (
-                <>
-                  {/* Share Button */}
-                  <DropdownMenuItem
-                    onClick={handleShare}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
-                  >
-                    <Share2 className="h-3 w-3 text-gray-500" />
-                    <span className="text-xs text-gray-700">Share</span>
-                  </DropdownMenuItem>
-                  
-                  {/* Edit Bio Button */}
-                  <DropdownMenuItem
-                    onClick={handleEditBio}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
-                  >
-                    <svg className="h-3 w-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              {/* Share Button - Always show on profile pages */}
+              <DropdownMenuItem
+                onClick={handleShare}
+                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+              >
+                <Share2 className="h-3 w-3 text-gray-500" />
+                <span className="text-xs text-gray-700">Share</span>
+              </DropdownMenuItem>
+              
+              {/* Edit Bio - Only for own profile */}
+              {isOwnProfile && localProfileData && (
+                <DropdownMenuItem
+                  onClick={handleEditBio}
+                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+                >
+                  <svg className="h-3 w-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  <span className="text-xs text-gray-700">{localProfileData.bio ? 'Edit Bio' : 'Add Bio'}</span>
+                </DropdownMenuItem>
+              )}
+              
+              {/* Cancel Subscription - Show if subscribed (not own profile) */}
+              {!isOwnProfile && isSubscribed && subscriptionId && (
+                <DropdownMenuItem
+                  onClick={handleOpenPlansModal}
+                  disabled={plansLoading}
+                  className="flex items-center gap-2 cursor-pointer hover:bg-red-50 rounded-md px-2 py-1.5 transition-colors text-red-600"
+                >
+                  {plansLoading ? (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
+                  ) : (
+                    <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
-                    <span className="text-xs text-gray-700">{localProfileData.bio ? 'Edit Bio' : 'Add Bio'}</span>
-                  </DropdownMenuItem>
-                </>
-              ) : (
-                <>
-                  {/* Cancel Subscription - Show if subscribed */}
-                  {isSubscribed && subscriptionId && (
-                    <DropdownMenuItem
-                      onClick={handleOpenPlansModal}
-                      disabled={plansLoading}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-red-50 rounded-md px-2 py-1.5 transition-colors text-red-600"
-                    >
-                      {plansLoading ? (
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
-                      ) : (
-                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                      <span className="text-xs">Cancel Subscription</span>
-                    </DropdownMenuItem>
                   )}
-                  
-                  {/* Block/Unblock */}
+                  <span className="text-xs">Cancel Subscription</span>
+                </DropdownMenuItem>
+              )}
+              
+              {/* Block/Unblock - Always show when visiting someone else's profile and logged in */}
+              {!isOwnProfile && user?.uid && (
+                <>
                   {isBlocked ? (
                     <DropdownMenuItem
                       onClick={handleUnblockUser}
                       disabled={blocking || checkingBlockStatus}
                       className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
                     >
-                      {blocking ? (
+                      {blocking || checkingBlockStatus ? (
                         <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black"></div>
                       ) : (
                         <UserX className="h-3 w-3 text-gray-500" />
@@ -443,7 +459,7 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
                       disabled={blocking || checkingBlockStatus}
                       className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
                     >
-                      {blocking ? (
+                      {blocking || checkingBlockStatus ? (
                         <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black"></div>
                       ) : (
                         <UserX className="h-3 w-3 text-gray-500" />
@@ -453,23 +469,26 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
                   )}
                 </>
               )}
+              
               <DropdownMenuSeparator className="my-1" />
             </>
           )}
           
-          {/* Filter Options */}
-          <DropdownMenuItem
-            onClick={() => setHideLockedPosts(!hideLockedPosts)}
-            className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
-          >
-            <input
-              type="checkbox"
-              checked={hideLockedPosts}
-              onChange={() => setHideLockedPosts(!hideLockedPosts)}
-              className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
-            />
-            <span className="text-xs text-gray-700">Hide Locked Posts</span>
-          </DropdownMenuItem>
+          {/* Filter Options - Only show for creators/admins, NOT regular users */}
+          {(userRole === 'creator' || userRole === 'admin' || userRole === 'superadmin' || userRole === 'owner') && (
+            <DropdownMenuItem
+              onClick={() => setHideLockedPosts(!hideLockedPosts)}
+              className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={hideLockedPosts}
+                onChange={() => setHideLockedPosts(!hideLockedPosts)}
+                className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
+              />
+              <span className="text-xs text-gray-700">Hide Locked Posts</span>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
