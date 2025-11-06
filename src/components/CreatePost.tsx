@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,13 +8,14 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'react-hot-toast';
 import { db } from '@/lib/firebase/config';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { uploadMedia } from '@/lib/firebase/db';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, getDoc, limit as queryLimit } from 'firebase/firestore';
+import { uploadMedia, createNotification } from '@/lib/firebase/db';
 import { PostType } from '@/lib/types/post';
 import { FiImage, FiVideo, FiBox, FiGlobe, FiLock, FiUnlock, FiDollarSign, FiLoader, FiSend } from 'react-icons/fi';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useDropzone } from 'react-dropzone';
 import Cropper, { ReactCropperElement } from 'react-cropper';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import 'cropperjs/dist/cropper.css';
 
 interface CreatePostProps {
@@ -37,6 +38,36 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const cropperRef = useRef<ReactCropperElement>(null);
   const [showWatermark, setShowWatermark] = useState(true);
+  const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        textareaRef.current &&
+        !textareaRef.current.contains(event.target as Node)
+      ) {
+        setShowResults(false);
+      }
+    };
+
+    if (showResults) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showResults]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const files = acceptedFiles.filter(file => {
@@ -155,6 +186,7 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
         isPaid,
         price: isPaid ? parseFloat(price) : null,
         status: 'active',
+        taggedUsers: taggedUsers,
         metadata: {
           fileCount: selectedFiles.length,
           fileTypes: selectedFiles.map(f => f.type),
@@ -163,7 +195,33 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
         showWatermark,
       };
 
-      await addDoc(collection(db, 'posts'), postData);
+      const postRef = await addDoc(collection(db, 'posts'), postData);
+      const postId = postRef.id;
+
+      // Send notifications to tagged users (mentions)
+      for (const taggedUserId of taggedUsers) {
+        if (taggedUserId !== user.uid) {
+          try {
+            await createNotification({
+              type: 'mention',
+              fromUser: {
+                uid: user.uid,
+                displayName: user.displayName || 'Anonymous',
+                photoURL: user.photoURL || '',
+                username: user.displayName || 'Anonymous'
+              },
+              toUser: taggedUserId,
+              data: {
+                postId: postId,
+                text: content.trim().length > 100 ? content.trim().substring(0, 100) + '...' : content.trim(),
+                timestamp: serverTimestamp()
+              }
+            });
+          } catch (error) {
+            console.error('Error sending notification to tagged user:', error);
+          }
+        }
+      }
       
       // Reset form
       setContent('');
@@ -173,6 +231,8 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
       setVisibility('public');
       setIsPaid(false);
       setPrice('');
+      setTaggedUsers([]);
+      setShowResults(false);
 
       toast.success('Post created successfully!');
       onPostCreated?.();
@@ -192,16 +252,192 @@ export function CreatePost({ onPostCreated }: CreatePostProps) {
     });
   };
 
+  // Handle content change with @mention detection
+  const handleContentChange = async (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    console.log('[CreatePost] handleContentChange called', { value: e.target.value });
+    const value = e.target.value;
+    setContent(value);
+    const cursorPos = e.target.selectionStart || 0;
+    setCursorPosition(cursorPos);
+    const textBeforeCursor = value.substring(0, cursorPos);
+    
+    // Match @username pattern - look for @ followed by optional alphanumeric/underscore characters
+    // Allow @ at start or after space/newline
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
+    console.log('[CreatePost] Regex match result:', match, 'textBeforeCursor:', textBeforeCursor);
+    
+    if (match) {
+      const searchTerm = match[1];
+      setSearchTerm(searchTerm);
+      console.log('[CreatePost] @mention detected:', { searchTerm, cursorPos, textBeforeCursor });
+      try {
+        const usersRef = collection(db, 'users');
+        let q;
+        
+        if (searchTerm && searchTerm.length > 0) {
+          // Search for users matching the search term
+          q = query(
+            usersRef,
+            where('username', '>=', searchTerm),
+            where('username', '<=', searchTerm + '\uf8ff'),
+            queryLimit(20)
+          );
+        } else {
+          // If just @ is typed, show message or wait for input
+          // Don't query all users - wait for user to type at least one character
+          setSearchResults([]);
+          setShowResults(false);
+          return;
+        }
+        
+        const querySnapshot = await getDocs(q);
+        let results = querySnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            username: data.username || '',
+            displayName: data.displayName || '',
+            photoURL: data.photoURL,
+            privacy: data.privacy
+          };
+        });
+        
+        // Filter users who allow tagging (privacy check)
+        results = results.filter(user => user.privacy?.allowTagging !== false);
+        
+        // If there's a search term, filter by it client-side too
+        if (searchTerm) {
+          results = results.filter(user => 
+            user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.displayName && user.displayName.toLowerCase().includes(searchTerm.toLowerCase()))
+          );
+        }
+        
+        // Limit to 20 results
+        results = results.slice(0, 20);
+        
+        console.log('[CreatePost] Search results:', results.length, 'users found');
+        setSearchResults(results);
+        setShowResults(results.length > 0);
+        
+        // Calculate dropdown position
+        if (textareaRef.current) {
+          const textarea = textareaRef.current;
+          const textareaRect = textarea.getBoundingClientRect();
+          const textBeforeCursor = value.substring(0, cursorPos);
+          
+          // Calculate text width using a temporary span
+          const span = document.createElement('span');
+          span.style.visibility = 'hidden';
+          span.style.position = 'absolute';
+          span.style.whiteSpace = 'pre';
+          span.style.font = window.getComputedStyle(textarea).font;
+          span.style.fontSize = window.getComputedStyle(textarea).fontSize;
+          span.style.fontFamily = window.getComputedStyle(textarea).fontFamily;
+          span.style.paddingLeft = window.getComputedStyle(textarea).paddingLeft;
+          span.textContent = textBeforeCursor;
+          document.body.appendChild(span);
+          const textWidth = span.offsetWidth;
+          document.body.removeChild(span);
+          
+          // Calculate line number (0-indexed)
+          const lines = textBeforeCursor.split('\n').length - 1;
+          const lineHeight = parseInt(window.getComputedStyle(textarea).lineHeight) || 24;
+          const paddingTop = parseInt(window.getComputedStyle(textarea).paddingTop) || 16;
+          
+          // Use fixed positioning relative to viewport
+          setDropdownPosition({ 
+            top: textareaRect.top + paddingTop + (lines * lineHeight) + lineHeight + 5, 
+            left: textareaRect.left + textWidth + 5
+          });
+          
+          console.log('[CreatePost] Dropdown position:', {
+            top: textareaRect.top + paddingTop + (lines * lineHeight) + lineHeight + 5,
+            left: textareaRect.left + textWidth + 5,
+            textareaRect,
+            textWidth,
+            lines,
+            lineHeight
+          });
+        }
+      } catch (error) {
+        console.error('Error searching users:', error);
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    } else {
+      setShowResults(false);
+    }
+  };
+
+  // Handle user selection from mention dropdown
+  const handleUserSelect = (selectedUser: any) => {
+    const beforeCursor = content.substring(0, cursorPosition).replace(/@\w*$/, '');
+    const afterCursor = content.substring(cursorPosition);
+    const newContent = `${beforeCursor}@${selectedUser.username} ${afterCursor}`;
+    setContent(newContent);
+    setShowResults(false);
+    if (!taggedUsers.includes(selectedUser.id)) {
+      setTaggedUsers([...taggedUsers, selectedUser.id]);
+    }
+    if (textareaRef.current) {
+      const newCursorPos = beforeCursor.length + selectedUser.username.length + 2;
+      textareaRef.current.focus();
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        }
+      }, 0);
+    }
+  };
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 mb-8 transform transition-all hover:shadow-xl border border-[#EEEEEE]">
       <form onSubmit={handleSubmit}>
-        <Textarea
-          placeholder="Share your thoughts..."
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="w-full p-4 border border-[#E0E0E0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF4081] resize-none bg-[#FAFAFA] text-[#1A1A1A] placeholder-[#999999]"
-          rows={3}
-        />
+        <div className="relative">
+          <Textarea
+            ref={textareaRef}
+            placeholder="Share your thoughts... Type @ to mention someone"
+            value={content}
+            onChange={handleContentChange}
+            className="w-full p-4 border border-[#E0E0E0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF4081] resize-none bg-[#FAFAFA] text-[#1A1A1A] placeholder-[#999999]"
+            rows={3}
+          />
+          {/* User mention dropdown */}
+          {showResults && searchResults.length > 0 && (
+            <div 
+              ref={dropdownRef}
+              className="fixed z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto"
+              style={{
+                top: `${Math.max(10, dropdownPosition.top)}px`,
+                left: `${Math.max(10, dropdownPosition.left)}px`,
+                minWidth: '250px',
+                maxWidth: '300px',
+                display: 'block'
+              }}
+            >
+              {searchResults.map((result) => (
+                <button
+                  key={result.id}
+                  type="button"
+                  className="flex items-center w-full p-3 hover:bg-gray-100 transition-colors text-left"
+                  onClick={() => handleUserSelect(result)}
+                >
+                  <Avatar className="w-8 h-8 mr-3 flex-shrink-0">
+                    <AvatarImage src={result.photoURL || '/default-avatar.png'} />
+                    <AvatarFallback>{result.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col items-start min-w-0 flex-1">
+                    <span className="text-sm font-medium text-gray-900 truncate w-full">{result.username}</span>
+                    {result.displayName && result.displayName !== result.username && (
+                      <span className="text-xs text-gray-500 truncate w-full">{result.displayName}</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="mt-4 space-y-4">
           {/* Media Upload Area */}

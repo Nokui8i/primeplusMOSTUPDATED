@@ -128,6 +128,13 @@ export function NotificationsDropdown() {
         return 'commented on your post';
       case 'follow':
         return 'started following you';
+      case 'mention':
+      case 'tag':
+        // Check if it's a comment or post based on data
+        if (notification.data?.commentId) {
+          return 'tagged you in a comment';
+        }
+        return 'tagged you in a post';
         case 'subscription_expiring':
           return notification.message || 'Your subscription expires in 24 hours';
         case 'subscription_expired':

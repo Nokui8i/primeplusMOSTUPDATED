@@ -74,7 +74,7 @@ export function Post({ post }: PostProps) {
               href={`/profile/${match.username}`}
               className="text-blue-600 hover:underline font-semibold cursor-pointer"
             >
-              @{match.username}
+              {match.username}
             </Link>
           );
       } else if (match.type === 'url') {

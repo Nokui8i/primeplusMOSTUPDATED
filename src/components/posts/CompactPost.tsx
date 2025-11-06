@@ -20,6 +20,7 @@ import { useState, useEffect, useRef } from 'react'
 import { formatDistanceToNow } from 'date-fns'
 import { PostWithAuthor } from '@/lib/types/post'
 import { doc, onSnapshot, getDoc, collection, query, where, getDocs, updateDoc, serverTimestamp, addDoc, increment } from 'firebase/firestore'
+import { User } from '@/lib/types/user'
 import Link from 'next/link'
 import { db } from '@/lib/firebase/config'
 import { useAuth } from '@/hooks/useAuth'
@@ -53,6 +54,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import PlansModal from '@/components/creator/PlansModal'
 import { FiEye } from 'react-icons/fi'
+import { CreatorCard } from '@/components/user/CreatorCard'
 
 interface CompactPostProps {
   post: PostWithAuthor
@@ -162,6 +164,8 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
   const [userSubscription, setUserSubscription] = useState<any>(null)
   const [userPlan, setUserPlan] = useState<any>(null)
   const [canInteract, setCanInteract] = useState(true) // Added state for interaction permissions
+  const [taggedUsersData, setTaggedUsersData] = useState<User[]>([]) // Store tagged users data
+  const [authorData, setAuthorData] = useState<any>(null) // Store author data including coverPhotoUrl
 
   // Debug logging for canInteract changes
   useEffect(() => {
@@ -255,17 +259,82 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
     return () => unsubscribe();
   }, [post.id, user]);
 
+  // Fetch author data including coverPhotoUrl
   useEffect(() => {
-    const fetchAuthorDisplayName = async () => {
+    const fetchAuthorData = async () => {
       const authorId = currentPost.authorId;
       if (authorId) {
-        const userDoc = await getDoc(doc(db, 'users', authorId))
-        const userData = userDoc.data()
-        setAuthorDisplayName(userData?.displayName || 'Anonymous')
+        try {
+          const userDoc = await getDoc(doc(db, 'users', authorId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setAuthorData({
+              displayName: userData.displayName || 'Anonymous',
+              coverPhotoUrl: userData.coverPhotoUrl || userData.coverPhoto || undefined,
+              photoURL: userData.photoURL || userData.profilePhotoUrl || '',
+              username: userData.username || '',
+            });
+            setAuthorDisplayName(userData.displayName || 'Anonymous');
+          }
+        } catch (error) {
+          console.error('Error fetching author data:', error);
+          setAuthorDisplayName('Anonymous');
+        }
       }
-    }
-    fetchAuthorDisplayName()
+    };
+    fetchAuthorData();
   }, [currentPost.authorId])
+
+  // Fetch tagged users data
+  useEffect(() => {
+    const fetchTaggedUsers = async () => {
+      const taggedUserIds = currentPost.taggedUsers || [];
+      if (taggedUserIds.length === 0) {
+        setTaggedUsersData([]);
+        return;
+      }
+
+      try {
+        const usersPromises = taggedUserIds.map(async (userId: string) => {
+          try {
+            const userDoc = await getDoc(doc(db, 'users', userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              return {
+                uid: userDoc.id,
+                email: userData.email || '',
+                displayName: userData.displayName || userData.username || '',
+                username: userData.username || '',
+                photoURL: userData.photoURL || userData.profilePhotoUrl || '',
+                coverPhotoUrl: userData.coverPhotoUrl || userData.coverPhoto || undefined,
+                isVerified: userData.isVerified || false,
+                createdAt: userData.createdAt,
+                updatedAt: userData.updatedAt,
+                role: userData.role,
+                bio: userData.bio,
+                website: userData.website,
+                location: userData.location,
+                followers: userData.followers || 0,
+                following: userData.following || 0,
+              } as User;
+            }
+            return null;
+          } catch (error) {
+            console.error(`Error fetching tagged user ${userId}:`, error);
+            return null;
+          }
+        });
+
+        const users = await Promise.all(usersPromises);
+        setTaggedUsersData(users.filter((user): user is User => user !== null));
+      } catch (error) {
+        console.error('Error fetching tagged users:', error);
+        setTaggedUsersData([]);
+      }
+    };
+
+    fetchTaggedUsers();
+  }, [currentPost.taggedUsers])
 
   useEffect(() => {
     async function checkSubscriptionAndPlan() {
@@ -1033,15 +1102,13 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       
         if (match.type === 'mention') {
           parts.push(
-            <a
+            <Link
               key={match.start}
-              href={`/${match.username}`}
+              href={`/profile/${match.username}`}
               className="text-blue-600 hover:underline font-semibold cursor-pointer"
-              target="_blank"
-              rel="noopener noreferrer"
             >
-              @{match.username}
-            </a>
+              {match.username}
+            </Link>
           );
       } else if (match.type === 'url') {
         parts.push(
@@ -1312,6 +1379,50 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
           )
         )
       ) : null}
+
+      {/* User Card - Displayed under post media */}
+      {currentPost.mediaUrl && (
+        <motion.div 
+          className="px-4 py-3"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <div className="flex flex-row gap-2 md:gap-3 w-full">
+            {/* Author Card */}
+            <div className="flex-1 min-w-0">
+              <CreatorCard
+                userId={currentPost.authorId}
+                username={currentPost.author?.username || authorData?.username || ''}
+                displayName={currentPost.author?.displayName || authorDisplayName}
+                photoURL={currentPost.author?.photoURL || authorData?.photoURL || ''}
+                coverPhotoUrl={authorData?.coverPhotoUrl || (currentPost.author as any)?.coverPhotoUrl || (currentPost.author as any)?.coverPhoto || undefined}
+                isSimpleCard={true}
+              />
+            </div>
+            
+            {/* Tagged Users Cards - Maximum 2 more cards (3 total including author) */}
+            {taggedUsersData.slice(0, 2).map((taggedUser, index) => (
+              <motion.div
+                key={taggedUser.uid}
+                className="flex-1 min-w-0"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + (index + 1) * 0.05 }}
+              >
+                <CreatorCard
+                  userId={taggedUser.uid}
+                  username={taggedUser.username || ''}
+                  displayName={taggedUser.displayName || ''}
+                  photoURL={taggedUser.photoURL || ''}
+                  coverPhotoUrl={taggedUser.coverPhotoUrl}
+                  isSimpleCard={true}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       {/* Post Tags */}
       {post.tags && post.tags.length > 0 && (

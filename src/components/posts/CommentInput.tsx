@@ -308,6 +308,12 @@ export function CommentInput({ postId, postAuthorId, onCommentAdded, parentId, p
     const newComment = `${beforeCursor}@${selectedUser.username} ${afterCursor}`;
     setComment(newComment);
     setShowResults(false);
+    // Maximum 99 tagged users
+    if (taggedUsers.length >= 99) {
+      toast.error('Maximum 99 users can be tagged in a comment');
+      return;
+    }
+    
     if (!taggedUsers.includes(selectedUser.id)) {
       setTaggedUsers([...taggedUsers, selectedUser.id]);
     }

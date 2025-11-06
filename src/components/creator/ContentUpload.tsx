@@ -1,11 +1,15 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { X, Upload, Smile, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, query, where, getDocs, limit as queryLimit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { createNotification } from '@/lib/firebase/db';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { toast } from 'react-hot-toast';
 import { uploadMedia } from '@/lib/aws/upload';
 import { ContentWatermark } from '@/components/media/ContentWatermark';
 import VideoThumbnailUpload from '@/components/creator/VideoThumbnailUpload';
@@ -45,11 +49,74 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
   const [userProfile, setUserProfile] = useState<any>(null);
   const [isVerified, setIsVerified] = useState(false);
   const [isCreatorRole, setIsCreatorRole] = useState(false);
+  const [taggedUsers, setTaggedUsers] = useState<string[]>([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 });
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const contentEditableRef = useRef<HTMLDivElement>(null);
+  
+  // Expose dropdown ref to parent dialog so it can check for clicks
+  useEffect(() => {
+    if (dropdownRef.current) {
+      (dropdownRef.current as any).__isMentionDropdown = true;
+    }
+  }, [showResults]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLTextAreaElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // Helper to get all text nodes from an element
+  const getTextNodes = (node: Node): Text[] => {
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(
+      node,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    let current;
+    while (current = walker.nextNode()) {
+      textNodes.push(current as Text);
+    }
+    return textNodes;
+  };
+  
+  // Format content with blue mentions
+  const formatContentWithMentions = (text: string): string => {
+    if (!text) return '';
+    // Escape HTML first
+    const escapeHtml = (str: string) => {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+    
+    // Find all mentions and wrap them in blue spans
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    let lastIndex = 0;
+    const parts: string[] = [];
+    
+    let match;
+    while ((match = mentionRegex.exec(text)) !== null) {
+      // Add text before mention
+      if (match.index > lastIndex) {
+        parts.push(escapeHtml(text.substring(lastIndex, match.index)));
+      }
+      // Add styled mention
+      parts.push(`<span style="color: #2563eb; font-weight: 600;">${escapeHtml(match[0])}</span>`);
+      lastIndex = mentionRegex.lastIndex;
+    }
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(escapeHtml(text.substring(lastIndex)));
+    }
+    
+    return parts.join('') || '<br>';
+  };
 
   // Load user profile and username
   useEffect(() => {
@@ -141,8 +208,270 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
     }
   }, [isOpen]);
 
-  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        contentRef.current &&
+        !contentRef.current.contains(event.target as Node)
+      ) {
+        setShowResults(false);
+      }
+    };
+
+    if (showResults) {
+      // Use capture phase to catch clicks before they bubble
+      document.addEventListener('mousedown', handleClickOutside, true);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+    };
+  }, [showResults]);
+
+  // Handle contentEditable input
+  const handleContentEditableInput = async (e: React.FormEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const text = target.innerText || target.textContent || '';
+    setContent(text);
+    
+    // Get cursor position
+    const selection = window.getSelection();
+    let cursorPos = 0;
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const preCaretRange = range.cloneRange();
+      preCaretRange.selectNodeContents(target);
+      preCaretRange.setEnd(range.endContainer, range.endOffset);
+      cursorPos = preCaretRange.toString().length;
+    }
+    setCursorPosition(cursorPos);
+    
+    // Format HTML with blue mentions
+    const formattedHtml = formatContentWithMentions(text);
+    
+    // Save cursor position
+    const savedCursorPos = cursorPos;
+    
+    // Update HTML
+    requestAnimationFrame(() => {
+      if (contentEditableRef.current) {
+        const wasEmpty = !contentEditableRef.current.innerText;
+        contentEditableRef.current.innerHTML = formattedHtml || '<br>';
+        
+        // Restore cursor position
+        if (selection) {
+          try {
+            const textNodes = getTextNodes(contentEditableRef.current);
+            let charCount = 0;
+            let found = false;
+            
+            for (const node of textNodes) {
+              const nodeLength = node.textContent?.length || 0;
+              if (charCount + nodeLength >= savedCursorPos) {
+                const range = document.createRange();
+                range.setStart(node, Math.min(savedCursorPos - charCount, nodeLength));
+                range.setEnd(node, Math.min(savedCursorPos - charCount, nodeLength));
+                selection.removeAllRanges();
+                selection.addRange(range);
+                found = true;
+                break;
+              }
+              charCount += nodeLength;
+            }
+            
+            if (!found && textNodes.length > 0) {
+              // Fallback: set cursor to end
+              const lastNode = textNodes[textNodes.length - 1];
+              const lastLength = lastNode.textContent?.length || 0;
+              const range = document.createRange();
+              range.setStart(lastNode, lastLength);
+              range.setEnd(lastNode, lastLength);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } else if (wasEmpty && savedCursorPos === 0) {
+              // If it was empty, ensure cursor is at start
+              const range = document.createRange();
+              range.setStart(contentEditableRef.current, 0);
+              range.setEnd(contentEditableRef.current, 0);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          } catch (err) {
+            // If restoration fails, set cursor to end
+            const range = document.createRange();
+            range.selectNodeContents(contentEditableRef.current);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      }
+    });
+    
+    const textBeforeCursor = text.substring(0, cursorPos);
+    
+    // Match @username pattern - look for @ followed by optional alphanumeric/underscore characters
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
+    console.log('[ContentUpload] Regex match result:', match, 'textBeforeCursor:', textBeforeCursor);
+    
+    if (match) {
+      const searchTerm = match[1];
+      setSearchTerm(searchTerm);
+      
+      if (searchTerm && searchTerm.length > 0) {
+        try {
+          const usersRef = collection(db, 'users');
+          const q = query(
+            usersRef,
+            where('username', '>=', searchTerm),
+            where('username', '<=', searchTerm + '\uf8ff'),
+            queryLimit(20)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          let results = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              username: data.username || '',
+              displayName: data.displayName || '',
+              photoURL: data.photoURL,
+              privacy: data.privacy
+            };
+          });
+          
+          // Filter users who allow tagging (privacy check)
+          results = results.filter(user => user.privacy?.allowTagging !== false);
+          
+          // Filter by search term client-side too
+          if (searchTerm) {
+            results = results.filter(user => 
+              user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (user.displayName && user.displayName.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+          }
+          
+          // Limit to 20 results
+          results = results.slice(0, 20);
+          
+          console.log('[ContentUpload] Search results:', results.length, 'users found', results);
+          setSearchResults(results);
+          setShowResults(results.length > 0);
+          console.log('[ContentUpload] showResults set to:', results.length > 0);
+          
+          // Calculate dropdown position
+          if (contentEditableRef.current) {
+            const editable = contentEditableRef.current;
+            const editableRect = editable.getBoundingClientRect();
+            
+            // Calculate text width using a temporary span
+            const span = document.createElement('span');
+            span.style.visibility = 'hidden';
+            span.style.position = 'absolute';
+            span.style.whiteSpace = 'pre-wrap';
+            span.style.font = window.getComputedStyle(editable).font;
+            span.style.fontSize = window.getComputedStyle(editable).fontSize;
+            span.style.fontFamily = window.getComputedStyle(editable).fontFamily;
+            span.style.paddingLeft = window.getComputedStyle(editable).paddingLeft;
+            span.textContent = textBeforeCursor;
+            document.body.appendChild(span);
+            const textWidth = span.offsetWidth;
+            document.body.removeChild(span);
+            
+            // Calculate line number (0-indexed)
+            const lines = textBeforeCursor.split('\n').length - 1;
+            const lineHeight = parseInt(window.getComputedStyle(editable).lineHeight) || 24;
+            const paddingTop = parseInt(window.getComputedStyle(editable).paddingTop) || 16;
+            
+            // Use fixed positioning relative to viewport
+            const position = { 
+              top: editableRect.top + paddingTop + (lines * lineHeight) + lineHeight + 5, 
+              left: editableRect.left + textWidth + 5
+            };
+            console.log('[ContentUpload] Dropdown position:', position);
+            setDropdownPosition(position);
+          }
+        } catch (error) {
+          console.error('Error searching users:', error);
+          setSearchResults([]);
+          setShowResults(false);
+        }
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    } else {
+      setShowResults(false);
+    }
+  };
+
+  // Handle user selection from mention dropdown
+  const handleUserSelect = (selectedUser: any) => {
+    if (!contentEditableRef.current) return;
+    
+    const text = content;
+    const beforeCursor = text.substring(0, cursorPosition).replace(/@\w*$/, '');
+    const afterCursor = text.substring(cursorPosition);
+    const newContent = `${beforeCursor}@${selectedUser.username} ${afterCursor}`;
+    setContent(newContent);
+    setShowResults(false);
+    setSearchTerm('');
+    
+    // Add to tagged users
+    // Maximum 99 tagged users
+    if (taggedUsers.length >= 99) {
+      toast.error('Maximum 99 users can be tagged in a post');
+      return;
+    }
+    
+    if (!taggedUsers.includes(selectedUser.id)) {
+      setTaggedUsers([...taggedUsers, selectedUser.id]);
+    }
+    
+    // Update contentEditable with formatted HTML
+    const formattedHtml = formatContentWithMentions(newContent);
+    const newCursorPos = beforeCursor.length + selectedUser.username.length + 2; // +2 for @ and space
+    
+    requestAnimationFrame(() => {
+      if (contentEditableRef.current) {
+        contentEditableRef.current.innerHTML = formattedHtml || '<br>';
+        
+        // Restore cursor position after the mention
+        const selection = window.getSelection();
+        if (selection) {
+          try {
+            const textNodes = getTextNodes(contentEditableRef.current);
+            let charCount = 0;
+            
+            for (const node of textNodes) {
+              const nodeLength = node.textContent?.length || 0;
+              if (charCount + nodeLength >= newCursorPos) {
+                const range = document.createRange();
+                range.setStart(node, Math.min(newCursorPos - charCount, nodeLength));
+                range.setEnd(node, Math.min(newCursorPos - charCount, nodeLength));
+                selection.removeAllRanges();
+                selection.addRange(range);
+                break;
+              }
+              charCount += nodeLength;
+            }
+          } catch (err) {
+            // Fallback: set cursor to end
+            const range = document.createRange();
+            range.selectNodeContents(contentEditableRef.current);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+        
+        // Focus the contentEditable
+        contentEditableRef.current.focus();
+      }
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,7 +562,9 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
 
 
   const handleSubmit = async () => {
-    if (!content.trim() && !file) return;
+    // Get text from contentEditable (plain text, no HTML)
+    const finalContent = contentEditableRef.current?.innerText || contentRef.current?.value || content;
+    if (!finalContent.trim() && !file) return;
 
     // Prevent non-creators from uploading paid content
     if ((accessLevel === 'paid_subscriber' || accessLevel === 'ppv') && !isVerified) {
@@ -267,7 +598,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
       }
 
       const newPostData = {
-        content: content.trim(),
+        content: finalContent.trim(),
         authorId: userId,
         createdAt: new Date(),
         mediaUrl: mediaUrl,
@@ -286,7 +617,7 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
         comments: 0,
         shares: 0,
         views: 0,
-        taggedUsers: [],
+        taggedUsers: taggedUsers,
         engagement: {
           views: 0,
           uniqueViews: 0,
@@ -309,6 +640,36 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
       }
 
       console.log('Post created with ID:', postRef.id);
+      
+      // Send notifications to tagged users
+      if (taggedUsers.length > 0 && user) {
+        try {
+          for (const taggedUserId of taggedUsers) {
+            if (taggedUserId !== user.uid) {
+              await createNotification({
+                type: 'mention',
+                fromUser: {
+                  uid: user.uid,
+                  displayName: user.displayName || user.email || 'Someone',
+                  photoURL: user.photoURL,
+                  username: userProfile?.username || user.email?.split('@')[0]
+                },
+                toUser: taggedUserId,
+                data: {
+                  postId: postRef.id,
+                  link: `/posts/${postRef.id}`
+                }
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error sending mention notifications:', error);
+        }
+      }
+      
+      // Reset tagged users
+      setTaggedUsers([]);
+      
       onUploadComplete?.();
       onClose();
     } catch (error) {
@@ -355,13 +716,137 @@ export default function ContentUpload({ isOpen, onClose, onUploadComplete, userI
           <div className="upload-content">
             <div className="content-area">
               <div className="relative">
-                <textarea
-                  ref={contentRef}
-                  value={content}
-                  onChange={handleContentChange}
-                  placeholder={`What's on your mind, ${user?.displayName?.split(' ')[0] || 'there'}?`}
-                  className="text-input pr-8"
-                  />
+                <div
+                  ref={contentEditableRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleContentEditableInput}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const text = e.clipboardData.getData('text/plain');
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0) {
+                      const range = selection.getRangeAt(0);
+                      range.deleteContents();
+                      const textNode = document.createTextNode(text);
+                      range.insertNode(textNode);
+                      range.setStartAfter(textNode);
+                      range.setEndAfter(textNode);
+                      selection.removeAllRanges();
+                      selection.addRange(range);
+                    }
+                    // Trigger input event
+                    if (contentEditableRef.current) {
+                      contentEditableRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                  }}
+                  className="text-input pr-8 min-h-[120px] whitespace-pre-wrap break-words"
+                  style={{
+                    outline: 'none',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word'
+                  }}
+                  data-placeholder={`What's on your mind, ${user?.displayName?.split(' ')[0] || 'there'}? Type @ to mention someone`}
+                />
+                <style dangerouslySetInnerHTML={{__html: `
+                  [contenteditable][data-placeholder]:empty:before {
+                    content: attr(data-placeholder);
+                    color: #9ca3af;
+                    pointer-events: none;
+                    position: absolute;
+                  }
+                  [contenteditable] span {
+                    color: #2563eb;
+                    font-weight: 600;
+                  }
+                `}} />
+                  {/* User mention dropdown - rendered in portal to escape dialog */}
+                  {typeof window !== 'undefined' && showResults && searchResults.length > 0 && createPortal(
+                    <div 
+                      ref={dropdownRef}
+                      data-mention-dropdown="true"
+                      className="fixed z-[10010] rounded-lg overflow-y-auto border-0"
+                      style={{
+                        top: `${Math.max(10, dropdownPosition.top)}px`,
+                        left: `${Math.max(10, dropdownPosition.left)}px`,
+                        width: 'auto',
+                        minWidth: '200px',
+                        maxWidth: '280px',
+                        maxHeight: '240px',
+                        display: 'block',
+                        pointerEvents: 'auto',
+                        isolation: 'isolate',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
+                        background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                        border: '1px solid rgba(0, 0, 0, 0.1)',
+                        padding: '2px'
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onMouseDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onTouchStart={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                      }}
+                    >
+                      {searchResults.map((result) => (
+                        <button
+                          key={result.id}
+                          type="button"
+                          data-mention-dropdown="true"
+                          className="flex items-center w-full px-3 py-2 transition-all duration-200 text-left cursor-pointer rounded-md"
+                          style={{
+                            background: 'transparent',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#dbeafe';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            console.log('[ContentUpload] User selected (click):', result);
+                            handleUserSelect(result);
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onTouchStart={(e) => {
+                            e.stopPropagation();
+                            console.log('[ContentUpload] User selected (touch):', result);
+                            handleUserSelect(result);
+                          }}
+                          onPointerDown={(e) => {
+                            e.stopPropagation();
+                          }}
+                          style={{
+                            pointerEvents: 'auto',
+                            touchAction: 'manipulation',
+                            WebkitTapHighlightColor: 'transparent'
+                          }}
+                        >
+                          <Avatar className="w-8 h-8 mr-3 flex-shrink-0">
+                            <AvatarImage src={result.photoURL || '/default-avatar.png'} />
+                            <AvatarFallback>{result.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col items-start min-w-0 flex-1">
+                            <span className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline active:text-blue-800 truncate w-full">{result.username}</span>
+                            {result.displayName && result.displayName !== result.username && (
+                              <span className="text-xs text-gray-500 truncate w-full">{result.displayName}</span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>,
+                    document.body
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button

@@ -19,6 +19,7 @@ html {
   margin: 0 auto;
   height: 38px;
   align-items: center;
+  gap: 0.5rem;
 }
 
 .tab-container * {
@@ -80,36 +81,38 @@ html {
   outline-offset: 2px;
 }
 
-/* Desktop indicator positions - Centered with tabs (100px each) */
-.tab--1:checked ~ .indicator {
-  transform: translateX(19px); /* (100-62)/2 = 19px to center */
-  width: 62px;
-}
+/* Desktop indicator positions - Centered with tabs (100px each + 8px gap) */
+@media (min-width: 701px) {
+  .tab--1:checked ~ .indicator {
+    transform: translateX(19px); /* (100-62)/2 = 19px to center */
+    width: 62px;
+  }
 
-.tab--2:checked ~ .indicator {
-  transform: translateX(119px); /* 100 + 19 */
-  width: 62px;
-}
+  .tab--2:checked ~ .indicator {
+    transform: translateX(120px); /* 100 + 8 (gap) + 19 - 7 (adjusted left) */
+    width: 62px;
+  }
 
-.tab--3:checked ~ .indicator {
-  transform: translateX(214px); /* 200 + 14 (72px indicator) */
-  width: 72px;
-}
+  .tab--3:checked ~ .indicator {
+    transform: translateX(213px); /* 200 + 16 (2*gap) + 14 (72px indicator) - 17 (adjusted left) */
+    width: 72px;
+  }
 
-.tab--4:checked ~ .indicator {
-  transform: translateX(319px); /* 300 + 19 */
-  width: 62px;
-}
+  .tab--4:checked ~ .indicator {
+    transform: translateX(327px); /* 300 + 24 (3*gap) + 19 - 8 (adjusted left) */
+    width: 62px;
+  }
 
-input.tab--5:checked ~ .indicator,
-.tab.tab--5:checked ~ .indicator {
-  transform: translateX(420px) !important; /* 400 + 20 (60px indicator) */
-  width: 60px !important;
-}
+  input.tab--5:checked ~ .indicator,
+  .tab.tab--5:checked ~ .indicator {
+    transform: translateX(432px) !important; /* 400 + 32 (4*gap) + 20 (60px indicator) - 12 (adjusted left) */
+    width: 60px !important;
+  }
 
-.tab--6:checked ~ .indicator {
-  transform: translateX(514px); /* 500 + 14 (72px indicator) */
-  width: 72px;
+  .tab--6:checked ~ .indicator {
+    transform: translateX(542px); /* 500 + 40 (5*gap) + 14 (72px indicator) */
+    width: 72px;
+  }
 }
 
 /* Mobile-specific tab styles - From Uiverse.io by Pradeepsaranbishnoi */
@@ -127,6 +130,7 @@ input.tab--5:checked ~ .indicator,
     border: none;
     transform: scale(1);
     max-width: 100%;
+    gap: 0.5rem;
   }
   
   .tab-container * {
@@ -178,38 +182,38 @@ input.tab--5:checked ~ .indicator,
   }
   
   .tab--1:checked ~ .indicator {
-    transform: translateX(2px); /* Moved slightly left */
+    transform: translateX(8px); /* Moved slightly more right to align with text */
     width: 62px;
   }
   
   input.tab--2:checked ~ .indicator,
   .tab.tab--2:checked ~ .indicator {
-    transform: translateX(65px) !important; /* Moved left */
+    transform: translateX(88px) !important; /* 110 (tab width) + 8 (gap) + 8 (offset) - 31 (half indicator) - 7 (adjusted left) */
     width: 62px !important;
   }
   
   input.tab--3:checked ~ .indicator,
   .tab.tab--3:checked ~ .indicator,
   input#tab3:checked ~ .indicator {
-    transform: translateX(129px) !important; /* Moved slightly left */
+    transform: translateX(160px) !important; /* 220 (2*tabs) + 16 (2*gaps) + 8 (offset) - 41 (half indicator) - 17 (adjusted left) */
     width: 82px !important;
   }
   
   input.tab--4:checked ~ .indicator,
   .tab.tab--4:checked ~ .indicator {
-    transform: translateX(208px) !important; /* Moved left (36px total = 5x6px + 2x6px - 1x6px) */
+    transform: translateX(251px) !important; /* 330 (3*tabs) + 24 (3*gaps) + 8 (offset) - 31 (half indicator) - 8 (adjusted left) */
     width: 62px !important;
   }
 
   input.tab--5:checked ~ .indicator,
   .tab.tab--5:checked ~ .indicator {
-    transform: translateX(278px) !important; /* Moved left (57px = 7x6px + 2x6px + 0.5x6px) */
+    transform: translateX(329px) !important; /* 440 (4*tabs) + 32 (4*gaps) + 8 (offset) - 35 (half indicator) - 12 (adjusted left) */
     width: 70px !important;
   }
 
   input.tab--6:checked ~ .indicator,
   .tab.tab--6:checked ~ .indicator {
-    transform: translateX(339px) !important; /* Moved right (39px = 3x6px + 2x6px + 1x6px + 0.5x6px) */
+    transform: translateX(423px) !important; /* 550 (5*tabs) + 40 (5*gaps) + 8 (offset) - 31 (half indicator) */
     width: 62px !important;
   }
 }
@@ -221,6 +225,7 @@ input.tab--5:checked ~ .indicator,
     height: 38px;
     align-items: center;
     max-width: 100%;
+    gap: 0.5rem;
   }
   
   .tab_label {
@@ -236,38 +241,38 @@ input.tab--5:checked ~ .indicator,
   }
   
   .tab--1:checked ~ .indicator {
-    transform: translateX(2px); /* Moved slightly left */
+    transform: translateX(8px); /* Moved slightly more right to align with text */
     width: 57px;
   }
   
   input.tab--2:checked ~ .indicator,
   .tab.tab--2:checked ~ .indicator {
-    transform: translateX(60px) !important; /* Moved left */
+    transform: translateX(83px) !important; /* 105 (tab width) + 8 (gap) + 8 (offset) - 28.5 (half indicator) - 7 (adjusted left) */
     width: 57px !important;
   }
   
   input.tab--3:checked ~ .indicator,
   .tab.tab--3:checked ~ .indicator,
   input#tab3:checked ~ .indicator {
-    transform: translateX(116.5px) !important; /* Moved slightly left */
+    transform: translateX(150px) !important; /* 210 (2*tabs) + 16 (2*gaps) + 8 (offset) - 38.5 (half indicator) - 17 (adjusted left) */
     width: 77px !important;
   }
   
   input.tab--4:checked ~ .indicator,
   .tab.tab--4:checked ~ .indicator {
-    transform: translateX(198px) !important; /* Moved left (36px total = 5x6px + 2x6px - 1x6px) */
+    transform: translateX(236px) !important; /* 315 (3*tabs) + 24 (3*gaps) + 8 (offset) - 28.5 (half indicator) - 8 (adjusted left) */
     width: 57px !important;
   }
   
   input.tab--5:checked ~ .indicator,
   .tab.tab--5:checked ~ .indicator {
-    transform: translateX(253px) !important; /* Moved left (57px = 7x6px + 2x6px + 0.5x6px) */
+    transform: translateX(309px) !important; /* 420 (4*tabs) + 32 (4*gaps) + 8 (offset) - 32.5 (half indicator) - 12 (adjusted left) */
     width: 65px !important;
   }
 
   input.tab--6:checked ~ .indicator,
   .tab.tab--6:checked ~ .indicator {
-    transform: translateX(314px) !important; /* Moved right (39px = 3x6px + 2x6px + 1x6px + 0.5x6px) */
+    transform: translateX(398px) !important; /* 525 (5*tabs) + 40 (5*gaps) + 8 (offset) - 28.5 (half indicator) */
     width: 57px !important;
   }
 }

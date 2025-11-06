@@ -70,6 +70,26 @@ export function ContentUploadDialog({ triggerClassName, onUploadComplete, childr
           ref={dialogRef}
           className="fixed left-[50%] top-[50%] z-[1001] w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]"
           style={{ zIndex: 1001 }}
+          onPointerDownOutside={(e) => {
+            // Allow clicks on mention dropdown - prevent dialog from closing if clicking on dropdown
+            const target = e.target as HTMLElement;
+            const dropdown = target?.closest('[data-mention-dropdown]');
+            if (dropdown || target?.getAttribute('data-mention-dropdown')) {
+              // Click is on dropdown, prevent dialog from closing
+              e.preventDefault();
+            }
+            // Otherwise, allow normal outside click behavior (dialog closes)
+          }}
+          onInteractOutside={(e) => {
+            // Allow interactions with mention dropdown - prevent dialog from closing if interacting with dropdown
+            const target = e.target as HTMLElement;
+            const dropdown = target?.closest('[data-mention-dropdown]');
+            if (dropdown || target?.getAttribute('data-mention-dropdown')) {
+              // Interaction is with dropdown, prevent dialog from closing
+              e.preventDefault();
+            }
+            // Otherwise, allow normal outside interaction behavior (dialog closes)
+          }}
         >
           <DialogTitle className="sr-only">Create Post</DialogTitle>
           {user ? (

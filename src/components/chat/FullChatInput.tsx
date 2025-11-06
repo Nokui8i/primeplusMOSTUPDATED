@@ -129,7 +129,7 @@ export function FullChatInput({ onSend, uploading }: FullChatInputProps) {
                           setMessage(prev => prev + emoji);
                           setShowEmojiPicker(false);
                         }}
-                        className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md text-lg"
+                        className="w-8 h-8 flex items-center justify-center hover:bg-blue-100 rounded-md text-lg"
                       >
                         {emoji}
                       </button>

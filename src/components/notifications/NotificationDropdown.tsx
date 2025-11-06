@@ -75,7 +75,9 @@ export default function NotificationDropdown() {
             <div className="flex-1 min-w-0">
               <p className="text-sm text-gray-900">
                 <span className="font-medium">{notification.fromUser?.displayName || 'Someone'}</span>{' '}
-                {notification.data?.message || notification.data?.text || 'sent you a notification'}
+                {notification.type === 'mention' || notification.type === 'tag' 
+                  ? (notification.data?.commentId ? 'tagged you in a comment' : 'tagged you in a post')
+                  : (notification.data?.message || notification.data?.text || 'sent you a notification')}
               </p>
               <p className="mt-1 text-xs text-gray-500">
                 {formatDistanceToNow(notification.createdAt.toDate(), { addSuffix: true })}

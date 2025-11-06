@@ -400,7 +400,7 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
               {/* Share Button - Always show on profile pages */}
               <DropdownMenuItem
                 onClick={handleShare}
-                className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+                className="flex items-center gap-2 cursor-pointer hover:bg-blue-100 rounded-md px-2 py-1.5 transition-colors"
               >
                 <Share2 className="h-3 w-3 text-gray-500" />
                 <span className="text-xs text-gray-700">Share</span>
@@ -410,7 +410,7 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
               {isOwnProfile && localProfileData && (
                 <DropdownMenuItem
                   onClick={handleEditBio}
-                  className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+                  className="flex items-center gap-2 cursor-pointer hover:bg-blue-100 rounded-md px-2 py-1.5 transition-colors"
                 >
                   <svg className="h-3 w-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -444,7 +444,7 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
                     <DropdownMenuItem
                       onClick={handleUnblockUser}
                       disabled={blocking || checkingBlockStatus}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+                      className="flex items-center gap-2 cursor-pointer hover:bg-blue-100 rounded-md px-2 py-1.5 transition-colors"
                     >
                       {blocking || checkingBlockStatus ? (
                         <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black"></div>
@@ -457,7 +457,7 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
                     <DropdownMenuItem
                       onClick={handleBlockUser}
                       disabled={blocking || checkingBlockStatus}
-                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+                      className="flex items-center gap-2 cursor-pointer hover:bg-blue-100 rounded-md px-2 py-1.5 transition-colors"
                     >
                       {blocking || checkingBlockStatus ? (
                         <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-black"></div>
@@ -478,7 +478,7 @@ export function FilterDropdown({ profileData = null, isProfilePage = false }: Fi
           {(userRole === 'creator' || userRole === 'admin' || userRole === 'superadmin' || userRole === 'owner') && (
             <DropdownMenuItem
               onClick={() => setHideLockedPosts(!hideLockedPosts)}
-              className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 rounded-md px-2 py-1.5 transition-colors"
+              className="flex items-center gap-2 cursor-pointer hover:bg-blue-100 rounded-md px-2 py-1.5 transition-colors"
             >
               <input
                 type="checkbox"

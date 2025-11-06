@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Post as PostType } from '@/lib/types/post'
 import { Button } from '@/components/ui/button'
-import { updatePost } from '@/lib/firebase/db'
+import { updatePost, createNotification } from '@/lib/firebase/db'
 import { toast } from 'react-hot-toast'
 import MediaContent from '@/components/posts/MediaContent'
 import { useAuth } from '@/lib/firebase/auth'
@@ -13,8 +13,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ContentWatermark } from '@/components/media/ContentWatermark'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { createPortal } from 'react-dom'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
 interface EditPostDialogProps {
   post: PostType
@@ -31,6 +33,14 @@ export function EditPostDialog({
   const [content, setContent] = useState(post.content || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
+  const contentEditableRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const [taggedUsers, setTaggedUsers] = useState<string[]>(post.taggedUsers || [])
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [showResults, setShowResults] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [cursorPosition, setCursorPosition] = useState(0)
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 })
   const [accessLevel, setAccessLevel] = useState<'free' | 'free_subscriber' | 'paid_subscriber' | 'ppv'>(() => {
     const level = post.accessSettings?.accessLevel || 'free';
     // Map old values to new values
@@ -52,12 +62,326 @@ export function EditPostDialog({
   const [isVerified, setIsVerified] = useState(false)
   const [isCreatorRole, setIsCreatorRole] = useState(false)
   const [is360Mode, setIs360Mode] = useState<boolean>(post.type === 'video360' || post.type === 'image360')
+  const [userProfile, setUserProfile] = useState<any>(null)
   // Store the initial 360 mode state for comparison
   const initialIs360Mode = post.type === 'video360' || post.type === 'image360'
 
+  // Helper to get all text nodes from an element
+  const getTextNodes = (node: Node): Text[] => {
+    const textNodes: Text[] = [];
+    const walker = document.createTreeWalker(
+      node,
+      NodeFilter.SHOW_TEXT,
+      null
+    );
+    let current;
+    while (current = walker.nextNode()) {
+      textNodes.push(current as Text);
+    }
+    return textNodes;
+  };
+  
+  // Format content with blue mentions
+  const formatContentWithMentions = (text: string): string => {
+    if (!text) return '';
+    const escapeHtml = (str: string) => {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    };
+    
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
+    let lastIndex = 0;
+    const parts: string[] = [];
+    
+    let match;
+    while ((match = mentionRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(escapeHtml(text.substring(lastIndex, match.index)));
+      }
+      parts.push(`<span style="color: #2563eb; font-weight: 600;">${escapeHtml(match[0])}</span>`);
+      lastIndex = mentionRegex.lastIndex;
+    }
+    if (lastIndex < text.length) {
+      parts.push(escapeHtml(text.substring(lastIndex)));
+    }
+    
+    return parts.join('') || '<br>';
+  };
+
+  // Handle contentEditable input
+  const handleContentEditableInput = async (e: React.FormEvent<HTMLDivElement>) => {
+    console.log('[EditPostDialog] handleContentEditableInput called');
+    const target = e.currentTarget;
+    const text = target.innerText || target.textContent || '';
+    console.log('[EditPostDialog] Content text:', text);
+    setContent(text);
+    
+    const selection = window.getSelection();
+    let cursorPos = 0;
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const preCaretRange = range.cloneRange();
+      preCaretRange.selectNodeContents(target);
+      preCaretRange.setEnd(range.endContainer, range.endOffset);
+      cursorPos = preCaretRange.toString().length;
+    }
+    setCursorPosition(cursorPos);
+    
+    const formattedHtml = formatContentWithMentions(text);
+    const savedCursorPos = cursorPos;
+    
+    requestAnimationFrame(() => {
+      if (contentEditableRef.current) {
+        const wasEmpty = !contentEditableRef.current.innerText;
+        contentEditableRef.current.innerHTML = formattedHtml || '<br>';
+        
+        if (selection) {
+          try {
+            const textNodes = getTextNodes(contentEditableRef.current);
+            let charCount = 0;
+            let found = false;
+            
+            for (const node of textNodes) {
+              const nodeLength = node.textContent?.length || 0;
+              if (charCount + nodeLength >= savedCursorPos) {
+                const range = document.createRange();
+                range.setStart(node, Math.min(savedCursorPos - charCount, nodeLength));
+                range.setEnd(node, Math.min(savedCursorPos - charCount, nodeLength));
+                selection.removeAllRanges();
+                selection.addRange(range);
+                found = true;
+                break;
+              }
+              charCount += nodeLength;
+            }
+            
+            if (!found && textNodes.length > 0) {
+              const lastNode = textNodes[textNodes.length - 1];
+              const lastLength = lastNode.textContent?.length || 0;
+              const range = document.createRange();
+              range.setStart(lastNode, lastLength);
+              range.setEnd(lastNode, lastLength);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            } else if (wasEmpty && savedCursorPos === 0) {
+              const range = document.createRange();
+              range.setStart(contentEditableRef.current, 0);
+              range.setEnd(contentEditableRef.current, 0);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          } catch (err) {
+            const range = document.createRange();
+            range.selectNodeContents(contentEditableRef.current);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      }
+    });
+    
+    const textBeforeCursor = text.substring(0, cursorPos);
+    const match = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
+    
+    if (match) {
+      const searchTerm = match[1];
+      setSearchTerm(searchTerm);
+      console.log('[EditPostDialog] @mention detected:', { searchTerm, textBeforeCursor });
+      
+      if (searchTerm && searchTerm.length > 0) {
+        try {
+          const usersRef = collection(db, 'users');
+          const q = query(
+            usersRef,
+            where('username', '>=', searchTerm),
+            where('username', '<=', searchTerm + '\uf8ff'),
+            limit(20)
+          );
+          
+          const querySnapshot = await getDocs(q);
+          let results = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              username: data.username || '',
+              displayName: data.displayName || '',
+              photoURL: data.photoURL,
+              privacy: data.privacy
+            };
+          });
+          
+          results = results.filter(user => user.privacy?.allowTagging !== false);
+          
+          if (searchTerm) {
+            results = results.filter(user => 
+              user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (user.displayName && user.displayName.toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+          }
+          
+          results = results.slice(0, 20);
+          console.log('[EditPostDialog] Search results:', results.length, 'users found', results);
+          setSearchResults(results);
+          setShowResults(results.length > 0);
+          console.log('[EditPostDialog] showResults set to:', results.length > 0);
+          
+          if (contentEditableRef.current) {
+            const editable = contentEditableRef.current;
+            const editableRect = editable.getBoundingClientRect();
+            
+            const span = document.createElement('span');
+            span.style.visibility = 'hidden';
+            span.style.position = 'absolute';
+            span.style.whiteSpace = 'pre-wrap';
+            span.style.font = window.getComputedStyle(editable).font;
+            span.style.fontSize = window.getComputedStyle(editable).fontSize;
+            span.style.fontFamily = window.getComputedStyle(editable).fontFamily;
+            span.style.paddingLeft = window.getComputedStyle(editable).paddingLeft;
+            span.textContent = textBeforeCursor;
+            document.body.appendChild(span);
+            const textWidth = span.offsetWidth;
+            document.body.removeChild(span);
+            
+            const lines = textBeforeCursor.split('\n').length - 1;
+            const lineHeight = parseInt(window.getComputedStyle(editable).lineHeight) || 24;
+            const paddingTop = parseInt(window.getComputedStyle(editable).paddingTop) || 16;
+            
+            const position = { 
+              top: editableRect.top + paddingTop + (lines * lineHeight) + lineHeight + 5, 
+              left: editableRect.left + textWidth + 5
+            };
+            console.log('[EditPostDialog] Dropdown position:', position);
+            setDropdownPosition(position);
+          }
+        } catch (error) {
+          console.error('Error searching users:', error);
+          setSearchResults([]);
+          setShowResults(false);
+        }
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    } else {
+      setShowResults(false);
+    }
+  };
+
+  // Handle user selection from mention dropdown
+  const handleUserSelect = (selectedUser: any) => {
+    if (!contentEditableRef.current) return;
+    
+    const text = content;
+    const beforeCursor = text.substring(0, cursorPosition).replace(/@\w*$/, '');
+    const afterCursor = text.substring(cursorPosition);
+    const newContent = `${beforeCursor}@${selectedUser.username} ${afterCursor}`;
+    setContent(newContent);
+    setShowResults(false);
+    setSearchTerm('');
+    
+    // Maximum 99 tagged users
+    if (taggedUsers.length >= 99) {
+      toast.error('Maximum 99 users can be tagged in a post');
+      return;
+    }
+    
+    if (!taggedUsers.includes(selectedUser.id)) {
+      setTaggedUsers([...taggedUsers, selectedUser.id]);
+    }
+    
+    const formattedHtml = formatContentWithMentions(newContent);
+    const newCursorPos = beforeCursor.length + selectedUser.username.length + 2;
+    
+    requestAnimationFrame(() => {
+      if (contentEditableRef.current) {
+        contentEditableRef.current.innerHTML = formattedHtml || '<br>';
+        
+        const selection = window.getSelection();
+        if (selection) {
+          try {
+            const textNodes = getTextNodes(contentEditableRef.current);
+            let charCount = 0;
+            
+            for (const node of textNodes) {
+              const nodeLength = node.textContent?.length || 0;
+              if (charCount + nodeLength >= newCursorPos) {
+                const range = document.createRange();
+                range.setStart(node, Math.min(newCursorPos - charCount, nodeLength));
+                range.setEnd(node, Math.min(newCursorPos - charCount, nodeLength));
+                selection.removeAllRanges();
+                selection.addRange(range);
+                break;
+              }
+              charCount += nodeLength;
+            }
+          } catch (err) {
+            const range = document.createRange();
+            range.selectNodeContents(contentEditableRef.current);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+        
+        contentEditableRef.current.focus();
+      }
+    });
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        contentEditableRef.current &&
+        !contentEditableRef.current.contains(event.target as Node)
+      ) {
+        setShowResults(false);
+      }
+    };
+
+    if (showResults) {
+      document.addEventListener('mousedown', handleClickOutside, true);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside, true);
+    };
+  }, [showResults]);
+  
+  // Debug: Log when dropdown state changes
+  useEffect(() => {
+    if (showResults) {
+      console.log('[EditPostDialog] Dropdown state:', { 
+        showResults, 
+        searchResultsCount: searchResults.length, 
+        dropdownPosition,
+        searchTerm 
+      });
+    }
+  }, [showResults, searchResults.length, dropdownPosition, searchTerm]);
+
   // Function to handle emoji click
   const handleEmojiClick = (emoji: string) => {
-    setContent(prev => prev + emoji);
+    if (!contentEditableRef.current) return;
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const textNode = document.createTextNode(emoji);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    if (contentEditableRef.current) {
+      const text = contentEditableRef.current.innerText || '';
+      setContent(text);
+      contentEditableRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 
   // Load user verification status
@@ -68,6 +392,7 @@ export function EditPostDialog({
           const userDoc = await getDoc(doc(db, 'users', user.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            setUserProfile(userData);
             
             // Check if user is a verified creator (for paid content monetization)
             const hasCreatorRole = userData.role === 'creator' || userData.role === 'admin' || userData.role === 'superadmin' || userData.role === 'owner';
@@ -112,6 +437,7 @@ export function EditPostDialog({
   useEffect(() => {
     if (open) {
       setContent(post.content || '')
+      setTaggedUsers(post.taggedUsers || [])
       const level = post.accessSettings?.accessLevel || 'free';
       // Map old values to new values
       if (level === 'followers' || level === 'premium' || level === 'exclusive') {
@@ -130,6 +456,21 @@ export function EditPostDialog({
       setPpvEveryonePays(post.accessSettings?.ppvEveryonePays ?? true)
       setShowWatermark(post.showWatermark ?? false)
       setIs360Mode(post.type === 'video360' || post.type === 'image360')
+      
+      // Format content with mentions when dialog opens
+      // Use setTimeout to ensure the ref is ready
+      setTimeout(() => {
+        if (contentEditableRef.current) {
+          if (post.content) {
+            const formattedHtml = formatContentWithMentions(post.content);
+            contentEditableRef.current.innerHTML = formattedHtml || '<br>';
+          } else {
+            contentEditableRef.current.innerHTML = '<br>';
+          }
+          // Ensure it's focusable and ready
+          contentEditableRef.current.setAttribute('contenteditable', 'true');
+        }
+      }, 100);
     }
   }, [post, open])
 
@@ -210,12 +551,16 @@ export function EditPostDialog({
         return
       }
 
+      // Get final content from contentEditable if it exists
+      const finalContent = contentEditableRef.current?.innerText || content;
+      
       const updateData: any = {
-        content: content.trim(),
+        content: finalContent.trim(),
         accessSettings,
         allowComments: commentSettings.allowComments,
         showWatermark,
         type: postType,
+        taggedUsers: taggedUsers,
       }
       
       // Only include commentAccessLevel if it's defined
@@ -224,6 +569,35 @@ export function EditPostDialog({
       }
 
       await updatePost(post.id, updateData)
+      
+      // Send notifications to newly tagged users
+      if (taggedUsers.length > 0 && user) {
+        try {
+          const existingTaggedUsers = post.taggedUsers || [];
+          const newlyTaggedUsers = taggedUsers.filter(id => !existingTaggedUsers.includes(id));
+          
+          for (const taggedUserId of newlyTaggedUsers) {
+            if (taggedUserId !== user.uid) {
+              await createNotification({
+                type: 'mention',
+                fromUser: {
+                  uid: user.uid,
+                  displayName: user.displayName || userProfile?.displayName || '',
+                  photoURL: user.photoURL || userProfile?.photoURL || '',
+                  username: userProfile?.username || user.email?.split('@')[0] || ''
+                },
+                toUser: taggedUserId,
+                data: {
+                  postId: post.id,
+                  link: `/post/${post.id}`
+                }
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Error sending mention notifications:', error);
+        }
+      }
 
       toast.success('Post updated successfully!')
       onOpenChange(false)
@@ -237,15 +611,49 @@ export function EditPostDialog({
 
   const handleClose = () => {
     setContent(post.content || '')
+    setTaggedUsers(post.taggedUsers || [])
+    setShowResults(false)
+    setSearchResults([])
     onOpenChange(false)
   }
 
   if (!open) return null;
 
   return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto" ref={dialogRef}>
-        <div className="upload-card edit-post-dialog">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+          onClick={(e) => {
+            // Allow clicks on mention dropdown to pass through
+            const target = e.target as HTMLElement;
+            const dropdown = target?.closest('[data-mention-dropdown]');
+            if (dropdown || target?.getAttribute('data-mention-dropdown')) {
+              e.stopPropagation();
+              return;
+            }
+            // Close dialog if clicking on overlay (not on dialog content)
+            if (e.target === e.currentTarget) {
+              handleClose();
+            }
+          }}
+          onMouseDown={(e) => {
+            // Prevent overlay from blocking dropdown
+            const target = e.target as HTMLElement;
+            if (target?.closest('[data-mention-dropdown]') || target?.getAttribute('data-mention-dropdown')) {
+              e.stopPropagation();
+            }
+          }}
+          style={{ pointerEvents: 'auto' }}
+        >
+          <div 
+            className="w-full max-w-sm sm:max-w-md max-h-[90vh] overflow-y-auto" 
+            ref={dialogRef}
+            onClick={(e) => {
+              // Prevent dialog content from closing when clicking inside
+              e.stopPropagation();
+            }}
+            style={{ position: 'relative', zIndex: 51 }}
+          >
+        <div className="upload-card edit-post-dialog" style={{ position: 'relative', zIndex: 51 }}>
           <div className="upload-title">
             Edit Post
             <Button
@@ -261,12 +669,147 @@ export function EditPostDialog({
           <div className="upload-content px-3 py-2">
             <div className="content-area">
               <div className="relative">
-                <textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder={`What's on your mind, ${user?.displayName?.split(' ')[0] || 'there'}?`}
-                  className="text-input pr-8"
+                <div
+                  ref={contentEditableRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleContentEditableInput}
+                  onPaste={(e) => {
+                    e.preventDefault();
+                    const text = e.clipboardData.getData('text/plain');
+                    const selection = window.getSelection();
+                    if (selection && selection.rangeCount > 0) {
+                      const range = selection.getRangeAt(0);
+                      range.deleteContents();
+                      const textNode = document.createTextNode(text);
+                      range.insertNode(textNode);
+                      range.setStartAfter(textNode);
+                      range.setEndAfter(textNode);
+                      selection.removeAllRanges();
+                      selection.addRange(range);
+                    }
+                    if (contentEditableRef.current) {
+                      contentEditableRef.current.dispatchEvent(new Event('input', { bubbles: true }));
+                    }
+                  }}
+                  className="text-input pr-8 min-h-[120px] whitespace-pre-wrap break-words"
+                  style={{
+                    outline: 'none',
+                    wordWrap: 'break-word',
+                    overflowWrap: 'break-word'
+                  }}
+                  data-placeholder={`What's on your mind, ${user?.displayName?.split(' ')[0] || 'there'}? Type @ to mention someone`}
                 />
+                <style dangerouslySetInnerHTML={{__html: `
+                  [contenteditable][data-placeholder]:empty:before {
+                    content: attr(data-placeholder);
+                    color: #9ca3af;
+                    pointer-events: none;
+                    position: absolute;
+                  }
+                  [contenteditable] span {
+                    color: #2563eb;
+                    font-weight: 600;
+                  }
+                `}} />
+                {/* User mention dropdown - rendered in portal to escape dialog */}
+                {(() => {
+                  const shouldShow = typeof window !== 'undefined' && showResults && searchResults && searchResults.length > 0;
+                  console.log('[EditPostDialog] Dropdown render check:', { 
+                    shouldShow, 
+                    showResults, 
+                    searchResultsLength: searchResults?.length,
+                    dropdownPosition 
+                  });
+                  return shouldShow && createPortal(
+                  <div 
+                    ref={dropdownRef}
+                    data-mention-dropdown="true"
+                    className="fixed rounded-lg overflow-y-auto border-0"
+                    style={{
+                      top: `${Math.max(10, dropdownPosition.top)}px`,
+                      left: `${Math.max(10, dropdownPosition.left)}px`,
+                      width: 'auto',
+                      minWidth: '200px',
+                      maxWidth: '280px',
+                      maxHeight: '240px',
+                      display: 'block',
+                      pointerEvents: 'auto',
+                      isolation: 'isolate',
+                      zIndex: 99999,
+                      position: 'fixed',
+                      visibility: 'visible',
+                      opacity: 1,
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06)',
+                      background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
+                      border: '1px solid rgba(0, 0, 0, 0.1)',
+                      padding: '2px'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onMouseDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onTouchStart={(e) => {
+                      e.stopPropagation();
+                    }}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                    }}
+                  >
+                    {searchResults.map((result) => (
+                      <button
+                        key={result.id}
+                        type="button"
+                        data-mention-dropdown="true"
+                        className="flex items-center w-full px-3 py-2 transition-all duration-200 text-left cursor-pointer rounded-md"
+                        style={{
+                          background: 'transparent',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = '#dbeafe';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleUserSelect(result);
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                        }}
+                        onTouchStart={(e) => {
+                          e.stopPropagation();
+                          handleUserSelect(result);
+                        }}
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                        }}
+                        style={{
+                          pointerEvents: 'auto',
+                          touchAction: 'manipulation',
+                          WebkitTapHighlightColor: 'transparent'
+                        }}
+                      >
+                        <Avatar className="w-8 h-8 mr-3 flex-shrink-0">
+                          <AvatarImage src={result.photoURL || '/default-avatar.png'} />
+                          <AvatarFallback>{result.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col items-start min-w-0 flex-1">
+                          <span className="text-sm font-semibold text-blue-600 hover:text-blue-700 hover:underline active:text-blue-800 truncate w-full">{result.username}</span>
+                          {result.displayName && result.displayName !== result.username && (
+                            <span className="text-xs text-gray-500 truncate w-full">{result.displayName}</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>,
+                  document.body
+                  );
+                })()}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button

@@ -595,7 +595,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                       >
                         <DropdownMenuItem 
                           onClick={() => messages.setFilterType('all')}
-                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-blue-100 transition-all duration-200 ${
                             messages.filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
                           }`}
                           style={{ fontWeight: '500', fontSize: '12px' }}
@@ -604,7 +604,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => messages.setFilterType('unread')}
-                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-blue-100 transition-all duration-200 ${
                             messages.filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
                           }`}
                           style={{ fontWeight: '500', fontSize: '12px' }}
@@ -613,7 +613,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => messages.setFilterType('pinned')}
-                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                          className={`cursor-pointer py-1.5 px-2.5 hover:bg-blue-100 transition-all duration-200 ${
                             messages.filterType === 'pinned' ? 'text-blue-600' : 'text-gray-700'
                           }`}
                           style={{ fontWeight: '500', fontSize: '12px' }}
@@ -857,7 +857,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                         >
                           <DropdownMenuItem 
                             onClick={() => messages.setFilterType('all')}
-                            className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                            className={`cursor-pointer py-1.5 px-2.5 hover:bg-blue-100 transition-all duration-200 ${
                               messages.filterType === 'all' ? 'text-blue-600' : 'text-gray-700'
                             }`}
                             style={{ fontWeight: '500', fontSize: '12px' }}
@@ -866,7 +866,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
                           </DropdownMenuItem>
                           <DropdownMenuItem 
                             onClick={() => messages.setFilterType('unread')}
-                            className={`cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200 ${
+                            className={`cursor-pointer py-1.5 px-2.5 hover:bg-blue-100 transition-all duration-200 ${
                               messages.filterType === 'unread' ? 'text-blue-600' : 'text-gray-700'
                             }`}
                             style={{ fontWeight: '500', fontSize: '12px' }}

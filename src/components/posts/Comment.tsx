@@ -181,7 +181,7 @@ export function Comment({
             href={`/profile/${match.username}`}
             className="text-blue-600 hover:underline font-semibold cursor-pointer"
           >
-            @{match.username}
+            {match.username}
           </Link>
         );
       } else if (match.type === 'url') {
@@ -266,7 +266,7 @@ export function Comment({
                       console.log('🔍 Comment Edit clicked!');
                       setIsEditing(true);
                     }}
-                    className="text-xs py-1.5 cursor-pointer bg-white hover:bg-gray-50"
+                    className="text-xs py-1.5 cursor-pointer bg-white hover:bg-blue-100"
                     style={{
                       pointerEvents: 'auto',
                       cursor: 'pointer',

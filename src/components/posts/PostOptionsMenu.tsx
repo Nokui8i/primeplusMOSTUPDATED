@@ -88,7 +88,7 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
                 }
               }} 
               disabled={isDeleting} 
-              className="cursor-pointer py-1 px-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+              className="cursor-pointer py-1 px-2 hover:bg-blue-100 transition-all duration-200"
               style={{ fontWeight: '500', fontSize: '12px' }}
             >
               <Edit className="mr-1 h-3 w-3" />
@@ -102,7 +102,7 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
                 handleDelete();
               }} 
               disabled={isDeleting}
-              className="cursor-pointer py-1 px-2 text-red-500 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 transition-all duration-200"
+              className="cursor-pointer py-1 px-2 text-red-500 hover:bg-red-50 transition-all duration-200"
               style={{ fontWeight: '500', fontSize: '12px' }}
             >
               <Trash2 className="mr-1 h-3 w-3" />
@@ -118,7 +118,7 @@ export default function PostOptionsMenu({ postId, authorId, onEdit }: PostOption
             handleShare();
           }} 
           disabled={isDeleting} 
-          className="cursor-pointer py-1 px-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+          className="cursor-pointer py-1 px-2 hover:bg-blue-100 transition-all duration-200"
           style={{ fontWeight: '500', fontSize: '12px' }}
         >
           <Share2 className="mr-1 h-3 w-3" />

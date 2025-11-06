@@ -303,14 +303,14 @@ export function Comments({ postId, postAuthorId, onCommentAdded, parentId, sortB
                >
                  <DropdownMenuItem 
                    onClick={() => onSortChange('newest')}
-                   className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                   className="cursor-pointer py-1.5 px-2.5 hover:bg-blue-100 transition-all duration-200"
                    style={{ fontWeight: '500', fontSize: '12px' }}
                  >
                    Newest First
                  </DropdownMenuItem>
                  <DropdownMenuItem 
                    onClick={() => onSortChange('oldest')}
-                   className="cursor-pointer py-1.5 px-2.5 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-200"
+                   className="cursor-pointer py-1.5 px-2.5 hover:bg-blue-100 transition-all duration-200"
                    style={{ fontWeight: '500', fontSize: '12px' }}
                  >
                    Oldest First

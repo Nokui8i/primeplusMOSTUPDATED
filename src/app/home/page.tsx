@@ -66,8 +66,9 @@ export default function HomePage() {
       followers: Array.isArray(authorData.followers) ? authorData.followers : [],
       following: Array.isArray(authorData.following) ? authorData.following : [],
       username: String(authorData.username || ''),
-      isVerified: Boolean(authorData.isVerified)
-    };
+      isVerified: Boolean(authorData.isVerified),
+      coverPhotoUrl: String(authorData.coverPhotoUrl || authorData.coverPhoto || '')
+    } as any;
 
     const post: PostWithAuthor = {
       id: doc.id,
@@ -219,10 +220,22 @@ export default function HomePage() {
           showWatermark: postData.showWatermark,
           author: {
             id: authorId,
+            uid: authorId,
             displayName: String(authorData.displayName || 'Anonymous'),
+            email: String(authorData.email || ''),
             photoURL: String(authorData.photoURL || '/default-avatar.png'),
-            username: String(authorData.username || '')
-          }
+            createdAt: authorData.createdAt?.toDate ? authorData.createdAt.toDate() : new Date(authorData.createdAt || Date.now()),
+            updatedAt: authorData.updatedAt?.toDate ? authorData.updatedAt.toDate() : new Date(authorData.updatedAt || Date.now()),
+            role: (authorData.role || 'user') as 'user' | 'admin',
+            bio: String(authorData.bio || ''),
+            website: String(authorData.website || ''),
+            location: String(authorData.location || ''),
+            followers: Array.isArray(authorData.followers) ? authorData.followers : [],
+            following: Array.isArray(authorData.following) ? authorData.following : [],
+            username: String(authorData.username || ''),
+            isVerified: Boolean(authorData.isVerified),
+            coverPhotoUrl: authorData.coverPhotoUrl || authorData.coverPhoto || undefined
+          } as any
         });
       }
       setPosts(newPosts);
@@ -336,10 +349,22 @@ export default function HomePage() {
             showWatermark: postData.showWatermark,
             author: {
               id: authorSnap.id,
+              uid: authorSnap.id,
               displayName: String(authorData.displayName || 'Anonymous'),
+              email: String(authorData.email || ''),
               photoURL: String(authorData.photoURL || '/default-avatar.png'),
-              username: String(authorData.username || '')
-            }
+              createdAt: authorData.createdAt?.toDate ? authorData.createdAt.toDate() : new Date(authorData.createdAt || Date.now()),
+              updatedAt: authorData.updatedAt?.toDate ? authorData.updatedAt.toDate() : new Date(authorData.updatedAt || Date.now()),
+              role: (authorData.role || 'user') as 'user' | 'admin',
+              bio: String(authorData.bio || ''),
+              website: String(authorData.website || ''),
+              location: String(authorData.location || ''),
+              followers: Array.isArray(authorData.followers) ? authorData.followers : [],
+              following: Array.isArray(authorData.following) ? authorData.following : [],
+              username: String(authorData.username || ''),
+              isVerified: Boolean(authorData.isVerified),
+              coverPhotoUrl: authorData.coverPhotoUrl || authorData.coverPhoto || undefined
+            } as any
           });
         }
         setPosts(newPosts);

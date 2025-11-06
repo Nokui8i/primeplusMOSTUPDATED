@@ -139,21 +139,58 @@ export function CreatorCard({
         borderRadius: isMobile ? '12px' : '17px 17px 27px 27px',
         boxShadow: isMobile 
           ? '0px 2px 8px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.12)'
-          : '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)'
+          : '0px 187px 75px rgba(0, 0, 0, 0.01), 0px 105px 63px rgba(0, 0, 0, 0.05), 0px 47px 47px rgba(0, 0, 0, 0.09), 0px 12px 26px rgba(0, 0, 0, 0.1), 0px 0px 0px rgba(0, 0, 0, 0.1)',
+        minWidth: '0',
+        flexShrink: 1
       }}
     >
       {/* Cover Photo with gradient overlay and overlaid content */}
       <div 
         className={`relative w-full overflow-hidden ${isMobile ? 'h-24' : 'h-32'}`} 
         style={{ 
-          borderRadius: isMobile ? '12px 12px 0 0' : '17px 17px 27px 27px'
+          borderRadius: isMobile ? '12px 12px 0 0' : '17px 17px 27px 27px',
+          minHeight: isMobile ? '96px' : '128px',
+          width: '100%',
+          position: 'relative'
         }}
       >
-        <img
-          src={coverPhotoUrl || '/default-avatar.png'}
-          alt={`${displayName || username}'s cover`}
-          className="w-full h-full object-cover"
-        />
+        {coverPhotoUrl ? (
+          <img
+            src={coverPhotoUrl}
+            alt={`${displayName || username}'s cover`}
+            className="w-full h-full object-cover"
+            style={{ 
+              display: 'block', 
+              minHeight: '100%',
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              position: 'absolute',
+              top: 0,
+              left: 0
+            }}
+            onError={(e) => {
+              // Fallback to default avatar if cover photo fails to load
+              (e.target as HTMLImageElement).src = '/default-avatar.png';
+            }}
+          />
+        ) : (
+          <img
+            src="/default-avatar.png"
+            alt={`${displayName || username}'s cover`}
+            className="w-full h-full object-cover"
+            style={{ 
+              display: 'block', 
+              minHeight: '100%',
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              position: 'absolute',
+              top: 0,
+              left: 0
+            }}
+          />
+        )}
         {/* Dark gradient overlay for text visibility */}
         <div 
           className="absolute inset-0"

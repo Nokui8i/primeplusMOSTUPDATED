@@ -477,6 +477,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const isSendingMessageRef = useRef(false); // Flag to prevent onInput from syncing during send
   const [searchQuery, setSearchQuery] = useState('');
   // Use external state if provided (from ChatPopup), otherwise use internal state
   const [internalShowSearch, setInternalShowSearch] = useState(false);
@@ -595,8 +596,13 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingMimeTypeRef = useRef<string>('audio/webm'); // Store the MIME type used for recording
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const pressAndHoldTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isHoldingRef = useRef(false);
+  const [isHolding, setIsHolding] = useState(false); // For visual feedback
   const MAX_RECORDING_TIME = 60; // 1 minute in seconds
+  const PRESS_HOLD_DELAY = 100; // Start recording after 100ms of holding
   const GESTURE_THRESHOLD = 120; // Increased threshold for more intentional cancellation
   const LOCK_THRESHOLD = 150;
   const [playingAudio, setPlayingAudio] = useState<string | null>(null);
@@ -903,20 +909,28 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     const q = query(messagesRef, orderBy('timestamp', 'desc'));
 
       unsubscribe = onSnapshot(q, { includeMetadataChanges: true }, (snapshot) => {
-        console.log('🔍 [Chat] onSnapshot received', snapshot.docs.length, 'messages for sharedChatId:', sharedChatId);
-        console.log('🔍 [Chat] Snapshot metadata - fromCache:', snapshot.metadata.fromCache, 'hasPendingWrites:', snapshot.metadata.hasPendingWrites);
+        console.log('🔔 [DEBUG] onSnapshot triggered', {
+          messageCount: snapshot.docs.length,
+          sharedChatId,
+          fromCache: snapshot.metadata.fromCache,
+          hasPendingWrites: snapshot.metadata.hasPendingWrites,
+          timestamp: new Date().toISOString()
+        });
         
         // Log all document changes
         snapshot.docChanges().forEach((change) => {
           const data = change.doc.data();
-          console.log('🔍 [Chat] Document change:', {
-            type: change.type,
-            id: change.doc.id,
+          console.log('📝 [DEBUG] Document change detected', {
+            changeType: change.type,
+            messageId: change.doc.id,
             senderId: data.senderId,
             text: data.text?.substring(0, 50),
+            timestamp: data.timestamp,
             recipientId: recipientId,
             currentUser: user?.uid,
-            isFromRecipient: data.senderId === recipientId
+            isFromRecipient: data.senderId === recipientId,
+            isFromCurrentUser: data.senderId === user?.uid,
+            type: data.type
           });
         });
         
@@ -1000,12 +1014,16 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       // Use requestAnimationFrame to batch with browser rendering
       requestAnimationFrame(() => {
         // Use messages from Firestore directly - these are the source of truth
+        // CRITICAL: Filter out any optimistic messages that might have leaked into snapshot
+        // Optimistic messages should NEVER be in Firestore data - they're only in React state
+        const realMessagesOnly = newMessages.filter(msg => !msg.id.startsWith('temp-'));
+        
         // Reverse to show oldest first (chronological order)
-        const realMessages = newMessages.reverse();
+        const realMessages = realMessagesOnly.reverse();
         
         // Quick deduplication by ID
         const realMessageIds = new Set<string>();
-        const deduplicatedRealMessages: Message[] = [];
+        let deduplicatedRealMessages: Message[] = [];
         for (const msg of realMessages) {
           if (!realMessageIds.has(msg.id)) {
             realMessageIds.add(msg.id);
@@ -1013,77 +1031,264 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           }
         }
         
+        console.log('🔄 [DEBUG] Processing snapshot messages', {
+          beforeDeduplication: newMessages.length,
+          afterDeduplication: deduplicatedRealMessages.length
+        });
+        
+        // CRITICAL: Sort messages by timestamp BEFORE merging with optimistic
+        // This ensures messages are in correct chronological order
+        // Messages with null/pending timestamps should go to the end of REAL messages (most recent)
+        // but BEFORE optimistic messages (which will be appended after)
+        // Separate messages with null timestamps to handle them specially
+        const messagesWithTimestamps = deduplicatedRealMessages.filter(m => m.timestamp && m.timestamp.seconds !== undefined);
+        const messagesWithNullTimestamps = deduplicatedRealMessages.filter(m => !m.timestamp || m.timestamp.seconds === undefined);
+        
+        // Sort only messages with valid timestamps
+        messagesWithTimestamps.sort((a, b) => {
+          // Handle Firestore Timestamp objects properly
+          const getTimestamp = (ts: any): number => {
+            if (!ts || ts.seconds === undefined) return 0;
+            // Convert to milliseconds for more precise comparison
+            const seconds = ts.seconds || 0;
+            const nanoseconds = ts.nanoseconds || 0;
+            return seconds * 1000 + nanoseconds / 1000000;
+          };
+          
+          const aTime = getTimestamp(a.timestamp);
+          const bTime = getTimestamp(b.timestamp);
+          return aTime - bTime;
+        });
+        
+        // CRITICAL: Rebuild deduplicatedRealMessages with sorted messages first, then null timestamp messages
+        // Null timestamp messages go at the end of real messages (they're the most recent, pending server timestamp)
+        // This ensures they're always before optimistic messages (which will be appended after)
+        deduplicatedRealMessages = [...messagesWithTimestamps, ...messagesWithNullTimestamps];
+        
+        console.log('📊 [DEBUG] Messages sorted chronologically', {
+          sortedCount: deduplicatedRealMessages.length,
+          firstMessage: deduplicatedRealMessages[0] ? {
+            id: deduplicatedRealMessages[0].id,
+            text: deduplicatedRealMessages[0].text?.substring(0, 30),
+            timestamp: deduplicatedRealMessages[0].timestamp
+          } : null,
+          lastMessage: deduplicatedRealMessages.length > 0 ? {
+            id: deduplicatedRealMessages[deduplicatedRealMessages.length - 1].id,
+            text: deduplicatedRealMessages[deduplicatedRealMessages.length - 1].text?.substring(0, 30),
+            timestamp: deduplicatedRealMessages[deduplicatedRealMessages.length - 1].timestamp
+          } : null
+        });
+        
         // Silent merge with optimistic messages (user doesn't see this happening)
         setMessages(prev => {
-          // Separate real messages and optimistic messages
-          const existingRealMessages: Message[] = [];
-          const optimisticMessages: Message[] = [];
+          console.log('🔄 [DEBUG] Starting message merge', {
+            previousMessagesCount: prev.length,
+            realMessagesFromSnapshot: deduplicatedRealMessages.length
+          });
           
-          for (const m of prev) {
-            if (m.id.startsWith('temp-')) {
-              optimisticMessages.push(m);
-            } else {
-              existingRealMessages.push(m);
-            }
-          }
+          // Separate optimistic messages from previous state
+          const optimisticMessages = prev.filter(m => m.id.startsWith('temp-'));
+          
+          console.log('🔍 [DEBUG] Optimistic messages found', {
+            optimisticCount: optimisticMessages.length,
+            optimisticIds: optimisticMessages.map(m => ({ id: m.id, text: m.text?.substring(0, 30) }))
+          });
           
           // CRITICAL: Match optimistic with real messages for replacement
           const matchedOptimisticMap = new Map<string, Message>(); // optId -> realMessage
+          const matchedRealMessageIds = new Set<string>(); // Track which real messages matched optimistic (prevent double matching)
           
-          // Build map of optimistic to real message matches
+          // Build map of optimistic to real message matches (by sender and text)
           for (const opt of optimisticMessages) {
-            const matchedReal = deduplicatedRealMessages.find(real => 
-              real.senderId === opt.senderId && 
-              real.text === opt.text
-            );
+            const matchedReal = deduplicatedRealMessages.find(real => {
+              // Don't match same real message twice (prevents duplicates)
+              if (matchedRealMessageIds.has(real.id)) return false;
+              
+              // Must match sender and text
+              if (real.senderId !== opt.senderId || real.text !== opt.text) return false;
+              
+              // CRITICAL: For matching, we primarily use sender + text
+              // Timestamp check is relaxed because:
+              // 1. Optimistic messages have fake high timestamps (currentTimestamp + 1000000)
+              // 2. Real messages may have null timestamps initially (serverTimestamp pending)
+              // 3. Real messages from server will have normal timestamps
+              // So we only check timestamp if both are valid and not the fake optimistic timestamp
+              const optTime = opt.timestamp?.seconds || 0;
+              const realTime = real.timestamp?.seconds || 0;
+              
+              // If optimistic has fake timestamp (very high), skip timestamp check
+              // Fake optimistic timestamps are > 100000 seconds from now (we add 1000000 in handleSendMessage)
+              const currentTime = Math.floor(Date.now() / 1000);
+              const isFakeOptimisticTimestamp = optTime > currentTime + 1000000;
+              
+              // If real message timestamp is null/pending, skip timestamp check
+              const isRealTimestampPending = realTime === 0 || !real.timestamp;
+              
+              // Only do timestamp comparison if both are valid real timestamps
+              if (!isFakeOptimisticTimestamp && !isRealTimestampPending) {
+                // Use 30 seconds window to account for network delays
+                if (Math.abs(optTime - realTime) > 30) return false;
+              }
+              
+              return true;
+            });
+            
             if (matchedReal) {
               matchedOptimisticMap.set(opt.id, matchedReal);
+              matchedRealMessageIds.add(matchedReal.id); // Mark this real message as matched (prevents duplicates)
+              console.log('✅ [DEBUG] Optimistic message matched with real', {
+                optimisticId: opt.id,
+                realMessageId: matchedReal.id,
+                text: opt.text?.substring(0, 30),
+                optimisticTimestamp: opt.timestamp?.seconds,
+                realTimestamp: matchedReal.timestamp?.seconds,
+                isFakeOptimisticTimestamp: (opt.timestamp?.seconds || 0) > Math.floor(Date.now() / 1000) + 100000,
+                isRealTimestampPending: !matchedReal.timestamp || matchedReal.timestamp.seconds === 0
+              });
+            } else {
+              console.log('❌ [DEBUG] Optimistic message NOT matched', {
+                optimisticId: opt.id,
+                text: opt.text?.substring(0, 30),
+                senderId: opt.senderId,
+                optimisticTimestamp: opt.timestamp?.seconds,
+                realMessagesChecked: deduplicatedRealMessages.filter(r => r.senderId === opt.senderId).map(r => ({
+                  id: r.id,
+                  text: r.text?.substring(0, 30),
+                  timestamp: r.timestamp?.seconds,
+                  textMatch: r.text === opt.text
+                }))
+              });
             }
           }
           
-          // Get real messages that don't match optimistic (new incoming messages)
-          const newRealMessages = deduplicatedRealMessages.filter(real => {
-            return !Array.from(matchedOptimisticMap.values()).some(matched => matched.id === real.id);
-          });
-          
-          // Remove matched optimistic messages from existing (they'll be replaced by real ones)
-          const existingWithoutMatched = existingRealMessages.filter(msg => 
-            !msg.id.startsWith('temp-') || !matchedOptimisticMap.has(msg.id)
-          );
-          
-          // Get matched real messages (to replace optimistic)
-          const matchedRealMessages = Array.from(matchedOptimisticMap.values());
-          
-          // Combine all real messages: existing + matched replacements + new
-          const allRealMessages = [...existingWithoutMatched, ...matchedRealMessages, ...newRealMessages];
-          const realIds = new Set<string>();
-          const uniqueRealMessages: Message[] = [];
-          
-          // Deduplicate by ID
-          for (const msg of allRealMessages) {
-            if (!realIds.has(msg.id)) {
-              realIds.add(msg.id);
-              uniqueRealMessages.push(msg);
-            }
-          }
-          
-          // Sort real messages chronologically
-          uniqueRealMessages.sort((a, b) => {
-            const aTime = a.timestamp?.seconds || 0;
-            const bTime = b.timestamp?.seconds || 0;
-            return aTime - bTime;
+          console.log('🔗 [DEBUG] Matching complete', {
+            totalOptimistic: optimisticMessages.length,
+            matchedCount: matchedOptimisticMap.size,
+            matchedPairs: Array.from(matchedOptimisticMap.entries()).map(([optId, real]) => ({
+              optimisticId: optId,
+              realMessageId: real.id,
+              text: real.text?.substring(0, 30)
+            }))
           });
           
           // Keep unmatched optimistic messages (still being sent)
           const pendingOptimistic = optimisticMessages.filter(opt => !matchedOptimisticMap.has(opt.id));
           
-          // CRITICAL: Real messages first (sorted), then optimistic at end (bottom)
-          // Optimistic have high timestamps so they visually stay at bottom
-          // When replaced by real message, user sees no movement - real message appears at correct chronological position
-          const finalMessages = [...uniqueRealMessages, ...pendingOptimistic];
+          console.log('⏳ [DEBUG] Pending optimistic messages', {
+            pendingCount: pendingOptimistic.length,
+            pendingIds: pendingOptimistic.map(m => ({ id: m.id, text: m.text?.substring(0, 30) }))
+          });
+          
+          // CRITICAL: deduplicatedRealMessages already contains ALL real messages from Firestore (sorted)
+          // Matched real messages are already included in deduplicatedRealMessages
+          // We just need to exclude optimistic messages that were matched
+          // The final list should be: all real messages (sorted chronologically) + unmatched optimistic messages (at end, NOT sorted)
+          // CRITICAL: Optimistic messages are NEVER sorted - they always stay at the end in insertion order
+          // CRITICAL: Build final array with explicit separation to prevent any mixing
+          // Separate real and optimistic explicitly to ensure they never get mixed
+          const realMessagesFinal = deduplicatedRealMessages.filter(m => !m.id.startsWith('temp-'));
+          const optimisticMessagesFinal = pendingOptimistic.filter(m => m.id.startsWith('temp-'));
+          const finalMessages = [...realMessagesFinal, ...optimisticMessagesFinal];
+          
+          // CRITICAL: Final verification - ensure optimistic messages are truly at the end
+          // This prevents any visual jumping to the top
+          if (optimisticMessagesFinal.length > 0 && realMessagesFinal.length > 0) {
+            const lastMessage = finalMessages[finalMessages.length - 1];
+            const firstOptimisticIndex = finalMessages.findIndex(m => m.id.startsWith('temp-'));
+            const expectedOptimisticIndex = realMessagesFinal.length;
+            
+            if (firstOptimisticIndex !== expectedOptimisticIndex || !lastMessage.id.startsWith('temp-')) {
+              console.error('❌ [DEBUG] CRITICAL: Optimistic messages not at end! Re-ordering...', {
+                firstOptimisticIndex,
+                expectedOptimisticIndex,
+                lastMessageId: lastMessage.id,
+                lastMessageIsOptimistic: lastMessage.id.startsWith('temp-'),
+                totalMessages: finalMessages.length,
+                realCount: realMessagesFinal.length,
+                optimisticCount: optimisticMessagesFinal.length
+              });
+              // Force correct order: all real, then all optimistic
+              return [...realMessagesFinal, ...optimisticMessagesFinal];
+            }
+          }
+          
+          console.log('📋 [DEBUG] Final messages before deduplication', {
+            finalCount: finalMessages.length,
+            realMessagesCount: deduplicatedRealMessages.length,
+            optimisticCount: pendingOptimistic.length
+          });
+          
+          // Final deduplication by ID to prevent any duplicates
+          // CRITICAL: Separate real and optimistic messages during deduplication
+          // This ensures optimistic messages are NEVER sorted and always stay at the end
+          const messageIds = new Set<string>();
+          const uniqueRealMessages: Message[] = [];
+          const uniqueOptimisticMessages: Message[] = [];
+          const duplicateIds: string[] = [];
+          
+          // CRITICAL: Process messages in order, but separate real from optimistic
+          // This preserves the order: real messages (sorted) + optimistic (at end)
+          for (const msg of finalMessages) {
+            if (messageIds.has(msg.id)) {
+              duplicateIds.push(msg.id);
+              continue;
+            }
+            messageIds.add(msg.id);
+            
+            // CRITICAL: Separate optimistic messages - they should NEVER be sorted
+            if (msg.id.startsWith('temp-')) {
+              uniqueOptimisticMessages.push(msg);
+            } else {
+              uniqueRealMessages.push(msg);
+            }
+          }
+          
+          // CRITICAL: Final array = sorted real messages + optimistic messages at end (NOT sorted)
+          // Optimistic messages maintain their insertion order at the end
+          // This ensures new optimistic messages always appear at the very bottom
+          const uniqueFinalMessages = [...uniqueRealMessages, ...uniqueOptimisticMessages];
+          
+          // CRITICAL: Final safety check - ensure optimistic messages are truly at the end
+          const hasOptimistic = uniqueOptimisticMessages.length > 0;
+          const hasReal = uniqueRealMessages.length > 0;
+          if (hasOptimistic && hasReal) {
+            const lastMessage = uniqueFinalMessages[uniqueFinalMessages.length - 1];
+            const firstOptimisticIndex = uniqueFinalMessages.findIndex(m => m.id.startsWith('temp-'));
+            if (firstOptimisticIndex >= 0 && firstOptimisticIndex < uniqueFinalMessages.length - uniqueOptimisticMessages.length) {
+              console.error('❌ [DEBUG] CRITICAL: Optimistic messages mixed with real! Re-ordering...', {
+                firstOptimisticIndex,
+                totalMessages: uniqueFinalMessages.length,
+                realCount: uniqueRealMessages.length,
+                optimisticCount: uniqueOptimisticMessages.length
+              });
+              // Force correct order: all real, then all optimistic
+              return [...uniqueRealMessages, ...uniqueOptimisticMessages];
+            }
+          }
+          
+          if (duplicateIds.length > 0) {
+            console.warn('⚠️ [DEBUG] Duplicates found and removed', {
+              duplicateIds,
+              duplicateCount: duplicateIds.length
+            });
+          }
+          
+          console.log('✅ [DEBUG] Final messages after deduplication', {
+            finalCount: uniqueFinalMessages.length,
+            firstMessage: uniqueFinalMessages[0] ? {
+              id: uniqueFinalMessages[0].id,
+              text: uniqueFinalMessages[0].text?.substring(0, 30),
+              isOptimistic: uniqueFinalMessages[0].id.startsWith('temp-')
+            } : null,
+            lastMessage: uniqueFinalMessages.length > 0 ? {
+              id: uniqueFinalMessages[uniqueFinalMessages.length - 1].id,
+              text: uniqueFinalMessages[uniqueFinalMessages.length - 1].text?.substring(0, 30),
+              isOptimistic: uniqueFinalMessages[uniqueFinalMessages.length - 1].id.startsWith('temp-')
+            } : null
+          });
           
           // Debug logging for received messages
-          const receivedMessages = finalMessages.filter(m => m.senderId === recipientId && m.senderId !== user?.uid);
+          const receivedMessages = uniqueFinalMessages.filter(m => m.senderId === recipientId && m.senderId !== user?.uid);
           if (receivedMessages.length > 0) {
             console.log('✅ [Chat] Final received messages count:', receivedMessages.length);
             console.log('✅ [Chat] Final received messages:', receivedMessages.map(m => ({
@@ -1093,7 +1298,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
             })));
           }
           
-          return finalMessages;
+          return uniqueFinalMessages;
         });
         
         // Silent scroll to bottom (if needed) - user won't notice
@@ -1253,13 +1458,36 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
     }
 
     // OPTIMISTIC UPDATE: Clear input immediately (especially important on mobile)
+    // CRITICAL: Set sending flag FIRST to prevent onInput handler from interfering
+    isSendingMessageRef.current = true;
+    
     const captionText = newMessage.trim();
     const filesToSend = [...selectedFiles]; // Save files before clearing state
     setNewMessage('');
-    // Clear contentEditable on mobile
+    // Clear contentEditable on mobile - use multiple methods to ensure it's cleared
     if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+      // Method 1: Clear all text content
+      messageInputRef.current.textContent = '';
       messageInputRef.current.innerText = '';
+      
+      // Method 2: Remove ALL children nodes (contentEditable can have multiple nodes)
+      while (messageInputRef.current.firstChild) {
+        messageInputRef.current.removeChild(messageInputRef.current.firstChild);
+      }
+      
+      // Method 3: Force DOM update synchronously using requestAnimationFrame
+      requestAnimationFrame(() => {
+        if (messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+          messageInputRef.current.textContent = '';
+          messageInputRef.current.innerText = '';
+        }
+      });
     }
+    
+    // Reset sending flag after a longer delay to ensure DOM clearing completes
+    setTimeout(() => {
+      isSendingMessageRef.current = false;
+    }, 200);
     filesToSend.forEach(f => URL.revokeObjectURL(f.preview));
     setSelectedFiles([]);
     
@@ -1344,8 +1572,47 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       }
     };
     
+    // ========== DEBUG: MESSAGE SEND START ==========
+    console.log('🚀 [DEBUG] handleSendMessage called', {
+      messageText: messageTextToSend.substring(0, 50),
+      senderId: user!.uid,
+      recipientId: recipientId,
+      currentMessagesCount: messages.length,
+      timestamp: new Date().toISOString()
+    });
+    
     // Clear input IMMEDIATELY for instant feedback
+    // CRITICAL: Set sending flag FIRST to prevent onInput handler from interfering
+    isSendingMessageRef.current = true;
+    
+    // CRITICAL: Clear contentEditable FIRST on mobile (before state update to prevent race condition)
+    // The contentEditable div is not controlled by React state, so we must clear it manually
+    if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+      // Method 1: Clear all text content
+      messageInputRef.current.textContent = '';
+      messageInputRef.current.innerText = '';
+      
+      // Method 2: Remove ALL children nodes (contentEditable can have multiple nodes)
+      while (messageInputRef.current.firstChild) {
+        messageInputRef.current.removeChild(messageInputRef.current.firstChild);
+      }
+      
+      // Method 3: Force DOM update synchronously using requestAnimationFrame
+      requestAnimationFrame(() => {
+        if (messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+          messageInputRef.current.textContent = '';
+          messageInputRef.current.innerText = '';
+        }
+      });
+    }
+    // Then clear React state
     setNewMessage('');
+    
+    // Reset sending flag after a longer delay to ensure DOM clearing completes
+    setTimeout(() => {
+      isSendingMessageRef.current = false;
+    }, 200);
+    
     maintainFocusOnMobile();
     
     // INSTANT OPTIMISTIC UPDATE: Show message at bottom immediately
@@ -1366,6 +1633,14 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       type: 'text'
     };
     
+    console.log('📝 [DEBUG] Optimistic message created', {
+      optimisticMessageId,
+      text: optimisticMessage.text.substring(0, 50),
+      timestamp: optimisticMessage.timestamp,
+      currentTimestamp,
+      fakeTimestamp: currentTimestamp + 1000000
+    });
+    
     // Add optimistic message at END of array (always bottom, never sort it)
     setMessages(prev => {
       // Quick duplicate check
@@ -1373,15 +1648,50 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         m.id === optimisticMessageId || 
         (m.id.startsWith('temp-') && m.text === messageTextToSend && m.senderId === user!.uid)
       );
-      if (exists) return prev;
+      if (exists) {
+        console.warn('⚠️ [DEBUG] Optimistic message already exists, skipping');
+        return prev;
+      }
       
       // CRITICAL: Separate real messages from optimistic
       const realMsgs = prev.filter(m => !m.id.startsWith('temp-'));
       const optMsgs = prev.filter(m => m.id.startsWith('temp-'));
       
-      // Always add optimistic at the very end (after all other optimistic too)
+      console.log('📊 [DEBUG] Adding optimistic message to state', {
+        beforeCount: prev.length,
+        realMessagesCount: realMsgs.length,
+        optimisticMessagesCount: optMsgs.length,
+        newOptimisticId: optimisticMessageId
+      });
+      
+      // CRITICAL: Always add optimistic at the very end (after all other optimistic too)
       // This ensures it appears at bottom and stays there
-      return [...realMsgs, ...optMsgs, optimisticMessage];
+      // NEVER sort this array - optimistic messages must always be at the end
+      const newMessages = [...realMsgs, ...optMsgs, optimisticMessage];
+      
+      // CRITICAL: Verify optimistic messages are at the end (safety check)
+      const lastMessage = newMessages[newMessages.length - 1];
+      if (lastMessage && !lastMessage.id.startsWith('temp-')) {
+        console.error('❌ [DEBUG] CRITICAL: Optimistic message not at end!', {
+          lastMessageId: lastMessage.id,
+          optimisticMessageId,
+          totalMessages: newMessages.length
+        });
+        // Force fix: move optimistic to end
+        const realOnly = newMessages.filter(m => !m.id.startsWith('temp-'));
+        const optimisticOnly = newMessages.filter(m => m.id.startsWith('temp-'));
+        return [...realOnly, ...optimisticOnly];
+      }
+      
+      console.log('✅ [DEBUG] Optimistic message added to state', {
+        afterCount: newMessages.length,
+        optimisticMessageId,
+        lastMessageId: newMessages[newMessages.length - 1]?.id,
+        lastMessageText: newMessages[newMessages.length - 1]?.text?.substring(0, 30),
+        isLastMessageOptimistic: newMessages[newMessages.length - 1]?.id.startsWith('temp-')
+      });
+      
+      return newMessages;
     });
     
     // CRITICAL: Force scroll to bottom immediately (multiple attempts for reliability)
@@ -1407,11 +1717,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       setTimeout(() => {
         (async () => {
           try {
+            console.log('📤 [DEBUG] Starting async send to Firestore', {
+              optimisticMessageId,
+              messageText: messageTextToSend.substring(0, 50)
+            });
             await sendMessageAsync(user, recipientId, messageTextToSend, optimisticMessageId);
+            console.log('✅ [DEBUG] Async send completed successfully');
           } catch (error) {
-            console.error('Error sending message:', error);
+            console.error('❌ [DEBUG] Error sending message:', error);
             // Remove optimistic message on error
-            setMessages(prev => prev.filter(m => m.id !== optimisticMessageId));
+            setMessages(prev => {
+              const filtered = prev.filter(m => m.id !== optimisticMessageId);
+              console.log('🗑️ [DEBUG] Removed optimistic message on error', {
+                optimisticMessageId,
+                beforeCount: prev.length,
+                afterCount: filtered.length
+              });
+              return filtered;
+            });
             toast.error('Failed to send message. Please try again.');
           }
         })();
@@ -1437,12 +1760,24 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
 
   // Separate async function to send message (optimized for mobile performance)
   const sendMessageAsync = async (user: any, recipientId: string, messageTextToSend: string, optimisticMessageId: string) => {
+    console.log('🔄 [DEBUG] sendMessageAsync started', {
+      optimisticMessageId,
+      messageText: messageTextToSend.substring(0, 50),
+      senderId: user.uid,
+      recipientId
+    });
+    
     try {
       // OPTIMIZED: Parallel reads instead of sequential
       const userChatIdForSend = `${user.uid}_${recipientId}`;
       const recipientChatIdCheck = `${recipientId}_${user.uid}`;
       const userChatRefPreCheck = doc(db, 'users', user.uid, 'chats', userChatIdForSend);
       const recipientChatRefCheck = doc(db, 'users', recipientId, 'chats', recipientChatIdCheck);
+      
+      console.log('📖 [DEBUG] Reading chat documents', {
+        userChatId: userChatIdForSend,
+        recipientChatId: recipientChatIdCheck
+      });
       
       // Parallel read operations for better performance
       const [userChatDocPreCheck, recipientChatDocCheck] = await Promise.all([
@@ -1454,11 +1789,26 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
       const userHasNewSharedChatIdPreCheck = userCurrentSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck.includes('_') && /_\d{13}$/.test(userCurrentSharedChatIdPreCheck);
       const recipientActualSharedChatId = recipientChatDocCheck.exists() ? recipientChatDocCheck.data().sharedChatId : null;
       
+      console.log('📋 [DEBUG] Chat documents read', {
+        userChatExists: userChatDocPreCheck.exists(),
+        recipientChatExists: recipientChatDocCheck.exists(),
+        userCurrentSharedChatId: userCurrentSharedChatIdPreCheck,
+        userHasNewSharedChatId: userHasNewSharedChatIdPreCheck,
+        recipientActualSharedChatId
+      });
+      
       // Ensure chat documents exist (optimized version)
       const { sharedChatId, userChatId, recipientSharedChatId } = await ensureChatDocument(user, recipientId);
         
       // CRITICAL: If user has a timestamped sharedChatId (from deletion), use it instead of what ensureChatDocument returned
       const finalSharedChatIdForUser = userHasNewSharedChatIdPreCheck && userCurrentSharedChatIdPreCheck ? userCurrentSharedChatIdPreCheck : sharedChatId;
+      
+      console.log('💬 [DEBUG] Chat document ensured', {
+        sharedChatId,
+        finalSharedChatIdForUser,
+        userChatId,
+        recipientSharedChatId
+      });
       
       const messagesRef = collection(db, 'chats', finalSharedChatIdForUser, 'messages');
 
@@ -1472,8 +1822,23 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
         type: 'text'
       };
 
+      console.log('📤 [DEBUG] Adding message to Firestore', {
+        messagesRef: `chats/${finalSharedChatIdForUser}/messages`,
+        messageData: {
+          text: messageData.text.substring(0, 50),
+          senderId: messageData.senderId,
+          type: messageData.type
+        },
+        optimisticMessageId
+      });
+
       // CRITICAL: Send message FIRST (most important operation)
-      await addDoc(messagesRef, messageData);
+      const messageDocRef = await addDoc(messagesRef, messageData);
+      console.log('✅ [DEBUG] Message added to Firestore successfully', {
+        messageDocId: messageDocRef.id,
+        optimisticMessageId,
+        path: messageDocRef.path
+      });
       
       // Note: Don't manually replace optimistic message here
       // The onSnapshot listener will automatically replace it when Firestore sends the real message
@@ -1988,27 +2353,80 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const handleEmojiSelect = (emoji: string) => {
-    setNewMessage(prev => {
-      const newText = prev + emoji;
-      // For mobile contentEditable, insert emoji directly into div
-      if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0);
-          range.deleteContents();
-          range.insertNode(document.createTextNode(emoji));
-          range.collapse(false);
-          selection.removeAllRanges();
-          selection.addRange(range);
-          return messageInputRef.current.innerText || '';
-        } else {
-          // Fallback: append to end
-          messageInputRef.current.innerText = (messageInputRef.current.innerText || '') + emoji;
-          return messageInputRef.current.innerText;
-        }
+    // CRITICAL: For mobile, we need to prevent the onInput handler from syncing during emoji insertion
+    // Use a temporary flag to prevent double insertion
+    if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+      // Save current focus state before any operations
+      const inputElement = messageInputRef.current;
+      
+      // Temporarily disable onInput syncing
+      const wasSending = isSendingMessageRef.current;
+      isSendingMessageRef.current = true;
+      
+      // CRITICAL: Ensure input stays focused during emoji insertion
+      // Focus input BEFORE inserting emoji to prevent keyboard from closing
+      inputElement.focus();
+      
+      const selection = window.getSelection();
+      const currentText = inputElement.innerText || '';
+      
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(document.createTextNode(emoji));
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // Fallback: append to end
+        inputElement.innerText = currentText + emoji;
       }
-      return newText;
-    });
+      
+      // Update state with the final DOM content (single source of truth)
+      const finalText = inputElement.innerText || '';
+      setNewMessage(finalText);
+      
+      // CRITICAL: Multiple refocus attempts to keep keyboard open on mobile
+      // Use immediate synchronous refocus
+      inputElement.focus();
+      
+      // Async refocus for safety
+      requestAnimationFrame(() => {
+        if (inputElement && inputElement instanceof HTMLDivElement) {
+          inputElement.focus();
+          // Restore cursor position at end
+          const range = document.createRange();
+          const selection = window.getSelection();
+          if (selection) {
+            range.selectNodeContents(inputElement);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      });
+      
+      // Re-enable onInput syncing after a brief delay
+      setTimeout(() => {
+        isSendingMessageRef.current = wasSending;
+        // Ensure focus is maintained after state update
+        if (inputElement && inputElement instanceof HTMLDivElement) {
+          inputElement.focus();
+          // Final cursor position restoration
+          const range = document.createRange();
+          const selection = window.getSelection();
+          if (selection) {
+            range.selectNodeContents(inputElement);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+        }
+      }, 100);
+    } else {
+      // Desktop: simple state update
+      setNewMessage(prev => prev + emoji);
+    }
     setShowEmojiPicker(false);
   };
 
@@ -2258,28 +2676,127 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
   };
 
   const startRecording = async () => {
-    console.log('startRecording called');
+    // Prevent multiple simultaneous recordings
+    if (isRecording) {
+      toast.info('Already recording');
+      return;
+    }
+    
+    // Show immediate feedback
+    toast.loading('Requesting microphone access...', { id: 'recording-start' });
+    
     try {
-      console.log('Requesting microphone access...');
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      console.log('Microphone access granted');
+      // Check if MediaRecorder is supported
+      if (!window.MediaRecorder) {
+        toast.error('Voice recording is not supported in this browser', { id: 'recording-start' });
+        return;
+      }
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Check for getUserMedia support - try modern API first, then legacy
+      let getUserMediaFunc: (constraints: MediaStreamConstraints) => Promise<MediaStream> | null = null;
+      
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        getUserMediaFunc = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      } else if ((navigator as any).getUserMedia) {
+        // Legacy API - wrap in Promise
+        getUserMediaFunc = (constraints: MediaStreamConstraints) => {
+          return new Promise((resolve, reject) => {
+            (navigator as any).getUserMedia(constraints, resolve, reject);
+          });
+        };
+      } else if ((navigator as any).webkitGetUserMedia) {
+        // WebKit legacy API
+        getUserMediaFunc = (constraints: MediaStreamConstraints) => {
+          return new Promise((resolve, reject) => {
+            (navigator as any).webkitGetUserMedia(constraints, resolve, reject);
+          });
+        };
+      } else if ((navigator as any).mozGetUserMedia) {
+        // Mozilla legacy API
+        getUserMediaFunc = (constraints: MediaStreamConstraints) => {
+          return new Promise((resolve, reject) => {
+            (navigator as any).mozGetUserMedia(constraints, resolve, reject);
+          });
+        };
+      }
+      
+      if (!getUserMediaFunc) {
+        // Check if we're in a secure context (HTTPS required for getUserMedia)
+        const isSecureContext = window.isSecureContext || location.protocol === 'https:';
+        
+        if (!isSecureContext) {
+          const errorMsg = isMobile 
+            ? 'Voice recording requires HTTPS. Please access the site via HTTPS (not HTTP). For development, use localhost or set up HTTPS.'
+            : 'Microphone access requires HTTPS. Please use a secure connection.';
+          toast.error(errorMsg, { id: 'recording-start', duration: 5000 });
+        } else {
+          toast.error('Microphone access is not available in this browser. Please try a different browser.', { id: 'recording-start' });
+        }
+        return;
+      }
+
+      toast.loading('Requesting microphone access...', { id: 'recording-start' });
+      const stream = await getUserMediaFunc({ audio: true });
+      toast.success('Microphone access granted', { id: 'recording-start', duration: 1000 });
+      
+      // Detect supported MIME type for mobile compatibility
+      let mimeType = 'audio/webm;codecs=opus';
+      const supportedTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/wav'
+      ];
+      
+      // Find the first supported MIME type
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          console.log('Using MIME type:', mimeType);
+          break;
+        }
+      }
+      
+      // On mobile, especially iOS, try without specifying mimeType if none are supported
+      let mediaRecorder: MediaRecorder;
+      try {
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: mimeType
+        });
+        recordingMimeTypeRef.current = mimeType; // Store the MIME type
+      } catch (e) {
+        // Fallback: let browser choose the format (works on iOS Safari)
+        console.log('Falling back to default MediaRecorder (no mimeType specified)');
+        mediaRecorder = new MediaRecorder(stream);
+        // Try to get the actual MIME type from the MediaRecorder
+        recordingMimeTypeRef.current = (mediaRecorder as any).mimeType || 'audio/webm';
+      }
+      
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          console.log('Audio chunk received:', event.data.size, 'bytes');
+        }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        toast.error('Recording error occurred');
+        setIsRecording(false);
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
         }
       };
 
       mediaRecorder.start(100); // Collect data every 100ms
       setIsRecording(true);
       setRecordingDuration(0);
-      console.log('Recording started');
+      toast.success('Recording started!', { id: 'recording-start', duration: 2000 });
       
       // Start timer
       recordingTimerRef.current = setInterval(() => {
@@ -2291,9 +2808,17 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           return prev + 1;
         });
       }, 1000);
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      toast.error('Could not access microphone');
+    } catch (error: any) {
+      toast.dismiss('recording-start');
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        toast.error('Microphone access denied. Please allow microphone access in your browser settings.');
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        toast.error('No microphone found. Please connect a microphone.');
+      } else if (error.name === 'NotSupportedError') {
+        toast.error('Voice recording is not supported in this browser');
+      } else {
+        toast.error('Could not access microphone. Please try again.');
+      }
     }
   };
 
@@ -2308,11 +2833,33 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
           clearInterval(recordingTimerRef.current);
         }
 
-        // Wait for the last chunk of data
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait for the last chunk of data (increase timeout for mobile)
+        await new Promise(resolve => setTimeout(resolve, 200));
 
+        // Determine the blob type based on what was actually recorded
+        // Use the stored MIME type or get it from the MediaRecorder
+        let blobType = recordingMimeTypeRef.current || 'audio/webm';
+        if (mediaRecorderRef.current && 'mimeType' in mediaRecorderRef.current) {
+          const mimeType = (mediaRecorderRef.current as any).mimeType;
+          if (mimeType) {
+            blobType = mimeType;
+            recordingMimeTypeRef.current = mimeType; // Update stored type
+          }
+        }
+        
+        // Fallback: if no chunks or invalid type, try to detect from first chunk
+        if (audioChunksRef.current.length === 0) {
+          console.warn('No audio chunks received');
+          toast.error('No audio data recorded');
+          return;
+        }
+
+        console.log('Creating blob with type:', blobType, 'from', audioChunksRef.current.length, 'chunks');
+        
         // Create blob and upload
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm;codecs=opus' });
+        const audioBlob = new Blob(audioChunksRef.current, { type: blobType });
+        console.log('Blob created:', audioBlob.size, 'bytes, type:', audioBlob.type);
+        
         await handleVoiceUpload(audioBlob);
       } catch (error) {
         console.error('Error stopping recording:', error);
@@ -4942,6 +5489,12 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                 role="textbox"
                 inputMode="text"
                 onInput={(e) => {
+                  // CRITICAL: Don't sync state if we're in the middle of sending a message
+                  // This prevents race conditions where clearing the div triggers onInput
+                  // and restores the text
+                  if (isSendingMessageRef.current) {
+                    return;
+                  }
                   const text = e.currentTarget.innerText || '';
                   setNewMessage(text);
                 }}
@@ -4954,6 +5507,7 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                       handleEditMessage();
                     } else {
                       handleSendMessage(e as any);
+                      // Note: handleSendMessage already clears the contentEditable, so no need to clear again here
                     }
                     return;
                   }
@@ -5109,30 +5663,107 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
                     ].map((emoji) => (
                       <button
                         key={emoji}
-                        onClick={() => {
-                          setNewMessage(prev => {
-                            const newText = prev + emoji;
-                            // For mobile contentEditable, insert emoji directly into div
-                            if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
-                              const selection = window.getSelection();
-                              if (selection && selection.rangeCount > 0) {
-                                const range = selection.getRangeAt(0);
-                                range.deleteContents();
-                                range.insertNode(document.createTextNode(emoji));
-                                range.collapse(false);
-                                selection.removeAllRanges();
-                                selection.addRange(range);
-                                return messageInputRef.current.innerText || '';
-                              } else {
-                                // Fallback: append to end
-                                messageInputRef.current.innerText = (messageInputRef.current.innerText || '') + emoji;
-                                return messageInputRef.current.innerText;
-                              }
-                            }
-                            return newText;
-                          });
+                        type="button"
+                        tabIndex={-1}
+                        onMouseDown={(e) => {
+                          // Prevent button from stealing focus
+                          e.preventDefault();
                         }}
-                        className="w-8 h-8 flex items-center justify-center hover:bg-gray-100 rounded-md text-lg"
+                        onTouchStart={(e) => {
+                          // CRITICAL: Prevent button from taking focus on mobile touch
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onPointerDown={(e) => {
+                          // Prevent focus stealing for both mouse and touch
+                          e.preventDefault();
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          
+                          // CRITICAL: For mobile, we need to prevent the onInput handler from syncing during emoji insertion
+                          // Use a temporary flag to prevent double insertion
+                          if (isMobile && messageInputRef.current && messageInputRef.current instanceof HTMLDivElement) {
+                            // Save current focus state before any operations
+                            const inputElement = messageInputRef.current;
+                            
+                            // Temporarily disable onInput syncing
+                            const wasSending = isSendingMessageRef.current;
+                            isSendingMessageRef.current = true;
+                            
+                            // CRITICAL: Ensure input stays focused during emoji insertion
+                            // Focus input BEFORE inserting emoji to prevent keyboard from closing
+                            inputElement.focus();
+                            
+                            const selection = window.getSelection();
+                            const currentText = inputElement.innerText || '';
+                            
+                            if (selection && selection.rangeCount > 0) {
+                              const range = selection.getRangeAt(0);
+                              range.deleteContents();
+                              range.insertNode(document.createTextNode(emoji));
+                              range.collapse(false);
+                              selection.removeAllRanges();
+                              selection.addRange(range);
+                            } else {
+                              // Fallback: append to end
+                              inputElement.innerText = currentText + emoji;
+                            }
+                            
+                            // Update state with the final DOM content (single source of truth)
+                            const finalText = inputElement.innerText || '';
+                            setNewMessage(finalText);
+                            
+                            // CRITICAL: Multiple refocus attempts to keep keyboard open on mobile
+                            // Use immediate synchronous refocus
+                            inputElement.focus();
+                            
+                            // Async refocus for safety
+                            requestAnimationFrame(() => {
+                              if (inputElement && inputElement instanceof HTMLDivElement) {
+                                inputElement.focus();
+                                // Restore cursor position at end
+                                const range = document.createRange();
+                                const selection = window.getSelection();
+                                if (selection) {
+                                  range.selectNodeContents(inputElement);
+                                  range.collapse(false);
+                                  selection.removeAllRanges();
+                                  selection.addRange(range);
+                                }
+                              }
+                            });
+                            
+                            // Re-enable onInput syncing after a brief delay
+                            setTimeout(() => {
+                              isSendingMessageRef.current = wasSending;
+                              // Ensure focus is maintained after state update
+                              if (inputElement && inputElement instanceof HTMLDivElement) {
+                                inputElement.focus();
+                                // Final cursor position restoration
+                                const range = document.createRange();
+                                const selection = window.getSelection();
+                                if (selection) {
+                                  range.selectNodeContents(inputElement);
+                                  range.collapse(false);
+                                  selection.removeAllRanges();
+                                  selection.addRange(range);
+                                }
+                              }
+                            }, 100);
+                          } else {
+                            // Desktop: simple state update
+                            setNewMessage(prev => prev + emoji);
+                          }
+                        }}
+                        style={{
+                          touchAction: 'manipulation',
+                          WebkitTapHighlightColor: 'transparent',
+                          userSelect: 'none',
+                          WebkitUserSelect: 'none'
+                        }}
+                        className="w-8 h-8 flex items-center justify-center hover:bg-blue-100 rounded-md text-lg"
                         disabled={isBlocked}
                       >
                         {emoji}
@@ -5324,36 +5955,119 @@ export function Chat({ recipientId, recipientName, hideHeader = false, customWid
               animation: 'none !important'
             }}>
               {!isRecording ? (
-                <div style={{
-                  boxShadow: 'none !important',
-                  filter: 'none !important',
-                  backdropFilter: 'none !important',
-                  animation: 'none !important',
-                  isolation: 'isolate'
-                }}>
-                <Button
+                <button
                   type="button"
-                  size="icon"
-                    className="microphone-button bg-white text-[#2B55FF] h-8 w-8 md:h-9 md:w-9 hover:bg-[#6B3BFF]/10 focus:outline-none"
-                    style={{ 
-                      boxShadow: 'none !important',
-                      animation: 'none !important',
-                      WebkitAnimation: 'none !important',
-                      MozAnimation: 'none !important',
-                      OAnimation: 'none !important',
-                      MsAnimation: 'none !important',
-                      filter: 'none !important',
-                      backdropFilter: 'none !important',
-                      outline: 'none !important',
-                      textShadow: 'none !important',
-                      isolation: 'isolate'
-                    } as any}
-                  onClick={startRecording}
+                  className="microphone-button bg-white text-[#2B55FF] h-8 w-8 md:h-9 md:w-9 hover:bg-[#6B3BFF]/10 focus:outline-none rounded-full flex items-center justify-center transition-colors"
+                  style={{ 
+                    boxShadow: 'none !important',
+                    animation: 'none !important',
+                    WebkitAnimation: 'none !important',
+                    MozAnimation: 'none !important',
+                    OAnimation: 'none !important',
+                    MsAnimation: 'none !important',
+                    filter: 'none !important',
+                    backdropFilter: 'none !important',
+                    outline: 'none !important',
+                    textShadow: 'none !important',
+                    border: 'none !important',
+                    touchAction: 'manipulation',
+                    WebkitTapHighlightColor: 'transparent',
+                    pointerEvents: 'auto',
+                    position: 'relative',
+                    zIndex: 50,
+                    cursor: (uploading || isBlocked || !canChat) ? 'not-allowed' : 'pointer',
+                    opacity: (uploading || isBlocked || !canChat) ? 0.5 : 1,
+                    transform: isHolding || isRecording ? 'scale(1.15)' : 'scale(1)',
+                    backgroundColor: isRecording ? '#ef4444' : '#ffffff',
+                    transition: 'transform 0.1s, background-color 0.2s'
+                  } as any}
+                  onClick={(e) => {
+                    // On desktop, click works normally
+                    if (!isMobile) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!uploading && !isBlocked && canChat) {
+                        startRecording();
+                      }
+                    }
+                  }}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    if (uploading || isBlocked || !canChat) {
+                      if (uploading) toast.error('Please wait, uploading...');
+                      else if (isBlocked) toast.error('You cannot send messages to this user');
+                      else if (!canChat) toast.error('Subscribe to chat with this creator');
+                      return;
+                    }
+                    
+                    isHoldingRef.current = true;
+                    setIsHolding(true);
+                    
+                    // Start recording after a short delay (press and hold)
+                    pressAndHoldTimerRef.current = setTimeout(() => {
+                      if (isHoldingRef.current && !isRecording) {
+                        startRecording();
+                      }
+                    }, PRESS_HOLD_DELAY);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    isHoldingRef.current = false;
+                    setIsHolding(false);
+                    
+                    // Clear the hold timer if it hasn't fired yet
+                    if (pressAndHoldTimerRef.current) {
+                      clearTimeout(pressAndHoldTimerRef.current);
+                      pressAndHoldTimerRef.current = null;
+                    }
+                    
+                    // If recording, stop it
+                    if (isRecording) {
+                      stopRecording();
+                    }
+                  }}
+                  onTouchCancel={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    isHoldingRef.current = false;
+                    setIsHolding(false);
+                    
+                    // Clear the hold timer
+                    if (pressAndHoldTimerRef.current) {
+                      clearTimeout(pressAndHoldTimerRef.current);
+                      pressAndHoldTimerRef.current = null;
+                    }
+                    
+                    // If recording, cancel it
+                    if (isRecording) {
+                      cancelRecording();
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    // Desktop: start on mouse down
+                    if (!isMobile && !uploading && !isBlocked && canChat) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      startRecording();
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    // Desktop: stop on mouse up
+                    if (!isMobile && isRecording) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      stopRecording();
+                    }
+                  }}
                   disabled={uploading || isBlocked || !canChat}
                 >
-                  <Mic className="h-4 w-4 md:h-5 md:w-5" />
-                </Button>
-                </div>
+                  <Mic className="h-[22px] w-[22px] md:h-6 md:w-6" />
+                </button>
               ) : (
                 <div className="flex gap-2">
                   <Button

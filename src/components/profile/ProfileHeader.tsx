@@ -639,11 +639,6 @@ export function ProfileHeader({
           />
           <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab1">
             Feed
-            {tabCounts.feed > 0 && (
-              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
-                {tabCounts.feed > 99 ? '99+' : tabCounts.feed}
-              </span>
-            )}
           </label>
 
           <input 
@@ -656,11 +651,6 @@ export function ProfileHeader({
           />
           <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab2">
             Pics
-            {tabCounts.pictures > 0 && (
-              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
-                {tabCounts.pictures > 99 ? '99+' : tabCounts.pictures}
-              </span>
-            )}
           </label>
 
           <input 
@@ -673,11 +663,6 @@ export function ProfileHeader({
           />
           <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab3">
             Videos
-            {tabCounts.videos > 0 && (
-              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
-                {tabCounts.videos > 99 ? '99+' : tabCounts.videos}
-              </span>
-            )}
           </label>
 
           <input 
@@ -690,11 +675,6 @@ export function ProfileHeader({
           />
           <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab4">
             360°
-            {tabCounts.videos360 > 0 && (
-              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
-                {tabCounts.videos360 > 99 ? '99+' : tabCounts.videos360}
-              </span>
-            )}
           </label>
 
           <input 
@@ -707,11 +687,6 @@ export function ProfileHeader({
           />
           <label className="tab_label relative inline-flex items-center justify-center" htmlFor="tab5">
             VR
-            {tabCounts.vrvideos > 0 && (
-              <span className="ml-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center min-w-[16px] px-0.5">
-                {tabCounts.vrvideos > 99 ? '99+' : tabCounts.vrvideos}
-              </span>
-            )}
           </label>
 
           <div className="indicator"></div>

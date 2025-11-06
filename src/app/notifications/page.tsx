@@ -42,6 +42,13 @@ export default function NotificationsPage() {
         return 'mentioned you in a thread';
       case 'like':
         return 'liked your post';
+      case 'mention':
+      case 'tag':
+        // Check if it's a comment or post based on data
+        if (notification.data?.commentId) {
+          return 'tagged you in a comment';
+        }
+        return 'tagged you in a post';
       default:
         return 'sent you a notification';
     }
