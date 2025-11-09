@@ -1383,7 +1383,7 @@ export function CompactPost({ post, currentUserId, onPostDeleted, commentId, hig
       {/* User Card - Displayed under post media */}
       {currentPost.mediaUrl && (
         <motion.div 
-          className="px-4 py-3"
+          className="px-2 md:px-3 pt-3 pb-1 md:pb-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
